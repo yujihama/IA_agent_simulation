@@ -1,0 +1,23 @@
+{
+  "mode": "evaluation_only",
+  "ground_truth_visible_to_review": false,
+  "matching_basis": "purchase_need_id",
+  "finding_results": [
+    {
+      "finding_id": "FND-000001",
+      "detector_id": "split_order_detector",
+      "defect_id": "D-001",
+      "evaluation_result": "true_positive",
+      "matched_evaluation_group_id": "GT-D001-SPLIT-QEND-001",
+      "evidence_purchase_need_ids": [
+        "NEED-001"
+      ]
+    }
+  ],
+  "false_negative_labels": [],
+  "summary": {
+    "true_positive": 1,
+    "false_positive": 0,
+    "false_negative": 0
+  }
+}

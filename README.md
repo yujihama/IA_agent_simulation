@@ -18,7 +18,7 @@ python -m ia_sim.cli validate-config
 python -m ia_sim.cli run-first-slice
 ```
 
-Generated input is written to `data/synthetic/purchase_needs.csv`, and run outputs are written under `runs/`. Both are ignored by Git because they are reproducible execution artifacts.
+Generated input is written to `data/synthetic/purchase_needs.csv`, and run outputs are written under `runs/`. The current first-slice sample outputs are committed as PoC evidence.
 
 - `run_manifest.json`
 - `events.jsonl`

@@ -1,0 +1,23 @@
+{
+  "variant_id": "variant_a_7d_aggregation",
+  "event_count": 808,
+  "purchase_request_count": 101,
+  "purchase_need_count": 100,
+  "detector_annotation_count": 1,
+  "finding_count": 1,
+  "true_positive": 1,
+  "false_positive": 0,
+  "false_negative": 0,
+  "precision": 1.0,
+  "recall": 1.0,
+  "high_recall": 1.0,
+  "split_order_bypass_success_count": 0,
+  "split_order_mitigated_candidate_count": 1,
+  "aggregation_applications": 1,
+  "approval_event_count": 101,
+  "department_head_approval_count": 62,
+  "division_head_approval_count": 0,
+  "total_approval_lead_time_days": 112.5,
+  "average_approval_lead_time_days": 1.1139,
+  "proposal_flags_excluded_from_detector_metrics": true
+}

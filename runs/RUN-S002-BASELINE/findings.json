@@ -1,0 +1,55 @@
+{
+  "findings": [
+    {
+      "finding_id": "FND-000001",
+      "run_id": "RUN-S002-BASELINE",
+      "defect_id": "D-001",
+      "title": "Possible split purchase requests avoiding approval threshold",
+      "severity": "high",
+      "status": "candidate_unmitigated",
+      "detector_id": "split_order_detector",
+      "related_controls": [
+        "P2P-C-001",
+        "P2P-C-002",
+        "P2P-C-003"
+      ],
+      "evidence_event_ids": [
+        "EVT-000001",
+        "EVT-000009"
+      ],
+      "observed_facts": [
+        "2 purchase requests were created by the same requester for the same vendor and project within 7 days.",
+        "Each request amount was below 1000000.",
+        "The aggregated amount was 1750000, which exceeds 1000000."
+      ],
+      "inference": "The event sequence is consistent with possible approval-threshold avoidance. This is a candidate for human review, not an audit conclusion.",
+      "bypass_success": true,
+      "mitigated_by_aggregation": false,
+      "recommended_review_steps": [
+        "Confirm whether the requests relate to one economic purchase need.",
+        "Review requester rationale and approval trail.",
+        "Assess whether aggregation controls should apply by requester, vendor, project, and time window."
+      ],
+      "evidence_summary": [
+        {
+          "event_id": "EVT-000001",
+          "timestamp": "2026-06-25T09:00:00+09:00",
+          "purchase_need_id": "NEED-001",
+          "purchase_request_id": "PR-000001",
+          "amount": 900000,
+          "required_approver_level": "manager",
+          "aggregation_applied": false
+        },
+        {
+          "event_id": "EVT-000009",
+          "timestamp": "2026-06-26T09:00:00+09:00",
+          "purchase_need_id": "NEED-001",
+          "purchase_request_id": "PR-000002",
+          "amount": 850000,
+          "required_approver_level": "manager",
+          "aggregation_applied": false
+        }
+      ]
+    }
+  ]
+}

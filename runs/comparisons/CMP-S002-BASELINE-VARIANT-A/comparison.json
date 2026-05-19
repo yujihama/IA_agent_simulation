@@ -1,0 +1,28 @@
+{
+  "baseline_variant_id": "baseline",
+  "variant_id": "variant_a_7d_aggregation",
+  "split_order_bypass_success_count": {
+    "baseline": 1,
+    "variant": 0,
+    "delta": -1
+  },
+  "risk_reduction_ratio": 1.0,
+  "approval_lead_time_days": {
+    "baseline": 111.5,
+    "variant": 112.5,
+    "delta": 1.0
+  },
+  "department_head_approval_count": {
+    "baseline": 61,
+    "variant": 62,
+    "delta": 1
+  },
+  "aggregation_applications": {
+    "baseline": 0,
+    "variant": 1,
+    "delta": 1
+  },
+  "baseline_run_id": "RUN-S002-BASELINE",
+  "variant_run_id": "RUN-S002-VARIANT-A",
+  "comparison_mode": "frozen_behavior"
+}
