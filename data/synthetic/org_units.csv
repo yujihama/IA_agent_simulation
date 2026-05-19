@@ -1,0 +1,7 @@
+department_id,department_name,division_id
+DEPT-SALES,Sales,DIV-CORP
+DEPT-OPS,Operations,DIV-CORP
+DEPT-IT,Information Technology,DIV-CORP
+DEPT-FIN,Finance,DIV-CORP
+DEPT-HR,Human Resources,DIV-CORP
+DEPT-PROC,Purchasing,DIV-CORP

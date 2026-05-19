@@ -1,0 +1,39 @@
+controls:
+  - control_id: P2P-C-001
+    name: Amount-based approval
+    objective: Require an appropriate approval level for purchase requests by amount.
+    control_type: preventive
+    owner: Purchasing control owner
+    system_enforced: true
+    related_defects:
+      - D-001
+    rule:
+      type: approval_threshold
+      thresholds:
+        - min_amount: 0
+          approver_level: manager
+        - min_amount: 1000000
+          approver_level: department_head
+        - min_amount: 5000000
+          approver_level: division_head
+  - control_id: P2P-C-002
+    name: Segregation of duties
+    objective: Prevent a requester from approving their own purchase request.
+    control_type: preventive
+    owner: Finance control owner
+    system_enforced: true
+    related_defects:
+      - D-001
+    rule:
+      type: requester_approver_separation
+  - control_id: P2P-C-003
+    name: Pre-PO approval
+    objective: Require approval before purchase order issuance except documented emergency route.
+    control_type: preventive
+    owner: Purchasing control owner
+    system_enforced: true
+    related_defects:
+      - D-001
+    rule:
+      type: pre_po_approval_required
+      emergency_route_post_approval_hours: 48

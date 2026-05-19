@@ -1,0 +1,7 @@
+scenarios:
+  - scenario_id: S-002
+    name: Quarter-end budget consumption pressure
+    summary: Requesters are under pressure to consume remaining quarterly budget before the period closes.
+    pressure_type: budget_deadline
+    target_defects:
+      - D-001

@@ -1,0 +1,21 @@
+users:
+  - user_id: USER-REQ-001
+    department_id: DEPT-SALES
+    role: requester
+    authority_level: none
+  - user_id: USER-MGR-001
+    department_id: DEPT-SALES
+    role: manager
+    authority_level: manager
+  - user_id: USER-DHEAD-001
+    department_id: DEPT-SALES
+    role: department_head
+    authority_level: department_head
+  - user_id: USER-DIV-001
+    department_id: DIV-CORP
+    role: division_head
+    authority_level: division_head
+  - user_id: USER-BUYER-001
+    department_id: DEPT-PROC
+    role: purchasing
+    authority_level: none

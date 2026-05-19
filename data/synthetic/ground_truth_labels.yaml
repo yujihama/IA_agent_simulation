@@ -1,0 +1,10 @@
+labels:
+  - evaluation_group_id: GT-D001-SPLIT-QEND-001
+    defect_id: D-001
+    scenario_id: S-002
+    severity: high
+    expected: true
+    description: Quarter-end purchase need represented as multiple purchase requests below the department-head approval threshold.
+    purchase_need_ids:
+      - NEED-001
+    expected_evidence_event_count: 2
