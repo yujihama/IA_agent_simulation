@@ -9,6 +9,7 @@ from ia_sim.orchestrator import (
     compare_runs,
     run_balanced_planning_hint_experiment,
     run_first_slice,
+    run_hint_pressure_matrix_experiment,
     run_llm_action_slice,
     run_prompt_ablation_experiment,
     run_pressure_condition_experiment,
@@ -78,6 +79,18 @@ def build_parser() -> argparse.ArgumentParser:
     balanced.add_argument("--provider", default="openai")
     balanced.add_argument("--model", default="gpt-4.1-mini")
     balanced.add_argument("--temperature", type=float, default=0.7)
+
+    matrix = subparsers.add_parser(
+        "run-hint-pressure-matrix-experiment",
+        help="Run hint-strength by pressure-type LLM action-selection trials",
+    )
+    matrix.add_argument("--trials", type=int, default=5)
+    matrix.add_argument("--output-root")
+    matrix.add_argument("--provider", default="openai")
+    matrix.add_argument("--model", default="gpt-4.1-mini")
+    matrix.add_argument("--temperature", type=float, default=0.7)
+    matrix.add_argument("--hint-strength", action="append", dest="hint_strengths")
+    matrix.add_argument("--pressure-type", action="append", dest="pressure_types")
     return parser
 
 
@@ -205,6 +218,31 @@ def main(argv: list[str] | None = None) -> int:
             provider=args.provider,
             model=args.model,
             temperature=args.temperature,
+        )
+        print(
+            json.dumps(
+                {
+                    "experiment_id": result["experiment_id"],
+                    "experiment_dir": str(result["experiment_dir"]),
+                    "summary": result["summary"],
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+        return 0
+
+    if args.command == "run-hint-pressure-matrix-experiment":
+        output_root = Path(args.output_root) if args.output_root else None
+        result = run_hint_pressure_matrix_experiment(
+            repo_root,
+            trials=args.trials,
+            output_root_override=output_root,
+            provider=args.provider,
+            model=args.model,
+            temperature=args.temperature,
+            hint_strengths=args.hint_strengths,
+            pressure_types=args.pressure_types,
         )
         print(
             json.dumps(

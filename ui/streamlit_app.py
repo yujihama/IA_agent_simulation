@@ -222,7 +222,7 @@ for comparison_report in [
 
 experiment_reports = []
 if (RUNS_DIR / "experiments").exists():
-    for pattern in ["*/pressure_effect_report.md", "*/prompt_ablation_report.md"]:
+    for pattern in ["*/pressure_effect_report.md", "*/prompt_ablation_report.md", "*/hint_pressure_matrix_report.md"]:
         experiment_reports.extend((RUNS_DIR / "experiments").glob(pattern))
 experiment_reports = sorted(experiment_reports)
 if experiment_reports:

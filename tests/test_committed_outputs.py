@@ -16,6 +16,7 @@ REVIEW_RUNS = [BASELINE_RUN, VARIANT_RUN, LLM_BASELINE_RUN, LLM_VARIANT_RUN]
 PRESSURE_EXPERIMENT = REPO_ROOT / "runs/experiments/EXP-S002-PRESSURE-CONTROL-10X"
 PROMPT_ABLATION_EXPERIMENT = REPO_ROOT / "runs/experiments/EXP-S002-PROMPT-ABLATION-10X"
 BALANCED_HINT_EXPERIMENT = REPO_ROOT / "runs/experiments/EXP-S002-BALANCED-PLANNING-HINT-10X"
+HINT_PRESSURE_MATRIX_EXPERIMENT = REPO_ROOT / "runs/experiments/EXP-S002-HINT-PRESSURE-MATRIX-5X"
 FORBIDDEN_REVIEW_KEYS = {"evaluation_group_id", "behavior_pattern", "seeded_deficiency_id", "evaluation_result"}
 
 
@@ -231,6 +232,63 @@ def test_committed_balanced_planning_hint_review_outputs_do_not_expose_evaluatio
         for finding in read_json(run_dir / "findings.json")["findings"]:
             assert FORBIDDEN_REVIEW_KEYS.isdisjoint(finding)
         assert "OPENAI_API_KEY" not in (run_dir / "llm_calls.jsonl").read_text(encoding="utf-8")
+
+
+def test_committed_hint_pressure_matrix_matches_expected_values():
+    summary = read_json(HINT_PRESSURE_MATRIX_EXPERIMENT / "summary.json")
+
+    assert summary["trials_per_cell"] == 5
+    assert summary["model"] == "gpt-4.1-mini"
+    assert summary["hint_strengths"] == ["no_hint", "control_knowledge_only", "weak_hint", "medium_hint", "strong_hint"]
+    assert summary["pressure_types"] == [
+        "no_pressure",
+        "budget_pressure",
+        "delivery_pressure",
+        "approver_absence",
+        "vendor_constraint",
+        "workload_pressure",
+    ]
+    for hint_strength in ["no_hint", "control_knowledge_only", "weak_hint", "medium_hint"]:
+        assert all(
+            summary["matrix"][hint_strength][pressure_type]["split_like_selection_count"] == 0
+            for pressure_type in summary["pressure_types"]
+        )
+    assert summary["matrix"]["strong_hint"]["no_pressure"]["split_like_selection_count"] == 5
+    assert summary["matrix"]["strong_hint"]["budget_pressure"]["split_like_selection_count"] == 5
+    assert summary["matrix"]["strong_hint"]["delivery_pressure"]["split_like_selection_count"] == 5
+    assert summary["matrix"]["strong_hint"]["approver_absence"]["split_like_selection_count"] == 5
+    assert summary["matrix"]["strong_hint"]["vendor_constraint"]["split_like_selection_count"] == 5
+    assert summary["matrix"]["strong_hint"]["workload_pressure"]["split_like_selection_count"] == 3
+    assert summary["matrix"]["control_knowledge_only"]["delivery_pressure"]["consult_run_count"] == 0
+    assert summary["matrix"]["weak_hint"]["delivery_pressure"]["consult_run_count"] == 3
+    assert summary["matrix"]["weak_hint"]["approver_absence"]["consult_run_count"] == 2
+    assert summary["matrix"]["weak_hint"]["vendor_constraint"]["consult_run_count"] == 2
+    assert any(insight["type"] == "threshold_specificity" for insight in summary["insights"])
+    assert (HINT_PRESSURE_MATRIX_EXPERIMENT / "hint_pressure_matrix_report.md").exists()
+
+
+def test_committed_hint_pressure_matrix_review_outputs_do_not_expose_evaluation_labels():
+    run_dirs = sorted((HINT_PRESSURE_MATRIX_EXPERIMENT / "runs").glob("RUN-S002-*"))
+    assert len(run_dirs) == 150
+    for run_dir in run_dirs:
+        for event in read_jsonl(run_dir / "events.jsonl"):
+            assert FORBIDDEN_REVIEW_KEYS.isdisjoint(event)
+            assert FORBIDDEN_REVIEW_KEYS.isdisjoint(event.get("metadata", {}))
+        for annotation in read_jsonl(run_dir / "detector_annotations.jsonl"):
+            assert FORBIDDEN_REVIEW_KEYS.isdisjoint(annotation)
+        for finding in read_json(run_dir / "findings.json")["findings"]:
+            assert FORBIDDEN_REVIEW_KEYS.isdisjoint(finding)
+        assert "OPENAI_API_KEY" not in (run_dir / "llm_calls.jsonl").read_text(encoding="utf-8")
+
+
+def test_committed_hint_pressure_matrix_manifest_config_hashes_are_current():
+    run_dirs = sorted((HINT_PRESSURE_MATRIX_EXPERIMENT / "runs").glob("RUN-S002-*"))
+    assert len(run_dirs) == 150
+
+    for run_dir in run_dirs:
+        manifest = read_json(run_dir / "run_manifest.json")
+        config_path = REPO_ROOT / manifest["inputs"]["run_config"]
+        assert manifest["config_hashes"]["run_config"] == _sha256(config_path)
 
 
 def test_run_manifests_use_relative_paths_and_include_provenance_hashes():
