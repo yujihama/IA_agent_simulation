@@ -131,3 +131,18 @@ PR#7後の指摘を受け、次の追補では以下を優先する。
 - summaryに `lineage_detection_rate`, `current_world_detection_rate`, `new_risk_detection_rate`, `inherited_risk_count`, `inherited_only_high_risk_world_count` を追加する
 
 この変更により、`detector_detection_rate=1.0` が親World由来の `D-004` によって過大に見える問題を避ける。従来の `detector_detection_rate` は互換性のためlineage detectionとして残し、新規riskの評価には `new_risk_detection_rate` を使う。
+
+代表runとして、`gpt-4.1-mini` / temperature `0.7` / `max_depth=3` を `runs/evidence/RUN-S002-BRANCHING-DEPTH3-GPT41-MINI/` に保存した。結果は以下である。
+
+- 生成World: 20件 (`depth=1`: 5件, `depth=2`: 5件, `depth=3`: 10件)
+- 展開World: 3件 (`WORLD-005`, `WORLD-006`, `WORLD-010`)
+- `duplicate_world_count`: 0
+- `lineage_detection_rate`: `17 / 17 = 1.0`
+- `new_risk_detection_rate`: `16 / 17 = 0.9412`
+- `inherited_risk_count`: 20
+- `inherited_only_high_risk_world_count`: 1
+- `residual_risk_world_count`: 1
+- Variant A: 4件をmitigate (`D-001`)
+- Variant B: 4件をmitigate (`D-002`)
+
+このrunでは、lineage全体ではすべての高リスクWorldにDetector findingが付く一方、current action depthだけで見ると1件が未検出である。これは、親World由来の `D-004` が子孫Worldへ残留することと、子Worldで新たに発生したriskを分けて評価する必要性を示している。

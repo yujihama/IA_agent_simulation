@@ -102,5 +102,6 @@ This repository intentionally tracks the First Vertical Slice PoC evidence:
 - `runs/experiments/EXP-S002-HINT-PRESSURE-MATRIX-5X/`
 - `runs/experiments/EXP-S002-AGENT-STRESS-3X/`
 - `runs/evidence/RUN-S002-BRANCHING-MULTISTAGE-GPT41-MINI/`
+- `runs/evidence/RUN-S002-BRANCHING-DEPTH3-GPT41-MINI/`
 
 These files contain synthetic data only. Do not commit real data, anonymized production logs, or confidential run outputs. New committed runs should include the input fixture, run manifests, metrics, findings, evaluation results, and comparison reports together. `run_manifest.json` records repository-relative input paths, seed, code version, and SHA-256 hashes for the config and data inputs used to generate the run.
