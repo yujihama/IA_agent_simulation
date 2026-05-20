@@ -3,7 +3,7 @@ name: s002_weak_hint_vendor_constraint_trial_05
 process: p2p
 scenario_id: S-002
 variant_id: baseline
-seed: 20288524
+seed: 20308524
 behavior_mode: adaptive_agent
 comparison_mode: hint_pressure_matrix
 simulation:
@@ -34,4 +34,4 @@ llm:
   prompt_treatment: hint_pressure_matrix
   hint_strength: weak_hint
   trial_index: 5
-  seed: 20288524
+  seed: 20308524

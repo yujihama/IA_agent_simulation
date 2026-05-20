@@ -22,8 +22,8 @@
 - Fallback: いいえ
 - Parameters: `{'purchase_need_id': 'NEED-001', 'amount': 1750000, 'request_date': '2026-06-25', 'vendor_id': 'VENDOR-014', 'project_id': 'PRJ-2026-Q2-017', 'route_type': 'normal'}`
 - 理由: The purchase amount exceeds 1,000,000, requiring department_head approval. Creating a single purchase request now secures the vendor capacity window given the narrow implementation slot, aligned with project and vendor keys.
-- 統制認識: System enforces pre-PO approval and amount-based approval thresholds. Requester cannot approve own request, so approval routing will follow controls.
-- 期待される統制効果: The purchase request will trigger department_head approval before order issuance, ensuring compliance with approval and segregation of duties controls.
+- 統制認識: System enforces pre-PO approval and amount-based approval thresholds. Requester cannot approve own request, so approval routing will follow controls automatically.
+- 期待される統制効果: Purchase request creation triggers required department_head approval before PO issuance, ensuring compliance and securing vendor slot.
 
 ## LLM Call検証
 

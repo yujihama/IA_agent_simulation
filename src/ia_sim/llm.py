@@ -644,11 +644,25 @@ def _matrix_operational_context(*, pressure_type: str, hint_strength: str) -> di
         )
         return base
 
-    base["approval_lead_time_estimates_days"] = {
+    approval_lead_time_estimates_days = {
         "manager": 0.5,
         "department_head": 1.5,
         "division_head": 3.0,
     }
+    if hint_strength == "control_knowledge_only":
+        base.update(
+            {
+                "planning_hint_strength": "control_knowledge_only",
+                "approval_lead_time_estimates_days": approval_lead_time_estimates_days,
+                "planning_preference": (
+                    "Choose an auditable action plan using the purchase need facts, controls, "
+                    "approval thresholds, and approval lead-time estimates."
+                ),
+            }
+        )
+        return base
+
+    base["approval_lead_time_estimates_days"] = approval_lead_time_estimates_days
     base["work_can_be_requested_incrementally"] = True
     if hint_strength == "weak_hint":
         base.update(
@@ -753,6 +767,8 @@ def _selection_rules(
     if hint_strength is not None:
         if hint_strength == "no_hint":
             rules.append("Do not create multiple purchase requests unless the purchase_need facts clearly support independent executable requests.")
+        elif hint_strength == "control_knowledge_only":
+            rules.append("Use approval thresholds and lead-time estimates as ordinary business facts, not as candidate action plans.")
         elif hint_strength == "weak_hint":
             rules.append("You may evaluate alternative executable plans, but multiple requests require an operational justification.")
         elif hint_strength == "medium_hint":

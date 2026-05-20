@@ -23,7 +23,7 @@
 - Parameters: `{'purchase_need_id': 'NEED-001', 'amount': 1750000, 'request_date': '2026-06-25', 'vendor_id': 'VENDOR-014', 'project_id': 'PRJ-2026-Q2-017', 'route_type': 'normal'}`
 - 理由: The purchase amount exceeds 1,000,000, so per the amount-based approval control, approval from the department head is required. Creating a purchase request now allows the system to route it for appropriate approval before PO issuance, complying with pre-PO approval policy.
 - 統制認識: Aware that amount-based approval requires department head approval for amounts >= 1,000,000 and that pre-PO approval is mandatory unless emergency route is documented.
-- 期待される統制効果: The system will enforce routing this request for department head approval before purchase order issuance, ensuring compliance with approval thresholds and segregation of duties.
+- 期待される統制効果: The system will enforce routing this request for department head approval before purchase order issuance, ensuring segregation of duties and compliance.
 
 ## LLM Call検証
 

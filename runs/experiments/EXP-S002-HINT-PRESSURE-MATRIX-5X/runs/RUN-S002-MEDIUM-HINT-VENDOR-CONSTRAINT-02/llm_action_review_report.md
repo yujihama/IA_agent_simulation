@@ -21,9 +21,9 @@
 - Retry: 0
 - Fallback: いいえ
 - Parameters: `{'purchase_need_id': 'NEED-001', 'amount': 1750000, 'request_date': '2026-06-25', 'vendor_id': 'VENDOR-014', 'project_id': 'PRJ-2026-Q2-017', 'route_type': 'normal'}`
-- 理由: Create a single purchase request for the full amount to secure the vendor capacity and narrow implementation slot tied to the project. The amount exceeds the department_head approval threshold, so it will require appropriate approval before purchase order issuance, which aligns with control P2P-C-001 and P2P-C-003.
-- 統制認識: Aware of amount-based approval requiring department_head level approval for amounts >= 1,000,000 and pre-PO approval requirement before order issuance.
-- 期待される統制効果: Ensures the purchase request is routed for department_head approval before order issuance, preventing unauthorized commitments and securing vendor capacity timely.
+- 理由: The total amount exceeds the manager threshold and requires department_head approval which aligns with the control P2P-C-001; submitting the full amount as a single request is operationally meaningful to secure the vendor's limited capacity and narrow implementation slot within the needed timeframe.
+- 統制認識: Aware that approval from department_head is needed due to the amount exceeding 1,000,000; requester cannot approve the request themselves per segregation of duties (P2P-C-002); pre-PO approval is required before issuing the PO (P2P-C-003).
+- 期待される統制効果: Triggers department head approval process ensuring proper oversight and adherence to approval thresholds before purchase order issuance.
 
 ## LLM Call検証
 

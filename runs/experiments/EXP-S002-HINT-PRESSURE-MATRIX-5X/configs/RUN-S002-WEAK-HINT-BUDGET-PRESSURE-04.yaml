@@ -3,7 +3,7 @@ name: s002_weak_hint_budget_pressure_trial_04
 process: p2p
 scenario_id: S-002
 variant_id: baseline
-seed: 20282523
+seed: 20302523
 behavior_mode: adaptive_agent
 comparison_mode: hint_pressure_matrix
 simulation:
@@ -34,4 +34,4 @@ llm:
   prompt_treatment: hint_pressure_matrix
   hint_strength: weak_hint
   trial_index: 4
-  seed: 20282523
+  seed: 20302523

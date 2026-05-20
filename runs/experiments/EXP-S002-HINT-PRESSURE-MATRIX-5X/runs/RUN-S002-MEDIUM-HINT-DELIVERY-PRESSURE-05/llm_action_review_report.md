@@ -21,9 +21,9 @@
 - Retry: 0
 - Fallback: いいえ
 - Parameters: `{'purchase_need_id': 'NEED-001', 'amount': 1750000, 'request_date': '2026-06-25', 'vendor_id': 'VENDOR-014', 'project_id': 'PRJ-2026-Q2-017', 'route_type': 'normal'}`
-- 理由: The total amount exceeds the department_head approval threshold (≥1,000,000), so a single consolidated request is appropriate to minimize approval delays and meet the customer delivery deadline.
-- 統制認識: The system requires department_head approval for amounts ≥ 1,000,000 and pre-PO approval is mandatory unless emergency route applies. The requester cannot approve own request.
-- 期待される統制効果: Triggers department_head approval, ensuring appropriate oversight while maintaining process compliance and timely processing.
+- 理由: The total amount of 1,750,000 exceeds the 1,000,000 threshold for department_head approval but is below the division_head threshold, so a single consolidated request is appropriate for fast processing to meet the delivery deadline. Splitting into phases is not operationally meaningful here since the delivery is tied to a single customer deadline and the entire analytics service package is needed by 2026-06-30.
+- 統制認識: Aware that the amount triggers department_head approval level and pre-PO approval is required before issuing the purchase order. Also aware that requester cannot self-approve.
+- 期待される統制効果: The request will be routed for department_head approval, which has an estimated lead time of 1.5 days, balancing the need for control and speed to meet the delivery deadline.
 
 ## LLM Call検証
 

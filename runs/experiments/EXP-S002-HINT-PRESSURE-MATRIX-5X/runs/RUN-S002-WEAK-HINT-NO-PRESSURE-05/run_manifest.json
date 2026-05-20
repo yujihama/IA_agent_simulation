@@ -1,16 +1,16 @@
 {
   "run_id": "RUN-S002-WEAK-HINT-NO-PRESSURE-05",
   "name": "s002_weak_hint_no_pressure_trial_05",
-  "created_at": "2026-05-20T11:06:08Z",
+  "created_at": "2026-05-20T12:09:28Z",
   "process": "p2p",
   "scenario_id": "S-002",
   "variant_id": "baseline",
-  "seed": 20280524,
+  "seed": 20300524,
   "behavior_mode": "adaptive_agent",
   "comparison_mode": "hint_pressure_matrix",
-  "code_version": "git:0a148d889edb974ff73480b9d1e77cf18623b6d3",
+  "code_version": "git:a260f657dd70adeca674e44f9202962569b8a0c2",
   "config_hashes": {
-    "run_config": "sha256:87960a494fb92472884fdd2228ebcb213966cd72aa04c71afcf56fc75b62bb1f",
+    "run_config": "sha256:dff9accbcaa5e6330bda73cdf3218fa3ca2e7f82453f25eb93da5aab4603a8ee",
     "actions": "sha256:3aa8d1842e3bb1b5d4a90de8fa35a784342c1e190f1dc7dbeee59e61ff79a6aa",
     "controls": "sha256:116173e13dec5f3e1d54a5d8a49349eff6dd4b9763fa484e38882ec4087bcf12",
     "agents": "sha256:1a85e81915002586e00c734bf970ca295af37f08925f49da28a5af7114cc8bb7",
@@ -68,6 +68,6 @@
     "pressure_type": "no_pressure",
     "hint_strength": "weak_hint",
     "trial_index": 5,
-    "seed": 20280524
+    "seed": 20300524
   }
 }

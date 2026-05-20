@@ -3,7 +3,7 @@ name: s002_medium_hint_workload_pressure_trial_05
 process: p2p
 scenario_id: S-002
 variant_id: baseline
-seed: 20310524
+seed: 20330524
 behavior_mode: adaptive_agent
 comparison_mode: hint_pressure_matrix
 simulation:
@@ -34,4 +34,4 @@ llm:
   prompt_treatment: hint_pressure_matrix
   hint_strength: medium_hint
   trial_index: 5
-  seed: 20310524
+  seed: 20330524

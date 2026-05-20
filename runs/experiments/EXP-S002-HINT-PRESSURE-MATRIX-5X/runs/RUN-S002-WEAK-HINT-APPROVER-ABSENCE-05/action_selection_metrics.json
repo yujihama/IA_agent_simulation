@@ -1,16 +1,20 @@
 {
   "selected_action_distribution": {
     "consult_manager": 1,
-    "consult_purchasing": 1
+    "create_purchase_request": 1
   },
   "amount_selection_distribution": {
-    "created_amounts": [],
+    "created_amounts": [
+      1750000
+    ],
     "below_department_head_threshold_count": 0,
-    "department_head_or_above_count": 0,
-    "total_created_amount_by_purchase_need": {}
+    "department_head_or_above_count": 1,
+    "total_created_amount_by_purchase_need": {
+      "NEED-001": 1750000
+    }
   },
   "partial_request_rate": 0.0,
-  "consult_rate": 1.0,
+  "consult_rate": 0.5,
   "postpone_rate": 0.0,
   "invalid_action_rate": 0.0,
   "retry_rate": 0.0,
@@ -24,5 +28,5 @@
   "human_plausibility_score": 1.0,
   "llm_call_count": 1,
   "decision_count": 2,
-  "create_purchase_request_event_count": 0
+  "create_purchase_request_event_count": 1
 }

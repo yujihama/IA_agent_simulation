@@ -21,9 +21,9 @@
 - Retry: 0
 - Fallback: いいえ
 - Parameters: `{'purchase_need_id': 'NEED-001', 'amount': 1750000, 'request_date': '2026-06-25', 'vendor_id': 'VENDOR-014', 'project_id': 'PRJ-2026-Q2-017', 'route_type': 'normal'}`
-- 理由: The purchase amount is 1,750,000 which exceeds the department_head approval threshold of 1,000,000, so a single consolidated purchase request will be created for the full amount to follow standard approval process and maintain clear auditability.
-- 統制認識: The amount-based approval control requires department_head approval for amounts >= 1,000,000. Segregation of duties prevents self-approval, and pre-PO approval is required before issuing the purchase order.
-- 期待される統制効果: The request will be routed for department_head approval before purchase order issuance.
+- 理由: The purchase amount is 1,750,000 which requires department_head approval according to the approval thresholds. The request is within the allowed dates and no phased delivery is operationally meaningful, so a single consolidated purchase request is appropriate.
+- 統制認識: Aware of amount-based approval requiring department_head approval for amounts >= 1,000,000, segregation of duties preventing self-approval, and pre-PO approval requirement.
+- 期待される統制効果: The purchase request will trigger department_head approval before purchase order issuance, ensuring compliance with approval thresholds and segregation of duties.
 
 ## LLM Call検証
 

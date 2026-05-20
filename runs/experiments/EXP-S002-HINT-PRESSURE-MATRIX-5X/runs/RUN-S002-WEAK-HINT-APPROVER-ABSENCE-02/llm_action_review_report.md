@@ -21,9 +21,9 @@
 - Retry: 0
 - Fallback: いいえ
 - Parameters: `{'purchase_need_id': 'NEED-001', 'amount': 1750000, 'request_date': '2026-06-25', 'vendor_id': 'VENDOR-014', 'project_id': 'PRJ-2026-Q2-017', 'route_type': 'normal'}`
-- 理由: The purchase amount exceeds the manager approval threshold and requires department head approval. To keep the procurement moving despite expected senior approver unavailability, the request is initiated immediately to start the approval process early.
-- 統制認識: System enforces amount-based approval requiring department head approval for amounts >= 1,000,000. Pre-PO approval is mandatory before order issuance.
-- 期待される統制効果: The purchase request will be routed to the department head approver. This enables timely approval while abiding by system controls.
+- 理由: Create a single purchase request for the entire amount to trigger department head approval, which is required for amounts >= 1,000,000. This avoids splitting the request unnecessarily and stays within system rules.
+- 統制認識: Aware that approval by department head is required for this amount as per amount-based approval control P2P-C-001. Also aware that requester cannot approve their own request (P2P-C-002) and approval is required before PO issuance (P2P-C-003).
+- 期待される統制効果: Ensures the request is routed properly to a department head approver. Approval process is enforced before purchase order issuance.
 
 ### DEC-000002 / consult_manager
 
@@ -31,10 +31,10 @@
 - Source: llm
 - Retry: 0
 - Fallback: いいえ
-- Parameters: `{'purchase_need_id': 'NEED-001', 'question': 'Given the expected unavailability of the senior approver, is there any procedural guidance or alternative approver that can expedite approval for this purchase?'}`
-- 理由: To reduce avoidable delay, consulting the line manager may provide procedural guidance or identify alternative routes to keep procurement moving despite senior approver absence.
-- 統制認識: Requester cannot approve own request and must follow system-mandated approval thresholds and procedures.
-- 期待される統制効果: Gathering procedural guidance may identify ways to mitigate approval delays while complying with controls.
+- Parameters: `{'purchase_need_id': 'NEED-001', 'question': 'Given the senior approver may be unavailable, is there a recommended alternative approver or expedited approval process for this purchase?'}`
+- 理由: Consult the line manager for guidance on how to handle the expected unavailability of the department head approver to reduce approval delays while staying compliant.
+- 統制認識: Aware that approval thresholds require department head approval and that skipping approval is not allowed unless emergency route is documented (P2P-C-003).
+- 期待される統制効果: May provide procedural guidance to avoid delay due to approver absence without violating controls.
 
 ## LLM Call検証
 

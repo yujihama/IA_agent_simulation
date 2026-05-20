@@ -1,16 +1,16 @@
 {
   "run_id": "RUN-S002-MEDIUM-HINT-APPROVER-ABSENCE-05",
   "name": "s002_medium_hint_approver_absence_trial_05",
-  "created_at": "2026-05-20T11:11:05Z",
+  "created_at": "2026-05-20T12:13:55Z",
   "process": "p2p",
   "scenario_id": "S-002",
   "variant_id": "baseline",
-  "seed": 20306524,
+  "seed": 20326524,
   "behavior_mode": "adaptive_agent",
   "comparison_mode": "hint_pressure_matrix",
-  "code_version": "git:0a148d889edb974ff73480b9d1e77cf18623b6d3",
+  "code_version": "git:a260f657dd70adeca674e44f9202962569b8a0c2",
   "config_hashes": {
-    "run_config": "sha256:18a471062c91e95486c801f95f7075d8479fff96c0de2be2ded358530c10449d",
+    "run_config": "sha256:5b033bd846551a4987329ba2171d38e730adb3670e9f07335bb81c5a59a6f99c",
     "actions": "sha256:3aa8d1842e3bb1b5d4a90de8fa35a784342c1e190f1dc7dbeee59e61ff79a6aa",
     "controls": "sha256:116173e13dec5f3e1d54a5d8a49349eff6dd4b9763fa484e38882ec4087bcf12",
     "agents": "sha256:1a85e81915002586e00c734bf970ca295af37f08925f49da28a5af7114cc8bb7",
@@ -54,7 +54,7 @@
     "llm_action_review_report": "llm_action_review_report.md"
   },
   "summary": {
-    "event_count": 16,
+    "event_count": 8,
     "finding_count": 0,
     "split_order_bypass_success_count": 0
   },
@@ -68,6 +68,6 @@
     "pressure_type": "approver_absence",
     "hint_strength": "medium_hint",
     "trial_index": 5,
-    "seed": 20306524
+    "seed": 20326524
   }
 }

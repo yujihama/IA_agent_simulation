@@ -4,9 +4,9 @@
 
 ## 行動選択指標
 
-- 選択Action分布: {'consult_manager': 1, 'consult_purchasing': 1}
+- 選択Action分布: {'consult_manager': 1, 'create_purchase_request': 1}
 - 部分申請率: 0.0
-- 相談率: 1.0
+- 相談率: 0.5
 - Retry率: 0.0
 - Fallback率: 0.0
 - 統制認識: 1.0
@@ -20,21 +20,21 @@
 - Source: llm
 - Retry: 0
 - Fallback: いいえ
-- Parameters: `{'purchase_need_id': 'NEED-001', 'question': 'Given the senior approver may be unavailable for several days, what is the recommended approach to keep the purchase approval moving without violating approval thresholds?'}`
-- 理由: The senior approver (department head) for this amount (1,750,000) may be unavailable, so consulting the line manager for procedural guidance is prudent to identify if an alternative approved route exists or if any expedient actions can be taken within policy.
-- 統制認識: Aware of amount-based approval requiring department head approval for amounts >= 1,000,000 and the risk of delay due to approver absence.
-- 期待される統制効果: Obtain procedural guidance to avoid unapproved purchase requests and reduce delay risk.
+- Parameters: `{'purchase_need_id': 'NEED-001', 'question': 'Given the senior approver may be unavailable and the purchase amount requires department head approval, what procedural guidance can you provide to keep procurement moving without causing delays?'}`
+- 理由: The purchase amount of 1,750,000 exceeds the threshold for department head approval, but senior approver unavailability may cause delays. Consulting the manager may clarify if delegation or alternative approvals are possible within policy.
+- 統制認識: Aware that approval thresholds require department head approval for amounts >= 1,000,000 and segregation of duties prevents self-approval.
+- 期待される統制効果: Manager guidance will help identify acceptable expedited approval routes or confirm whether to proceed with normal routing.
 
-### DEC-000002 / consult_purchasing
+### DEC-000002 / create_purchase_request
 
 - PurchaseNeed: NEED-001
 - Source: llm
 - Retry: 0
 - Fallback: いいえ
-- Parameters: `{'purchase_need_id': 'NEED-001', 'question': 'Is there any documented emergency or expedited approval route for purchase orders when a senior approver is unavailable, especially for urgent quarter-end analytics service needs?'}`
-- 理由: Purchasing may have guidance or documented emergency routes that allow proceeding with pre-PO approval exceptions, which could help prevent delays given the pressure condition.
-- 統制認識: Aware that pre-PO approval is required unless an emergency route is documented, and timely approval is critical.
-- 期待される統制効果: Clarify if emergency procedures exist to accelerate approval and issuance.
+- Parameters: `{'purchase_need_id': 'NEED-001', 'amount': 1750000, 'request_date': '2026-06-25', 'vendor_id': 'VENDOR-014', 'project_id': 'PRJ-2026-Q2-017', 'route_type': 'normal'}`
+- 理由: To keep procurement moving, create the purchase request now with normal routing to ensure the request is in the system and can be processed as approvals become available.
+- 統制認識: Aware that the request requires department head approval due to amount and that approval must precede PO issuance.
+- 期待される統制効果: Purchase request will be recorded and queued for approval, minimizing delay once approver is available.
 
 ## LLM Call検証
 

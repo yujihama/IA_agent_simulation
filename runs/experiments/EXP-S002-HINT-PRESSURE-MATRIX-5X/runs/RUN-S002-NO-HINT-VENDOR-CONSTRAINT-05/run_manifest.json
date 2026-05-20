@@ -1,14 +1,14 @@
 {
   "run_id": "RUN-S002-NO-HINT-VENDOR-CONSTRAINT-05",
   "name": "s002_no_hint_vendor_constraint_trial_05",
-  "created_at": "2026-05-20T11:05:12Z",
+  "created_at": "2026-05-20T12:05:58Z",
   "process": "p2p",
   "scenario_id": "S-002",
   "variant_id": "baseline",
   "seed": 20268524,
   "behavior_mode": "adaptive_agent",
   "comparison_mode": "hint_pressure_matrix",
-  "code_version": "git:0a148d889edb974ff73480b9d1e77cf18623b6d3",
+  "code_version": "git:a260f657dd70adeca674e44f9202962569b8a0c2",
   "config_hashes": {
     "run_config": "sha256:b7e3f571e814137b76c8444ce39b4daf829523cae270553b67cdca04ff8d71c2",
     "actions": "sha256:3aa8d1842e3bb1b5d4a90de8fa35a784342c1e190f1dc7dbeee59e61ff79a6aa",

@@ -1,7 +1,7 @@
 {
   "variant_id": "baseline",
-  "event_count": 2,
-  "purchase_request_count": 0,
+  "event_count": 9,
+  "purchase_request_count": 1,
   "purchase_need_count": 1,
   "detector_annotation_count": 0,
   "finding_count": 0,
@@ -14,10 +14,10 @@
   "split_order_bypass_success_count": 0,
   "split_order_mitigated_candidate_count": 0,
   "aggregation_applications": 0,
-  "approval_event_count": 0,
-  "department_head_approval_count": 0,
+  "approval_event_count": 1,
+  "department_head_approval_count": 1,
   "division_head_approval_count": 0,
-  "total_approval_lead_time_days": 0,
-  "average_approval_lead_time_days": 0.0,
+  "total_approval_lead_time_days": 1.5,
+  "average_approval_lead_time_days": 1.5,
   "proposal_flags_excluded_from_detector_metrics": true
 }

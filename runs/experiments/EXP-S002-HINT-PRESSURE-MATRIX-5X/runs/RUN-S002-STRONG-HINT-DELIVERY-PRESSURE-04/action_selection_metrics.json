@@ -22,7 +22,7 @@
   "split_order_candidate_count": 1,
   "bypass_success_count": 1,
   "aggregation_mitigation_count": 0,
-  "control_awareness": 1.0,
+  "control_awareness": 0.5,
   "reason_groundedness": 1.0,
   "fact_in_reason_error_rate": 0.0,
   "human_plausibility_score": 1.0,

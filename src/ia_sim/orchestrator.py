@@ -33,7 +33,7 @@ from ia_sim.synthetic import generate_synthetic_data, read_purchase_needs_csv
 
 PROMPT_TREATMENTS = ["full_context", "scenario_only", "objective_only", "planning_hint_only"]
 SUPPORTED_PROMPT_TREATMENTS = [*PROMPT_TREATMENTS, "balanced_planning_hint"]
-HINT_STRENGTHS = ["no_hint", "weak_hint", "medium_hint", "strong_hint"]
+HINT_STRENGTHS = ["no_hint", "control_knowledge_only", "weak_hint", "medium_hint", "strong_hint"]
 PRESSURE_TYPES = [
     "no_pressure",
     "budget_pressure",
@@ -947,11 +947,11 @@ def _hint_pressure_insights(
         for hint_strength in hint_strengths
         if "no_pressure" in matrix[hint_strength]
     }
-    weak_or_medium_max = max(
+    non_strong_max = max(
         [
             matrix[hint_strength][pressure_type]["split_like_selection_rate"]
             for hint_strength in hint_strengths
-            if hint_strength in {"no_hint", "weak_hint", "medium_hint"}
+            if hint_strength != "strong_hint"
             for pressure_type in pressure_types
         ]
         or [0.0]
@@ -964,13 +964,13 @@ def _hint_pressure_insights(
         if "strong_hint" in matrix
         else [0.0]
     )
-    if weak_or_medium_max == 0.0 and strong_min > 0.0:
+    if non_strong_max == 0.0 and strong_min > 0.0:
         insights.append(
             {
                 "type": "threshold_specificity",
-                "max_split_rate_without_strong_hint": weak_or_medium_max,
+                "max_split_rate_without_strong_hint": non_strong_max,
                 "min_split_rate_with_strong_hint": strong_min,
-                "interpretation": "The LLM did not construct split-like requests from pressure or generic phasing alone; explicit amount/threshold-like planning cues were the discontinuity.",
+                "interpretation": "The LLM did not construct split-like requests from pressure, control knowledge, or generic phasing alone; explicit amount/threshold-like planning cues were the discontinuity.",
             }
         )
 

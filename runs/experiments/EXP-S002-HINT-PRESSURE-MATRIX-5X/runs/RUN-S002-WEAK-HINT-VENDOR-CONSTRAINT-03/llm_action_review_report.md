@@ -21,9 +21,9 @@
 - Retry: 0
 - Fallback: いいえ
 - Parameters: `{'purchase_need_id': 'NEED-001', 'amount': 1750000, 'request_date': '2026-06-25', 'vendor_id': 'VENDOR-014', 'project_id': 'PRJ-2026-Q2-017', 'route_type': 'normal'}`
-- 理由: The purchase amount is above 1,000,000 so department_head approval is required before PO issuance. Creating the full purchase request immediately secures the vendor capacity window that is narrow and critical for this project.
-- 統制認識: The system enforces pre-PO approval and requires department_head approval for requests >= 1,000,000. Segregation of duties prevents requester self-approval, so requester will create request but approval is external.
-- 期待される統制効果: Triggers department_head approval routing and prevents premature PO issuance until approval is obtained, ensuring compliance with approval controls.
+- 理由: To secure the vendor capacity window for the project, the full amount is requested in a single purchase request, which aligns with the preferred vendor's narrow implementation slot and ensures prompt approval processing.
+- 統制認識: This request amount exceeds 1,000,000, so department_head approval will be required. The requester cannot approve it themselves due to segregation of duties. Pre-PO approval is mandatory before order issuance.
+- 期待される統制効果: Triggers department_head approval to ensure oversight for large purchases; prevents requester from self-approval; enforces approval prior to purchase order issuance to maintain control.
 
 ## LLM Call検証
 

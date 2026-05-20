@@ -56,7 +56,7 @@ Generated input is written to `data/synthetic/purchase_needs.csv`, and run outpu
 
 `run-balanced-planning-hint-experiment` gives the same candidate work packages, candidate action plans, and selection rules to both pressure and no-pressure conditions, then checks whether pressure scenario/objectives alone shift the LLM action selection.
 
-`run-hint-pressure-matrix-experiment` crosses hint strength (`no_hint`, `weak_hint`, `medium_hint`, `strong_hint`) with pressure type (`no_pressure`, `budget_pressure`, `delivery_pressure`, `approver_absence`, `vendor_constraint`, `workload_pressure`) to test how much the LLM constructs split-like behavior without explicit amount/threshold hints.
+`run-hint-pressure-matrix-experiment` crosses hint strength (`no_hint`, `control_knowledge_only`, `weak_hint`, `medium_hint`, `strong_hint`) with pressure type (`no_pressure`, `budget_pressure`, `delivery_pressure`, `approver_absence`, `vendor_constraint`, `workload_pressure`) to test how much the LLM constructs split-like behavior without explicit amount/threshold hints. `control_knowledge_only` gives only the approval threshold interpretation and approval lead-time estimates, treating them as ordinary worker knowledge rather than a plan template.
 
 ## Review UI
 

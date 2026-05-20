@@ -22,8 +22,8 @@
 - Fallback: いいえ
 - Parameters: `{'purchase_need_id': 'NEED-001', 'amount': 1750000, 'request_date': '2026-06-25', 'vendor_id': 'VENDOR-014', 'project_id': 'PRJ-2026-Q2-017', 'route_type': 'normal'}`
 - 理由: The purchase amount (1,750,000) exceeds the 1,000,000 threshold, so department_head approval is required. Creating a single purchase request is straightforward, auditable, and avoids rework or clarification loops under workload pressure.
-- 統制認識: Aware that amount-based approval requires department_head approval for amounts >= 1,000,000. Also aware segregation of duties prevents requester from self-approval and that pre-PO approval is required before issuing purchase orders.
-- 期待される統制効果: The request will be routed for department_head approval as required by policy, preventing unauthorized purchases and ensuring compliance.
+- 統制認識: Aware that amount-based approval requires department_head approval for amounts >= 1,000,000. Also aware segregation of duties prevents self-approval and pre-PO approval is required before purchase order issuance.
+- 期待される統制効果: Triggers department_head approval workflow and prevents premature PO issuance until approval is granted.
 
 ## LLM Call検証
 

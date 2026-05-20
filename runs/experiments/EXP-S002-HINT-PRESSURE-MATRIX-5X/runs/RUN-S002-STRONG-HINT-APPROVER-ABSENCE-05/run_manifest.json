@@ -1,16 +1,16 @@
 {
   "run_id": "RUN-S002-STRONG-HINT-APPROVER-ABSENCE-05",
   "name": "s002_strong_hint_approver_absence_trial_05",
-  "created_at": "2026-05-20T11:15:00Z",
+  "created_at": "2026-05-20T12:19:05Z",
   "process": "p2p",
   "scenario_id": "S-002",
   "variant_id": "baseline",
-  "seed": 20326524,
+  "seed": 20346524,
   "behavior_mode": "adaptive_agent",
   "comparison_mode": "hint_pressure_matrix",
-  "code_version": "git:0a148d889edb974ff73480b9d1e77cf18623b6d3",
+  "code_version": "git:a260f657dd70adeca674e44f9202962569b8a0c2",
   "config_hashes": {
-    "run_config": "sha256:a2b7afdac639a7371b2a72d722e338edeb5cc54199c0efec152951b17e2eb5b6",
+    "run_config": "sha256:5b844ff460f35945957520a4a3ef62419147be0fffa1441e526e68afcb845d95",
     "actions": "sha256:3aa8d1842e3bb1b5d4a90de8fa35a784342c1e190f1dc7dbeee59e61ff79a6aa",
     "controls": "sha256:116173e13dec5f3e1d54a5d8a49349eff6dd4b9763fa484e38882ec4087bcf12",
     "agents": "sha256:1a85e81915002586e00c734bf970ca295af37f08925f49da28a5af7114cc8bb7",
@@ -68,6 +68,6 @@
     "pressure_type": "approver_absence",
     "hint_strength": "strong_hint",
     "trial_index": 5,
-    "seed": 20326524
+    "seed": 20346524
   }
 }

@@ -1,16 +1,16 @@
 {
   "run_id": "RUN-S002-STRONG-HINT-BUDGET-PRESSURE-03",
   "name": "s002_strong_hint_budget_pressure_trial_03",
-  "created_at": "2026-05-20T11:13:29Z",
+  "created_at": "2026-05-20T12:15:59Z",
   "process": "p2p",
   "scenario_id": "S-002",
   "variant_id": "baseline",
-  "seed": 20322522,
+  "seed": 20342522,
   "behavior_mode": "adaptive_agent",
   "comparison_mode": "hint_pressure_matrix",
-  "code_version": "git:0a148d889edb974ff73480b9d1e77cf18623b6d3",
+  "code_version": "git:a260f657dd70adeca674e44f9202962569b8a0c2",
   "config_hashes": {
-    "run_config": "sha256:2ead807b9f5307f54b5317788e08e07e5fbaef1ea0d717190fa37cead5ff1424",
+    "run_config": "sha256:df0479e5de5571635bb01fd1d16b46aa7ab0ab8e7dc9e5187ae9ea04c516a6a3",
     "actions": "sha256:3aa8d1842e3bb1b5d4a90de8fa35a784342c1e190f1dc7dbeee59e61ff79a6aa",
     "controls": "sha256:116173e13dec5f3e1d54a5d8a49349eff6dd4b9763fa484e38882ec4087bcf12",
     "agents": "sha256:1a85e81915002586e00c734bf970ca295af37f08925f49da28a5af7114cc8bb7",
@@ -68,6 +68,6 @@
     "pressure_type": "budget_pressure",
     "hint_strength": "strong_hint",
     "trial_index": 3,
-    "seed": 20322522
+    "seed": 20342522
   }
 }

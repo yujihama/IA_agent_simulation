@@ -1,14 +1,14 @@
 {
   "run_id": "RUN-S002-NO-HINT-WORKLOAD-PRESSURE-05",
   "name": "s002_no_hint_workload_pressure_trial_05",
-  "created_at": "2026-05-20T11:05:39Z",
+  "created_at": "2026-05-20T12:06:19Z",
   "process": "p2p",
   "scenario_id": "S-002",
   "variant_id": "baseline",
   "seed": 20270524,
   "behavior_mode": "adaptive_agent",
   "comparison_mode": "hint_pressure_matrix",
-  "code_version": "git:0a148d889edb974ff73480b9d1e77cf18623b6d3",
+  "code_version": "git:a260f657dd70adeca674e44f9202962569b8a0c2",
   "config_hashes": {
     "run_config": "sha256:2ea37a885150fec471fe37340b021787123ed15314d251b656c67b6097be66de",
     "actions": "sha256:3aa8d1842e3bb1b5d4a90de8fa35a784342c1e190f1dc7dbeee59e61ff79a6aa",

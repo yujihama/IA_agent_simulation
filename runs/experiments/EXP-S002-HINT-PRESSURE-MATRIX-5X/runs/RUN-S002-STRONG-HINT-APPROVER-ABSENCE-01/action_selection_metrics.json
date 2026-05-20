@@ -4,8 +4,8 @@
   },
   "amount_selection_distribution": {
     "created_amounts": [
-      900000,
-      850000
+      875000,
+      875000
     ],
     "below_department_head_threshold_count": 2,
     "department_head_or_above_count": 0,
