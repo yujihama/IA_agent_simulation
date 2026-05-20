@@ -32,6 +32,8 @@ SENSITIVE_PATTERNS = [
     (re.compile(r"gh[opsru]_[A-Za-z0-9_]{20,}"), "gh-REDACTED"),
     (re.compile(r"(Authorization:\s*Bearer\s+)[A-Za-z0-9_\-.]+", re.IGNORECASE), r"\1REDACTED"),
     (re.compile(r"(OPENAI_API_KEY\s*=\s*)[^\s\"']+", re.IGNORECASE), r"\1REDACTED"),
+    (re.compile(r"[A-Za-z]:\\\\Users\\\\[^\"\\]*(?:\\\\[^\"\\]*)*"), "<redacted-local-path>"),
+    (re.compile(r"[A-Za-z]:\\Users\\[^\"'\r\n]+"), "<redacted-local-path>"),
 ]
 
 
@@ -74,6 +76,7 @@ def export_redacted_branching_evidence(
             "GitHub tokens matching gh*_",
             "Authorization bearer tokens",
             "OPENAI_API_KEY assignment values",
+            "local Windows user paths under C:\\Users\\*",
         ],
         "not_redacted": [
             "synthetic purchase need data",
