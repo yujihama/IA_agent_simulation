@@ -2,7 +2,7 @@ from pathlib import Path
 
 from ia_sim.config import read_yaml, write_yaml
 from ia_sim.llm import validate_action_selection_payload
-from ia_sim.orchestrator import compare_runs, run_simulation
+from ia_sim.orchestrator import compare_runs, run_pressure_condition_experiment, run_simulation
 from ia_sim.storage import read_json, read_jsonl
 from ia_sim.synthetic import generate_synthetic_data, read_purchase_needs_csv
 
@@ -94,6 +94,24 @@ def test_llm_validator_rejects_forbidden_action_and_wrong_business_keys(tmp_path
 
     assert any("not allowed" in error for error in errors)
     assert any("vendor_id" in error for error in errors)
+
+
+def test_pressure_condition_experiment_stub_summarizes_condition_effect(tmp_path):
+    result = run_pressure_condition_experiment(
+        REPO_ROOT,
+        trials=2,
+        output_root_override=tmp_path / "experiments",
+        provider="stub",
+        model="stub-model",
+        temperature=0.0,
+    )
+    summary = result["summary"]
+
+    assert summary["conditions"]["pressure"]["split_like_selection_count"] == 2
+    assert summary["conditions"]["no_pressure"]["split_like_selection_count"] == 0
+    assert summary["effect"]["split_like_selection_rate_delta"] == 1.0
+    assert (result["experiment_dir"] / "summary.json").exists()
+    assert (result["experiment_dir"] / "pressure_effect_report.md").exists()
 
 
 def _stub_config(source_name: str, run_id: str, tmp_path: Path) -> Path:

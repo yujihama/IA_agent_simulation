@@ -219,3 +219,13 @@ for comparison_report in [
     if comparison_report.exists():
         st.subheader(comparison_report.parent.name)
         st.markdown(comparison_report.read_text(encoding="utf-8"))
+
+experiment_reports = sorted((RUNS_DIR / "experiments").glob("*/pressure_effect_report.md")) if (RUNS_DIR / "experiments").exists() else []
+if experiment_reports:
+    st.subheader("\u5727\u529b\u6761\u4ef6\u6bd4\u8f03\u5b9f\u9a13")
+    selected_experiment_report = st.selectbox(
+        "\u5b9f\u9a13\u30ec\u30dd\u30fc\u30c8",
+        experiment_reports,
+        format_func=lambda path: path.parent.name,
+    )
+    st.markdown(selected_experiment_report.read_text(encoding="utf-8"))

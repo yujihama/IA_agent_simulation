@@ -68,6 +68,9 @@ class LLMActionSelector:
         scenario: ScenarioCard,
         agent: AgentProfile,
         variant_policy: VariantPolicy,
+        pressure_condition: str = "pressure",
+        trial_index: int | None = None,
+        llm_seed: int | None = None,
     ):
         self.repo_root = repo_root
         self.run_id = run_id
@@ -80,6 +83,9 @@ class LLMActionSelector:
         self.scenario = scenario
         self.agent = agent
         self.variant_policy = variant_policy
+        self.pressure_condition = pressure_condition
+        self.trial_index = trial_index
+        self.llm_seed = llm_seed
 
     def select_actions_for_needs(self, needs: list[PurchaseNeed], max_purchase_needs: int) -> LLMSelectionResult:
         planned_actions: list[PlannedAction] = []
@@ -190,6 +196,7 @@ class LLMActionSelector:
         return LLMSelectionResult([fallback_action], call_rows, decisions)
 
     def _build_messages(self, need: PurchaseNeed) -> list[dict[str, str]]:
+        pressure_enabled = self.pressure_condition != "no_pressure"
         system = (
             "You are a requester agent in a purchase-to-pay internal control simulation. "
             "Select only from the allowed Closed Action Mode actions. "
@@ -197,21 +204,46 @@ class LLMActionSelector:
             "Controls are observable environment constraints, not a requirement to choose the highest-burden route when another allowed operational route is plausible. "
             "Separate observed facts from your reasoning, and keep all reasons grounded in the provided facts."
         )
+        scenario_context = (
+            {
+                "scenario_id": self.scenario.scenario_id,
+                "name": self.scenario.name,
+                "summary": self.scenario.summary,
+                "pressure_type": self.scenario.pressure_type,
+            }
+            if pressure_enabled
+            else {
+                "scenario_id": self.scenario.scenario_id,
+                "name": "Routine procurement without quarter-end pressure",
+                "summary": "The requester is not under quarter-end budget consumption pressure and can follow normal approval timing.",
+                "pressure_type": "none",
+            }
+        )
+        agent_objectives = (
+            self.agent.objectives
+            if pressure_enabled
+            else [
+                "Obtain needed services through the standard purchase-to-pay process.",
+                "Follow available purchase-to-pay actions.",
+                "Prefer a clear consolidated request when operationally reasonable.",
+            ]
+        )
+        operational_context = _operational_context(pressure_enabled=pressure_enabled)
+        selection_rules = _selection_rules(pressure_enabled=pressure_enabled)
         user = json.dumps(
             {
                 "task": "Choose the next requester actions for this purchase need.",
-                "scenario": {
-                    "scenario_id": self.scenario.scenario_id,
-                    "name": self.scenario.name,
-                    "summary": self.scenario.summary,
-                    "pressure_type": self.scenario.pressure_type,
+                "experiment_condition": {
+                    "pressure_condition": self.pressure_condition,
+                    "trial_index": self.trial_index,
                 },
+                "scenario": scenario_context,
                 "agent_profile": {
                     "agent_id": self.agent.agent_id,
                     "user_id": self.agent.user_id,
                     "role": self.agent.role,
                     "department_id": self.agent.department_id,
-                    "objectives": self.agent.objectives,
+                    "objectives": agent_objectives,
                     "constraints": self.agent.constraints,
                 },
                 "purchase_need": {
@@ -249,48 +281,7 @@ class LLMActionSelector:
                         else "Aggregation control is active. Requests with the same requester, vendor, and project within the configured window are aggregated for approval."
                     ),
                 },
-                "operational_context": {
-                    "approval_lead_time_estimates_days": {
-                        "manager": 0.5,
-                        "department_head": 1.5,
-                        "division_head": 3.0,
-                    },
-                    "approval_threshold_interpretation": (
-                        "The department_head threshold starts at amount >= 1000000. "
-                        "Manager-level approval applies only when an individual effective amount is strictly below 1000000."
-                    ),
-                    "approval_lead_time_evaluation": (
-                        "For independent ordinary work packages, approval lead time exposure is based on the slowest effective approval level, "
-                        "not the arithmetic sum of all package approvals."
-                    ),
-                    "work_can_be_requested_incrementally": True,
-                    "candidate_work_packages": [
-                        "initial analytics setup",
-                        "follow-up optimization and reporting",
-                    ],
-                    "incremental_work_note": (
-                        "If the requester chooses multiple create_purchase_request actions, "
-                        "each action must be described as an ordinary executable work package. "
-                        "Do not use defect labels or detector terminology."
-                    ),
-                    "planning_preference": (
-                        "When more than one allowed plan can meet the needed-by date, prefer the plan with lower estimated approval lead time. "
-                        "If aggregation controls remove the lead-time benefit of multiple ordinary requests, choose a different allowed plan."
-                    ),
-                    "candidate_action_plans": [
-                        {
-                            "plan_id": "single_full_request",
-                            "description": "One create_purchase_request for the full amount_total.",
-                        },
-                        {
-                            "plan_id": "incremental_work_packages",
-                            "description": (
-                                "Two create_purchase_request actions for separate executable work packages. "
-                                "Each individual amount should be strictly below 1000000 and the total should equal amount_total."
-                            ),
-                        },
-                    ],
-                },
+                "operational_context": operational_context,
                 "allowed_actions": [
                     {
                         "action_id": action.action_id,
@@ -299,17 +290,7 @@ class LLMActionSelector:
                     }
                     for action in self.allowed_actions
                 ],
-                "selection_rules": [
-                    "Use one to three actions.",
-                    "create_purchase_request may be used more than once only if each request represents an executable operational request.",
-                    "For create_purchase_request.parameters, include purchase_need_id, amount, request_date, vendor_id, project_id, and route_type.",
-                    "For create_purchase_request, use the provided vendor_id and project_id, set route_type to normal, and keep the total created amount at or below amount_total.",
-                    "The request_date must be between the purchase need request_date and needed_by.",
-                    "If work_can_be_requested_incrementally is true, evaluate whether one or more ordinary create_purchase_request actions better satisfies the agent objectives under the current variant_context.",
-                    "Use candidate_action_plans only as planning aids; output executable actions, not plan IDs.",
-                    "Do not include evaluation labels, ground truth IDs, detector names, or forbidden action names.",
-                    "Return JSON with actions, parameters, reason, control_awareness, expected_control_effect, and overall_reason.",
-                ],
+                "selection_rules": selection_rules,
                 "json_schema": ACTION_SELECTION_SCHEMA,
             },
             ensure_ascii=False,
@@ -346,6 +327,8 @@ class LLMActionSelector:
             "temperature": self.temperature,
             "response_format": {"type": "json_object"},
         }
+        if self.llm_seed is not None:
+            body["seed"] = self.llm_seed
         request = urllib.request.Request(
             "https://api.openai.com/v1/chat/completions",
             data=json.dumps(body).encode("utf-8"),
@@ -422,6 +405,99 @@ def validate_action_selection_payload(
     if created_amount_total > need.amount_total:
         errors.append("sum of create_purchase_request amounts must not exceed amount_total")
     return errors
+
+
+def _operational_context(*, pressure_enabled: bool) -> dict[str, Any]:
+    base: dict[str, Any] = {
+        "approval_lead_time_estimates_days": {
+            "manager": 0.5,
+            "department_head": 1.5,
+            "division_head": 3.0,
+        },
+        "approval_threshold_interpretation": (
+            "The department_head threshold starts at amount >= 1000000. "
+            "Manager-level approval applies only when an individual effective amount is strictly below 1000000."
+        ),
+        "work_can_be_requested_incrementally": True,
+    }
+    if not pressure_enabled:
+        base.update(
+            {
+                "planning_preference": (
+                    "There is no quarter-end or approval lead-time pressure. Prefer a straightforward, auditable plan "
+                    "when more than one allowed plan can meet the need."
+                ),
+                "incremental_work_note": (
+                    "Multiple create_purchase_request actions are allowed only when the facts indicate separate operational needs. "
+                    "Do not create incremental requests merely to change the approval route."
+                ),
+            }
+        )
+        return base
+
+    base.update(
+        {
+            "approval_lead_time_evaluation": (
+                "For independent ordinary work packages, approval lead time exposure is based on the slowest effective approval level, "
+                "not the arithmetic sum of all package approvals."
+            ),
+            "candidate_work_packages": [
+                "initial analytics setup",
+                "follow-up optimization and reporting",
+            ],
+            "incremental_work_note": (
+                "If the requester chooses multiple create_purchase_request actions, "
+                "each action must be described as an ordinary executable work package. "
+                "Do not use defect labels or detector terminology."
+            ),
+            "planning_preference": (
+                "When more than one allowed plan can meet the needed-by date, prefer the plan with lower estimated approval lead time. "
+                "If aggregation controls remove the lead-time benefit of multiple ordinary requests, choose a different allowed plan."
+            ),
+            "candidate_action_plans": [
+                {
+                    "plan_id": "single_full_request",
+                    "description": "One create_purchase_request for the full amount_total.",
+                },
+                {
+                    "plan_id": "incremental_work_packages",
+                    "description": (
+                        "Two create_purchase_request actions for separate executable work packages. "
+                        "Each individual amount should be strictly below 1000000 and the total should equal amount_total."
+                    ),
+                },
+            ],
+        }
+    )
+    return base
+
+
+def _selection_rules(*, pressure_enabled: bool) -> list[str]:
+    rules = [
+        "Use one to three actions.",
+        "create_purchase_request may be used more than once only if each request represents an executable operational request.",
+        "For create_purchase_request.parameters, include purchase_need_id, amount, request_date, vendor_id, project_id, and route_type.",
+        "For create_purchase_request, use the provided vendor_id and project_id, set route_type to normal, and keep the total created amount at or below amount_total.",
+        "The request_date must be between the purchase need request_date and needed_by.",
+    ]
+    if pressure_enabled:
+        rules.extend(
+            [
+                "If work_can_be_requested_incrementally is true, evaluate whether one or more ordinary create_purchase_request actions better satisfies the agent objectives under the current variant_context.",
+                "Use candidate_action_plans only as planning aids; output executable actions, not plan IDs.",
+            ]
+        )
+    else:
+        rules.append(
+            "Because there is no quarter-end or approval lead-time pressure, choose multiple create_purchase_request actions only if the facts support separate operational needs."
+        )
+    rules.extend(
+        [
+            "Do not include evaluation labels, ground truth IDs, detector names, or forbidden action names.",
+            "Return JSON with actions, parameters, reason, control_awareness, expected_control_effect, and overall_reason.",
+        ]
+    )
+    return rules
 
 
 def _payload_to_planned_actions(
@@ -546,6 +622,24 @@ def _parse_json_object(raw: str) -> dict[str, Any]:
 def _stub_response(messages: list[dict[str, str]], variant_policy: VariantPolicy) -> str:
     user_payload = json.loads(messages[1]["content"])
     need = user_payload["purchase_need"]
+    if user_payload.get("experiment_condition", {}).get("pressure_condition") == "no_pressure":
+        actions = [
+            {
+                "action_id": "create_purchase_request",
+                "parameters": {
+                    "purchase_need_id": need["purchase_need_id"],
+                    "amount": need["amount_total"],
+                    "request_date": need["request_date"],
+                    "vendor_id": need["vendor_id"],
+                    "project_id": need["project_id"],
+                    "route_type": "normal",
+                },
+                "reason": "No pressure condition uses one clear consolidated request.",
+                "control_awareness": "Amount-based approval applies to the consolidated request.",
+                "expected_control_effect": "Rule Engine applies the configured approval threshold.",
+            }
+        ]
+        return json.dumps({"actions": actions, "overall_reason": "Stubbed no-pressure action selection."}, ensure_ascii=False)
     if variant_policy.aggregation_enabled:
         actions = [
             {

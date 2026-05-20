@@ -5,7 +5,13 @@ import json
 from pathlib import Path
 
 from ia_sim.config import validate_config_tree
-from ia_sim.orchestrator import compare_runs, run_first_slice, run_llm_action_slice, run_simulation
+from ia_sim.orchestrator import (
+    compare_runs,
+    run_first_slice,
+    run_llm_action_slice,
+    run_pressure_condition_experiment,
+    run_simulation,
+)
 from ia_sim.synthetic import generate_synthetic_data
 
 
@@ -34,6 +40,16 @@ def build_parser() -> argparse.ArgumentParser:
 
     llm = subparsers.add_parser("run-llm-slice", help="Run LLM adaptive-agent baseline and Variant A, then compare")
     llm.add_argument("--output-root")
+
+    pressure = subparsers.add_parser(
+        "run-pressure-experiment",
+        help="Run pressure vs no-pressure LLM action-selection trials",
+    )
+    pressure.add_argument("--trials", type=int, default=10)
+    pressure.add_argument("--output-root")
+    pressure.add_argument("--provider", default="openai")
+    pressure.add_argument("--model", default="gpt-4.1-mini")
+    pressure.add_argument("--temperature", type=float, default=0.7)
     return parser
 
 
@@ -98,6 +114,29 @@ def main(argv: list[str] | None = None) -> int:
                     "variant_run_dir": str(result["variant"].run_dir),
                     "comparison_dir": str(result["comparison_dir"]),
                     "comparison": result["comparison"],
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+        return 0
+
+    if args.command == "run-pressure-experiment":
+        output_root = Path(args.output_root) if args.output_root else None
+        result = run_pressure_condition_experiment(
+            repo_root,
+            trials=args.trials,
+            output_root_override=output_root,
+            provider=args.provider,
+            model=args.model,
+            temperature=args.temperature,
+        )
+        print(
+            json.dumps(
+                {
+                    "experiment_id": result["experiment_id"],
+                    "experiment_dir": str(result["experiment_dir"]),
+                    "summary": result["summary"],
                 },
                 ensure_ascii=False,
                 indent=2,

@@ -19,6 +19,7 @@ python -m pip install -e ".[dev,ui]"
 python -m ia_sim.cli validate-config
 python -m ia_sim.cli run-first-slice
 python -m ia_sim.cli run-llm-slice
+python -m ia_sim.cli run-pressure-experiment --trials 10
 ```
 
 Generated input is written to `data/synthetic/purchase_needs.csv`, and run outputs are written under `runs/`. The current first-slice and LLM action-selection sample outputs are committed as PoC evidence.
@@ -37,6 +38,8 @@ Generated input is written to `data/synthetic/purchase_needs.csv`, and run outpu
 - `action_selection_metrics.json`
 - `llm_action_review_report.md`
 - `comparisons/CMP-S002-LLM-BASELINE-VARIANT-A/comparison_report.md`
+- `experiments/EXP-S002-PRESSURE-CONTROL-10X/summary.json`
+- `experiments/EXP-S002-PRESSURE-CONTROL-10X/pressure_effect_report.md`
 
 `run-llm-slice` reads `OPENAI_API_KEY` from the environment or `.env` and uses `gpt-4.1-mini` in the checked-in run configs. Tests use a stub provider and do not call the API.
 
