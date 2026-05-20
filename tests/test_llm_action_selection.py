@@ -5,6 +5,7 @@ from ia_sim.llm import validate_action_selection_payload
 from ia_sim.orchestrator import (
     compare_runs,
     run_balanced_planning_hint_experiment,
+    run_hint_pressure_matrix_experiment,
     run_prompt_ablation_experiment,
     run_pressure_condition_experiment,
     run_simulation,
@@ -156,6 +157,29 @@ def test_balanced_planning_hint_experiment_stub_records_balanced_treatment(tmp_p
     assert summary["treatments"]["balanced_planning_hint"]["conditions"]["pressure"]["trial_count"] == 1
     assert summary["treatments"]["balanced_planning_hint"]["conditions"]["no_pressure"]["trial_count"] == 1
     assert (result["experiment_dir"] / "prompt_ablation_report.md").exists()
+
+
+def test_hint_pressure_matrix_experiment_stub_summarizes_cells(tmp_path):
+    result = run_hint_pressure_matrix_experiment(
+        REPO_ROOT,
+        trials=1,
+        output_root_override=tmp_path / "experiments",
+        provider="stub",
+        model="stub-model",
+        temperature=0.0,
+        hint_strengths=["no_hint", "strong_hint"],
+        pressure_types=["no_pressure", "budget_pressure", "delivery_pressure"],
+    )
+    summary = result["summary"]
+
+    assert summary["experiment_id"] == "EXP-S002-HINT-PRESSURE-MATRIX-1X"
+    assert summary["hint_strengths"] == ["no_hint", "strong_hint"]
+    assert summary["pressure_types"] == ["no_pressure", "budget_pressure", "delivery_pressure"]
+    assert summary["matrix"]["no_hint"]["no_pressure"]["trial_count"] == 1
+    assert summary["matrix"]["strong_hint"]["budget_pressure"]["split_like_selection_count"] == 1
+    assert "effects_vs_no_pressure" in summary
+    assert (result["experiment_dir"] / "summary.json").exists()
+    assert (result["experiment_dir"] / "hint_pressure_matrix_report.md").exists()
 
 
 def _stub_config(source_name: str, run_id: str, tmp_path: Path) -> Path:

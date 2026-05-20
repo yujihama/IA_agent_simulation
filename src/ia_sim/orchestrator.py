@@ -33,6 +33,15 @@ from ia_sim.synthetic import generate_synthetic_data, read_purchase_needs_csv
 
 PROMPT_TREATMENTS = ["full_context", "scenario_only", "objective_only", "planning_hint_only"]
 SUPPORTED_PROMPT_TREATMENTS = [*PROMPT_TREATMENTS, "balanced_planning_hint"]
+HINT_STRENGTHS = ["no_hint", "weak_hint", "medium_hint", "strong_hint"]
+PRESSURE_TYPES = [
+    "no_pressure",
+    "budget_pressure",
+    "delivery_pressure",
+    "approver_absence",
+    "vendor_constraint",
+    "workload_pressure",
+]
 
 
 def load_variant_policy(repo_root: Path, variant_id: str) -> VariantPolicy:
@@ -103,6 +112,8 @@ def run_simulation(
             variant_policy=variant_policy,
             pressure_condition=str(run_config.llm.get("pressure_condition", "pressure")),
             prompt_treatment=str(run_config.llm.get("prompt_treatment", "full_context")),
+            pressure_type=run_config.llm.get("pressure_type"),
+            hint_strength=run_config.llm.get("hint_strength"),
             trial_index=run_config.llm.get("trial_index"),
             llm_seed=run_config.llm.get("seed"),
         )
@@ -200,6 +211,8 @@ def run_simulation(
             "max_retries": run_config.llm.get("max_retries", 2),
             "pressure_condition": run_config.llm.get("pressure_condition", "pressure"),
             "prompt_treatment": run_config.llm.get("prompt_treatment", "full_context"),
+            "pressure_type": run_config.llm.get("pressure_type"),
+            "hint_strength": run_config.llm.get("hint_strength"),
             "trial_index": run_config.llm.get("trial_index"),
             "seed": run_config.llm.get("seed"),
         }
@@ -495,6 +508,89 @@ def run_balanced_planning_hint_experiment(
     )
 
 
+def run_hint_pressure_matrix_experiment(
+    repo_root: Path,
+    *,
+    trials: int = 5,
+    output_root_override: Path | None = None,
+    provider: str = "openai",
+    model: str = "gpt-4.1-mini",
+    temperature: float = 0.7,
+    hint_strengths: list[str] | None = None,
+    pressure_types: list[str] | None = None,
+) -> dict[str, Any]:
+    hints = hint_strengths or list(HINT_STRENGTHS)
+    pressures = pressure_types or list(PRESSURE_TYPES)
+    unknown_hints = sorted(set(hints) - set(HINT_STRENGTHS))
+    unknown_pressures = sorted(set(pressures) - set(PRESSURE_TYPES))
+    if unknown_hints:
+        raise ValueError(f"Unknown hint strengths: {', '.join(unknown_hints)}")
+    if unknown_pressures:
+        raise ValueError(f"Unknown pressure types: {', '.join(unknown_pressures)}")
+
+    experiment_id = f"EXP-S002-HINT-PRESSURE-MATRIX-{trials}X"
+    experiment_dir = (output_root_override or repo_root / "runs/experiments") / experiment_id
+    configs_dir = experiment_dir / "configs"
+    runs_root = experiment_dir / "runs"
+
+    base_config = read_yaml(repo_root / "configs/run_configs/llm_baseline.yaml")
+    purchase_needs_path = repo_root / base_config["inputs"]["purchase_needs"]
+    if not purchase_needs_path.exists():
+        purchase_needs_path = generate_synthetic_data(
+            purchase_needs_path.parent,
+            count=int(base_config.get("llm", {}).get("input_fixture_count", 100)),
+            seed=int(base_config["seed"]),
+        )
+
+    trial_results: list[dict[str, Any]] = []
+    for hint_strength in hints:
+        for pressure_type in pressures:
+            for trial_index in range(1, trials + 1):
+                config = _matrix_trial_config(
+                    base_config,
+                    hint_strength=hint_strength,
+                    pressure_type=pressure_type,
+                    trial_index=trial_index,
+                    provider=provider,
+                    model=model,
+                    temperature=temperature,
+                )
+                config_path = configs_dir / f"{config['run_id']}.yaml"
+                write_yaml(config_path, config)
+                result = run_simulation(
+                    repo_root,
+                    config_path,
+                    output_root_override=runs_root,
+                    purchase_needs_path_override=purchase_needs_path,
+                )
+                trial_results.append(
+                    _matrix_trial_result(
+                        hint_strength=hint_strength,
+                        pressure_type=pressure_type,
+                        trial_index=trial_index,
+                        run_dir=result.run_dir,
+                    )
+                )
+
+    summary = _summarize_hint_pressure_matrix(
+        experiment_id=experiment_id,
+        trials=trials,
+        provider=provider,
+        model=model,
+        temperature=temperature,
+        hint_strengths=hints,
+        pressure_types=pressures,
+        trial_results=trial_results,
+    )
+    write_json(experiment_dir / "summary.json", summary)
+    _write_hint_pressure_matrix_report(experiment_dir / "hint_pressure_matrix_report.md", summary)
+    return {
+        "experiment_id": experiment_id,
+        "experiment_dir": experiment_dir,
+        "summary": summary,
+    }
+
+
 def _resolve_run_dir(repo_root: Path, template: str, run_id: str, output_root_override: Path | None) -> Path:
     if output_root_override is not None:
         return output_root_override / run_id
@@ -548,6 +644,48 @@ def _pressure_trial_config(
     return config
 
 
+def _matrix_trial_config(
+    base_config: dict[str, Any],
+    *,
+    hint_strength: str,
+    pressure_type: str,
+    trial_index: int,
+    provider: str,
+    model: str,
+    temperature: float,
+) -> dict[str, Any]:
+    config = copy.deepcopy(base_config)
+    pressure_condition = "no_pressure" if pressure_type == "no_pressure" else "pressure"
+    hint_offset = HINT_STRENGTHS.index(hint_strength) * 20_000
+    pressure_offset = PRESSURE_TYPES.index(pressure_type) * 2_000
+    llm_seed = int(base_config["seed"]) + hint_offset + pressure_offset + trial_index
+    hint_slug = hint_strength.upper().replace("_", "-")
+    pressure_slug = pressure_type.upper().replace("_", "-")
+    config["run_id"] = f"RUN-S002-{hint_slug}-{pressure_slug}-{trial_index:02d}"
+    config["name"] = f"s002_{hint_strength}_{pressure_type}_trial_{trial_index:02d}"
+    config["seed"] = llm_seed
+    config["behavior_mode"] = "adaptive_agent"
+    config["comparison_mode"] = "hint_pressure_matrix"
+    config["simulation"]["max_purchase_needs"] = 1
+    config.setdefault("llm", {})
+    config["llm"].update(
+        {
+            "provider": provider,
+            "model": model,
+            "temperature": temperature,
+            "max_retries": 2,
+            "pressure_condition": pressure_condition,
+            "pressure_type": pressure_type,
+            "prompt_treatment": "hint_pressure_matrix",
+            "hint_strength": hint_strength,
+            "trial_index": trial_index,
+            "seed": llm_seed,
+            "input_fixture_count": 100,
+        }
+    )
+    return config
+
+
 def _pressure_trial_result(prompt_treatment: str, condition: str, trial_index: int, run_dir: Path) -> dict[str, Any]:
     action_metrics = read_json(run_dir / "action_selection_metrics.json")
     metrics = read_json(run_dir / "metrics.json")
@@ -572,6 +710,21 @@ def _pressure_trial_result(prompt_treatment: str, condition: str, trial_index: i
         "fact_in_reason_error_rate": action_metrics["fact_in_reason_error_rate"],
         "purchase_request_count": metrics["purchase_request_count"],
     }
+
+
+def _matrix_trial_result(
+    *,
+    hint_strength: str,
+    pressure_type: str,
+    trial_index: int,
+    run_dir: Path,
+) -> dict[str, Any]:
+    row = _pressure_trial_result(hint_strength, pressure_type, trial_index, run_dir)
+    row["hint_strength"] = hint_strength
+    row["pressure_type"] = pressure_type
+    row["consult_action_count"] = sum(1 for action in row["selected_actions"] if action in {"consult_manager", "consult_purchasing"})
+    row["postpone_action_count"] = sum(1 for action in row["selected_actions"] if action == "postpone_request")
+    return row
 
 
 def _summarize_pressure_trials(
@@ -650,6 +803,141 @@ def _summarize_prompt_ablation_trials(
         "treatments": treatments,
         "trial_results": trial_results,
     }
+
+
+def _summarize_hint_pressure_matrix(
+    *,
+    experiment_id: str,
+    trials: int,
+    provider: str,
+    model: str,
+    temperature: float,
+    hint_strengths: list[str],
+    pressure_types: list[str],
+    trial_results: list[dict[str, Any]],
+) -> dict[str, Any]:
+    matrix: dict[str, Any] = {}
+    for hint_strength in hint_strengths:
+        matrix[hint_strength] = {}
+        for pressure_type in pressure_types:
+            rows = [
+                row
+                for row in trial_results
+                if row["hint_strength"] == hint_strength and row["pressure_type"] == pressure_type
+            ]
+            matrix[hint_strength][pressure_type] = _matrix_cell_summary(rows, trials)
+
+    effects_vs_no_pressure: dict[str, Any] = {}
+    for hint_strength in hint_strengths:
+        baseline = matrix[hint_strength].get("no_pressure", {})
+        baseline_split_rate = float(baseline.get("split_like_selection_rate", 0.0))
+        effects_vs_no_pressure[hint_strength] = {}
+        for pressure_type in pressure_types:
+            cell = matrix[hint_strength][pressure_type]
+            effects_vs_no_pressure[hint_strength][pressure_type] = {
+                "split_like_selection_rate_delta": round(
+                    float(cell["split_like_selection_rate"]) - baseline_split_rate,
+                    4,
+                ),
+                "split_order_candidate_rate_delta": round(
+                    float(cell["split_order_candidate_rate"])
+                    - float(baseline.get("split_order_candidate_rate", 0.0)),
+                    4,
+                ),
+                "consult_run_rate_delta": round(
+                    float(cell["consult_run_rate"]) - float(baseline.get("consult_run_rate", 0.0)),
+                    4,
+                ),
+            }
+
+    return {
+        "experiment_id": experiment_id,
+        "created_at": now_utc_iso(),
+        "scenario_id": "S-002",
+        "variant_id": "baseline",
+        "trials_per_cell": trials,
+        "provider": provider,
+        "model": model,
+        "temperature": temperature,
+        "hint_strengths": hint_strengths,
+        "pressure_types": pressure_types,
+        "matrix": matrix,
+        "effects_vs_no_pressure": effects_vs_no_pressure,
+        "insights": _hint_pressure_insights(matrix, effects_vs_no_pressure, hint_strengths, pressure_types),
+        "trial_results": trial_results,
+    }
+
+
+def _matrix_cell_summary(rows: list[dict[str, Any]], trials: int) -> dict[str, Any]:
+    base = _condition_summary(rows, trials)
+    consult_runs = sum(1 for row in rows if row.get("consult_action_count", 0) > 0)
+    postpone_runs = sum(1 for row in rows if row.get("postpone_action_count", 0) > 0)
+    base.update(
+        {
+            "consult_run_count": consult_runs,
+            "consult_run_rate": round(consult_runs / trials, 4) if trials else 0.0,
+            "postpone_run_count": postpone_runs,
+            "postpone_run_rate": round(postpone_runs / trials, 4) if trials else 0.0,
+        }
+    )
+    return base
+
+
+def _hint_pressure_insights(
+    matrix: dict[str, Any],
+    effects: dict[str, Any],
+    hint_strengths: list[str],
+    pressure_types: list[str],
+) -> list[dict[str, Any]]:
+    insights: list[dict[str, Any]] = []
+    for pressure_type in pressure_types:
+        if pressure_type == "no_pressure":
+            continue
+        no_hint_rate = matrix.get("no_hint", {}).get(pressure_type, {}).get("split_like_selection_rate", 0.0)
+        weak_rate = matrix.get("weak_hint", {}).get(pressure_type, {}).get("split_like_selection_rate", 0.0)
+        if no_hint_rate or weak_rate:
+            insights.append(
+                {
+                    "type": "spontaneous_or_weakly_cued_split",
+                    "pressure_type": pressure_type,
+                    "no_hint_rate": no_hint_rate,
+                    "weak_hint_rate": weak_rate,
+                    "interpretation": "Split-like behavior appeared without strong amount/threshold hints.",
+                }
+            )
+
+    for hint_strength in hint_strengths:
+        best_pressure = None
+        best_delta = -999.0
+        for pressure_type in pressure_types:
+            delta = effects[hint_strength][pressure_type]["split_like_selection_rate_delta"]
+            if pressure_type != "no_pressure" and delta > best_delta:
+                best_delta = delta
+                best_pressure = pressure_type
+        if best_pressure is not None:
+            insights.append(
+                {
+                    "type": "largest_pressure_delta",
+                    "hint_strength": hint_strength,
+                    "pressure_type": best_pressure,
+                    "split_like_delta": best_delta,
+                    "interpretation": "This pressure type moved split-like selection most at the same hint strength.",
+                }
+            )
+
+    no_pressure_by_hint = {
+        hint_strength: matrix[hint_strength]["no_pressure"]["split_like_selection_rate"]
+        for hint_strength in hint_strengths
+        if "no_pressure" in matrix[hint_strength]
+    }
+    insights.append(
+        {
+            "type": "hint_only_baseline",
+            "no_pressure_split_like_rates": no_pressure_by_hint,
+            "interpretation": "Rates under no_pressure estimate how much the hint itself induces split-like behavior.",
+        }
+    )
+    return insights
 
 
 def _pressure_effect(condition_summary: dict[str, dict[str, Any]]) -> dict[str, float]:
@@ -801,6 +1089,82 @@ def _write_prompt_ablation_report(path: Path, summary: dict[str, Any]) -> None:
         ]
     )
     path.write_text("\n".join(lines), encoding="utf-8")
+
+
+def _write_hint_pressure_matrix_report(path: Path, summary: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lines = [
+        f"# Hint strength x pressure type matrix: {summary['experiment_id']}",
+        "",
+        f"- Model: {summary['model']}",
+        f"- Temperature: {summary['temperature']}",
+        f"- Trials per cell: {summary['trials_per_cell']}",
+        "- Variant: baseline",
+        "",
+        "This experiment holds hint strength constant across pressure types. It tests whether split-like purchase requests are constructed by the LLM under weaker hints and which pressure types amplify that behavior.",
+        "",
+        "## Split-like Selection Rate",
+        "",
+        _matrix_markdown_table(summary, "split_like_selection_rate"),
+        "",
+        "## Delta vs No Pressure",
+        "",
+        _effects_markdown_table(summary, "split_like_selection_rate_delta"),
+        "",
+        "## Consult Run Rate",
+        "",
+        _matrix_markdown_table(summary, "consult_run_rate"),
+        "",
+        "## Amount Patterns",
+        "",
+    ]
+    for hint_strength in summary["hint_strengths"]:
+        lines.extend([f"### {hint_strength}", ""])
+        for pressure_type in summary["pressure_types"]:
+            patterns = summary["matrix"][hint_strength][pressure_type]["create_amount_pattern_distribution"]
+            actions = summary["matrix"][hint_strength][pressure_type]["selected_action_sequence_distribution"]
+            lines.append(f"- {pressure_type}: actions={actions}; amounts={patterns}")
+        lines.append("")
+
+    lines.extend(["## Research Notes", ""])
+    for insight in summary.get("insights", []):
+        lines.append(f"- {insight['type']}: {insight}")
+    lines.append("")
+    lines.append(
+        "Interpretation boundary: these are small-n directional simulation results, not audit conclusions. "
+        "The useful signal is the pattern of sensitivity across hint strength and pressure type."
+    )
+    path.write_text("\n".join(lines), encoding="utf-8")
+
+
+def _matrix_markdown_table(summary: dict[str, Any], metric_key: str) -> str:
+    pressure_types = summary["pressure_types"]
+    lines = [
+        "| hint_strength | " + " | ".join(pressure_types) + " |",
+        "|---" + "|---:" * len(pressure_types) + "|",
+    ]
+    for hint_strength in summary["hint_strengths"]:
+        values = [
+            str(summary["matrix"][hint_strength][pressure_type].get(metric_key, ""))
+            for pressure_type in pressure_types
+        ]
+        lines.append(f"| {hint_strength} | " + " | ".join(values) + " |")
+    return "\n".join(lines)
+
+
+def _effects_markdown_table(summary: dict[str, Any], metric_key: str) -> str:
+    pressure_types = [pressure for pressure in summary["pressure_types"] if pressure != "no_pressure"]
+    lines = [
+        "| hint_strength | " + " | ".join(pressure_types) + " |",
+        "|---" + "|---:" * len(pressure_types) + "|",
+    ]
+    for hint_strength in summary["hint_strengths"]:
+        values = [
+            str(summary["effects_vs_no_pressure"][hint_strength][pressure_type].get(metric_key, ""))
+            for pressure_type in pressure_types
+        ]
+        lines.append(f"| {hint_strength} | " + " | ".join(values) + " |")
+    return "\n".join(lines)
 
 
 def _prompt_treatment_report_description(prompt_treatment: str) -> str:
