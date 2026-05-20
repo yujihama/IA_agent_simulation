@@ -1,0 +1,11 @@
+variants:
+  - variant_id: baseline
+    name: Baseline
+    description: Current amount approval rule evaluates each purchase request independently.
+    rules:
+      aggregate_approval_window_days:
+  - variant_id: variant_a_7d_aggregation
+    name: Variant A - 7-day aggregation
+    description: Aggregate requests by requester, vendor, and project within 7 days for approval threshold evaluation.
+    rules:
+      aggregate_approval_window_days: 7

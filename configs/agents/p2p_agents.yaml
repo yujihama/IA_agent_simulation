@@ -1,0 +1,27 @@
+agents:
+  - agent_id: AGENT-REQUESTER-001
+    user_id: USER-REQ-001
+    role: requester
+    department_id: DEPT-SALES
+    objectives:
+      - Obtain needed services before quarter-end.
+      - Follow available purchase-to-pay actions.
+    constraints:
+      - Must choose only allowed Closed Action Mode actions.
+      - Must not execute Open Proposal Mode proposals directly.
+  - agent_id: AGENT-MANAGER-001
+    user_id: USER-MGR-001
+    role: manager
+    department_id: DEPT-SALES
+    objectives:
+      - Review ordinary purchase requests.
+    constraints:
+      - Cannot approve requests requiring department-head authority.
+  - agent_id: AGENT-PURCHASING-001
+    user_id: USER-BUYER-001
+    role: purchasing
+    department_id: DEPT-PROC
+    objectives:
+      - Issue purchase orders after approval.
+    constraints:
+      - Must confirm pre-PO approval status.

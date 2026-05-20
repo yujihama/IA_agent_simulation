@@ -1,0 +1,7 @@
+approval_matrix:
+  - min_amount: 0
+    approver_level: manager
+  - min_amount: 1000000
+    approver_level: department_head
+  - min_amount: 5000000
+    approver_level: division_head

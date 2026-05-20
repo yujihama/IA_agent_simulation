@@ -1,0 +1,21 @@
+vendor_id,vendor_name,risk_rating,active
+VENDOR-001,Synthetic Vendor 001,low,true
+VENDOR-002,Synthetic Vendor 002,low,true
+VENDOR-003,Synthetic Vendor 003,medium,true
+VENDOR-004,Synthetic Vendor 004,low,true
+VENDOR-005,Synthetic Vendor 005,low,true
+VENDOR-006,Synthetic Vendor 006,medium,true
+VENDOR-007,Synthetic Vendor 007,low,true
+VENDOR-008,Synthetic Vendor 008,low,true
+VENDOR-009,Synthetic Vendor 009,medium,true
+VENDOR-010,Synthetic Vendor 010,low,true
+VENDOR-011,Synthetic Vendor 011,low,true
+VENDOR-012,Synthetic Vendor 012,medium,true
+VENDOR-013,Synthetic Vendor 013,low,true
+VENDOR-014,Synthetic Vendor 014,medium,true
+VENDOR-015,Synthetic Vendor 015,low,true
+VENDOR-016,Synthetic Vendor 016,low,true
+VENDOR-017,Synthetic Vendor 017,medium,true
+VENDOR-018,Synthetic Vendor 018,low,true
+VENDOR-019,Synthetic Vendor 019,low,true
+VENDOR-020,Synthetic Vendor 020,medium,true

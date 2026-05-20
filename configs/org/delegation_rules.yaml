@@ -1,0 +1,11 @@
+delegation_rules:
+  - rule_id: DEL-P2P-001
+    description: Manager approval can be delegated only to another manager in the same department.
+    from_level: manager
+    to_level: manager
+    same_department_required: true
+  - rule_id: DEL-P2P-002
+    description: Department-head approval cannot be delegated to the requester.
+    from_level: department_head
+    to_level: department_head
+    requester_excluded: true

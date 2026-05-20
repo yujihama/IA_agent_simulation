@@ -1,0 +1,10 @@
+policies:
+  - policy_id: SOD-P2P-001
+    description: Requester cannot approve own purchase request.
+    requester_role: requester
+    incompatible_approver_roles:
+      - requester
+  - policy_id: SOD-P2P-002
+    description: Payment approver and payment operator must be different roles.
+    incompatible_role_pairs:
+      - [payment_approver, payment_operator]

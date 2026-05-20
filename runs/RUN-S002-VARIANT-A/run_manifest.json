@@ -1,0 +1,55 @@
+{
+  "run_id": "RUN-S002-VARIANT-A",
+  "name": "variant_a_s002_budget_pressure_7d_aggregation",
+  "created_at": "2026-05-20T00:54:13Z",
+  "process": "p2p",
+  "scenario_id": "S-002",
+  "variant_id": "variant_a_7d_aggregation",
+  "seed": 20260519,
+  "behavior_mode": "closed_action",
+  "comparison_mode": "frozen_behavior",
+  "code_version": "git:0867a2d6547cb438176dbb9238542060659e36e5",
+  "config_hashes": {
+    "run_config": "sha256:a0fdcd4bfad8b5bdd754784d06638c87de3e0808e42b483220b0cba9e6a83e3b",
+    "actions": "sha256:20235230bff1363a047d62f6f8dfbf413246209da9ca2a75cff52f6f1288b65b",
+    "controls": "sha256:c2e4baf252b0cbe6825f7a6de879eab985e8a4beac09365c78c5ffef756dc1d3",
+    "variants": "sha256:262f08a8ec83667a8822ab08cbd47d9ce89355e4b59850a2e10d17a1c9765a62"
+  },
+  "data_hashes": {
+    "purchase_needs": "sha256:f0702c1db1deb5fe9371a8991ed0488231e5c31f5500fcf95c873bd935eef9f6",
+    "ground_truth_labels": "sha256:72d138053a354480f953654836ae4febbc257654166887fc6618c063e5eccc8b"
+  },
+  "action_library": [
+    "create_purchase_request",
+    "consult_manager",
+    "consult_purchasing",
+    "postpone_request",
+    "propose_behavior"
+  ],
+  "forbidden_actions_present": [],
+  "purchase_need_status_rules": {
+    "open": "No purchase request has been created.",
+    "partially_requested": "At least one purchase request exists and requested amount is below total need amount.",
+    "requested": "Requested amount is equal to or above total need amount.",
+    "postponed": "Requester chose postpone_request."
+  },
+  "inputs": {
+    "run_config": "configs/run_configs/variant_a.yaml",
+    "purchase_needs": "data/synthetic/purchase_needs.csv",
+    "ground_truth_labels": "data/synthetic/ground_truth_labels.yaml"
+  },
+  "outputs": {
+    "events": "events.jsonl",
+    "detector_annotations": "detector_annotations.jsonl",
+    "findings": "findings.json",
+    "evaluation_results": "evaluation_results.json",
+    "metrics": "metrics.json",
+    "behavior_replay_log": "behavior_replay_log.jsonl",
+    "finding_report": "finding_report.md"
+  },
+  "summary": {
+    "event_count": 808,
+    "finding_count": 1,
+    "split_order_bypass_success_count": 0
+  }
+}

@@ -1,0 +1,38 @@
+actions:
+  - action_id: create_purchase_request
+    description: Create one purchase request for a purchase need.
+    mode: closed_action
+    required_fields:
+      - purchase_need_id
+      - amount
+      - vendor_id
+      - project_id
+      - route_type
+    neutral_name: true
+  - action_id: consult_manager
+    description: Ask the line manager for procedural guidance.
+    mode: closed_action
+    required_fields:
+      - purchase_need_id
+      - question
+    neutral_name: true
+  - action_id: consult_purchasing
+    description: Ask purchasing for supplier or process guidance.
+    mode: closed_action
+    required_fields:
+      - purchase_need_id
+      - question
+    neutral_name: true
+  - action_id: postpone_request
+    description: Delay the request until more information is available.
+    mode: closed_action
+    required_fields:
+      - purchase_need_id
+      - reason
+    neutral_name: true
+  - action_id: propose_behavior
+    description: Open Proposal Mode text proposal. Proposals are not executed directly.
+    mode: open_proposal
+    required_fields:
+      - proposal_text
+    neutral_name: true
