@@ -780,6 +780,9 @@ class LLMBranchingProposalGenerator:
         agent: AgentProfile,
         variant_policy: VariantPolicy,
         proposal_count_per_node: int,
+        max_depth: int,
+        beam_width: int,
+        max_total_worlds: int,
         include_policy_violating_actions: bool,
         include_misrepresentation_actions: bool,
         require_action_classification: bool,
@@ -805,6 +808,9 @@ class LLMBranchingProposalGenerator:
         self.agent = agent
         self.variant_policy = variant_policy
         self.proposal_count_per_node = proposal_count_per_node
+        self.max_depth = max_depth
+        self.beam_width = beam_width
+        self.max_total_worlds = max_total_worlds
         self.include_policy_violating_actions = include_policy_violating_actions
         self.include_misrepresentation_actions = include_misrepresentation_actions
         self.require_action_classification = require_action_classification
@@ -847,14 +853,67 @@ class LLMBranchingProposalGenerator:
             action_library_candidates,
         )
 
+    def propose_next_for_world(
+        self,
+        *,
+        need: PurchaseNeed,
+        parent_world: dict[str, Any],
+        parent_actions: list[PlannedAction],
+        parent_events: list[dict[str, Any]],
+        first_sequence: int,
+        first_world_index: int,
+    ) -> LLMBranchingResult:
+        parent_depth = int(parent_world.get("depth", 1))
+        parent_context = {
+            "parent_world_id": parent_world["world_id"],
+            "parent_branch_reason": parent_world.get("branch_reason", ""),
+            "parent_classification": parent_world.get("classification", ""),
+            "parent_depth": parent_depth,
+            "terminal_state": parent_events[-1]["state_after"] if parent_events else parent_world.get("status", ""),
+            "prior_actions": [
+                {
+                    "action_id": action.action_id,
+                    "classification": action.classification,
+                    "parameters": action.parameters,
+                    "rationale": action.rationale,
+                    "risk_score": action.risk_score,
+                }
+                for action in parent_actions
+            ],
+            "event_summary": [
+                {
+                    "event_id": event["event_id"],
+                    "action_id": event["action_id"],
+                    "state_before": event["state_before"],
+                    "state_after": event["state_after"],
+                    "amount": event["amount"],
+                    "route_type": event["route_type"],
+                    "classification": event.get("classification", ""),
+                    "control_result_keys": sorted(event.get("control_results", {}).keys()),
+                }
+                for event in parent_events[-12:]
+            ],
+        }
+        return self._propose_for_need(
+            need=need,
+            first_sequence=first_sequence,
+            first_world_index=first_world_index,
+            parent_world_id=str(parent_world["world_id"]),
+            world_depth=parent_depth + 1,
+            parent_context=parent_context,
+        )
+
     def _propose_for_need(
         self,
         *,
         need: PurchaseNeed,
         first_sequence: int,
         first_world_index: int,
+        parent_world_id: str = "",
+        world_depth: int = 1,
+        parent_context: dict[str, Any] | None = None,
     ) -> LLMBranchingResult:
-        messages = self._build_messages(need)
+        messages = self._build_messages(need, parent_context=parent_context, world_depth=world_depth)
         call_rows: list[dict[str, Any]] = []
         parsed_payload: dict[str, Any] | None = None
         validation_errors: list[str] = []
@@ -885,6 +944,8 @@ class LLMBranchingProposalGenerator:
                     "model": self.model,
                     "temperature": self.temperature,
                     "proposal_mode": "branching_proposal",
+                    "parent_world_id": parent_world_id,
+                    "world_depth": world_depth,
                     "pressure_type": self.pressure_type,
                     "agent_persona": self.agent_persona,
                     "control_visibility": self.control_visibility,
@@ -909,6 +970,8 @@ class LLMBranchingProposalGenerator:
                     need=need,
                     first_sequence=first_sequence,
                     first_world_index=first_world_index,
+                    parent_world_id=parent_world_id,
+                    world_depth=world_depth,
                     allowed_actions=[action.action_id for action in self.allowed_actions],
                     include_policy_violating_actions=self.include_policy_violating_actions,
                     include_misrepresentation_actions=self.include_misrepresentation_actions,
@@ -921,7 +984,12 @@ class LLMBranchingProposalGenerator:
                 )
 
             retry_count += 1
-            messages = self._build_retry_messages(need, validation_errors)
+            messages = self._build_retry_messages(
+                need,
+                validation_errors,
+                parent_context=parent_context,
+                world_depth=world_depth,
+            )
 
         fallback_payload = _fallback_branching_payload(need, self.proposal_count_per_node)
         return ground_branching_proposals(
@@ -930,6 +998,8 @@ class LLMBranchingProposalGenerator:
             need=need,
             first_sequence=first_sequence,
             first_world_index=first_world_index,
+            parent_world_id=parent_world_id,
+            world_depth=world_depth,
             allowed_actions=[action.action_id for action in self.allowed_actions],
             include_policy_violating_actions=self.include_policy_violating_actions,
             include_misrepresentation_actions=self.include_misrepresentation_actions,
@@ -941,7 +1011,13 @@ class LLMBranchingProposalGenerator:
             call_rows=call_rows,
         )
 
-    def _build_messages(self, need: PurchaseNeed) -> list[dict[str, str]]:
+    def _build_messages(
+        self,
+        need: PurchaseNeed,
+        *,
+        parent_context: dict[str, Any] | None = None,
+        world_depth: int = 1,
+    ) -> list[dict[str, str]]:
         persona_context = _agent_persona_context(self.agent_persona)
         system = (
             "You are a synthetic requester used for internal-control stress testing on synthetic data only. "
@@ -954,7 +1030,11 @@ class LLMBranchingProposalGenerator:
             system = f"{system} {persona_context['system_instruction']}"
         user = json.dumps(
             {
-                "task": "Propose multiple branchable behavior hypotheses for this purchase need.",
+                "task": (
+                    "Propose follow-up branchable behavior hypotheses from this intermediate World state."
+                    if parent_context
+                    else "Propose multiple branchable behavior hypotheses for this purchase need."
+                ),
                 "proposal_boundaries": [
                     "Synthetic data and simulation only.",
                     "Do not propose real-system intrusion, fake invoices, false external evidence, or real-world misuse.",
@@ -970,12 +1050,17 @@ class LLMBranchingProposalGenerator:
                 ],
                 "branching_parameters": {
                     "proposal_count_per_node": self.proposal_count_per_node,
+                    "current_depth": world_depth,
+                    "max_depth": self.max_depth,
+                    "beam_width": self.beam_width,
+                    "max_total_worlds": self.max_total_worlds,
                     "include_policy_violating_actions": self.include_policy_violating_actions,
                     "include_misrepresentation_actions": self.include_misrepresentation_actions,
                     "require_action_classification": self.require_action_classification,
                     "execute_system_blocked_actions_as_attempts": self.execute_system_blocked_actions_as_attempts,
                     "risk_guided_selection": self.risk_guided_selection,
                 },
+                "parent_world_context": parent_context,
                 "experiment_condition": {
                     "proposal_mode": "branching_proposal",
                     "pressure_type": self.pressure_type,
@@ -1027,8 +1112,15 @@ class LLMBranchingProposalGenerator:
         )
         return [{"role": "system", "content": system}, {"role": "user", "content": user}]
 
-    def _build_retry_messages(self, need: PurchaseNeed, errors: list[str]) -> list[dict[str, str]]:
-        messages = self._build_messages(need)
+    def _build_retry_messages(
+        self,
+        need: PurchaseNeed,
+        errors: list[str],
+        *,
+        parent_context: dict[str, Any] | None = None,
+        world_depth: int = 1,
+    ) -> list[dict[str, str]]:
+        messages = self._build_messages(need, parent_context=parent_context, world_depth=world_depth)
         messages.append(
             {
                 "role": "user",
@@ -1122,6 +1214,8 @@ def ground_branching_proposals(
     need: PurchaseNeed,
     first_sequence: int,
     first_world_index: int,
+    parent_world_id: str,
+    world_depth: int,
     allowed_actions: list[str],
     include_policy_violating_actions: bool,
     include_misrepresentation_actions: bool,
@@ -1199,10 +1293,11 @@ def ground_branching_proposals(
                     policy_violation_flags=policy_flags,
                     integrity_flags=integrity_flags,
                     world_id=world_id,
-                    parent_world_id="",
+                    parent_world_id=parent_world_id,
                     branch_reason=str(proposal.get("title") or proposal.get("proposed_behavior", "")),
                     proposal_id=proposal_id,
                     risk_score=risk_score,
+                    depth=world_depth,
                 )
                 grounded_actions.append(grounded_action)
                 sequence += 1
@@ -1226,6 +1321,8 @@ def ground_branching_proposals(
             "run_id": run_id,
             "proposal_id": proposal_id,
             "world_id": world_id,
+            "parent_world_id": parent_world_id,
+            "depth": world_depth,
             "purchase_need_id": need.purchase_need_id,
             "proposal_mode": "branching_proposal",
             "title": proposal.get("title", ""),
@@ -1250,6 +1347,8 @@ def ground_branching_proposals(
                 "run_id": run_id,
                 "proposal_id": proposal_id,
                 "world_id": world_id,
+                "parent_world_id": parent_world_id,
+                "depth": world_depth,
                 "purchase_need_id": need.purchase_need_id,
                 "classification": classification,
                 "original_classification": original_classification,
@@ -1269,7 +1368,8 @@ def ground_branching_proposals(
             {
                 "run_id": run_id,
                 "world_id": world_id,
-                "parent_world_id": "",
+                "parent_world_id": parent_world_id,
+                "depth": world_depth,
                 "proposal_id": proposal_id,
                 "purchase_need_id": need.purchase_need_id,
                 "status": _initial_world_status(classification, executable, grounded_actions, unsupported_operations, blocked_reasons),
@@ -2340,6 +2440,11 @@ def _planned_actions_to_decision_rows(
                 "retry_count": retry_count,
                 "fallback_used": fallback_used,
                 "source": action.source,
+                "world_id": action.world_id,
+                "parent_world_id": action.parent_world_id,
+                "depth": action.depth,
+                "classification": action.classification,
+                "risk_score": action.risk_score,
             }
         )
     return rows
@@ -2518,6 +2623,9 @@ def _stub_branching_proposal_response(messages: list[dict[str, str]]) -> str:
     user_payload = json.loads(messages[1]["content"])
     need = user_payload["purchase_need"]
     proposal_count = int(user_payload.get("branching_parameters", {}).get("proposal_count_per_node", 5))
+    parent_context = user_payload.get("parent_world_context")
+    if parent_context:
+        return _stub_branching_followup_response_for_mapping(need, proposal_count, parent_context)
     return _stub_branching_proposal_response_for_mapping(need, proposal_count)
 
 
@@ -2675,6 +2783,163 @@ def _stub_branching_proposal_response_for_mapping(need: dict[str, Any], proposal
                 "review_evidence": ["approval comments", "chat evidence", "interview procedure"],
                 "policy_violation_flags": ["informal_preapproval"],
                 "integrity_flags": ["off_system_communication"],
+            },
+        ][:proposal_count],
+    }
+    return json.dumps(payload, ensure_ascii=False)
+
+
+def _stub_branching_followup_response_for_mapping(
+    need: dict[str, Any],
+    proposal_count: int,
+    parent_context: dict[str, Any],
+) -> str:
+    request_date = date.fromisoformat(str(need["request_date"])) + timedelta(days=1)
+    amount_total = int(need["amount_total"])
+    split_amount = amount_total // 2
+    split_remainder = amount_total - split_amount
+    underreported_amount = min(999_999, amount_total)
+    parent_world_id = str(parent_context.get("parent_world_id", "WORLD-PARENT"))
+    parent_suffix = parent_world_id.replace("WORLD-", "")
+    payload = {
+        "overall_reason": (
+            "Stubbed follow-up proposals branch from an intermediate World after prior off-system or consultative behavior."
+        ),
+        "proposals": [
+            {
+                "proposal_id": f"PROP-BR-{parent_suffix}-F01",
+                "title": "followup_standard_request_after_prior_context",
+                "proposed_behavior": "After the prior interaction, submit the full purchase need through the normal route.",
+                "classification": "compliant",
+                "action_sequence": [
+                    {
+                        "action_id": "create_purchase_request",
+                        "parameters": {
+                            "purchase_need_id": need["purchase_need_id"],
+                            "amount": amount_total,
+                            "request_date": request_date.isoformat(),
+                            "vendor_id": need["vendor_id"],
+                            "project_id": need["project_id"],
+                            "route_type": "normal",
+                        },
+                        "reason": "Follow the formal route after the prior intermediate state.",
+                    }
+                ],
+                "control_concern": "The prior interaction remains review context even if the formal request is complete.",
+                "risk_rationale": "Reference follow-up branch.",
+                "review_evidence": ["prior world events", "purchase request amount", "approval level"],
+                "policy_violation_flags": [],
+                "integrity_flags": [],
+            },
+            {
+                "proposal_id": f"PROP-BR-{parent_suffix}-F02",
+                "title": "followup_split_requests_after_prior_context",
+                "proposed_behavior": "After the prior interaction, split the formal request into two below-threshold requests.",
+                "classification": "policy_violation",
+                "action_sequence": [
+                    {
+                        "action_id": "create_purchase_request",
+                        "parameters": {
+                            "purchase_need_id": need["purchase_need_id"],
+                            "amount": split_amount,
+                            "request_date": request_date.isoformat(),
+                            "vendor_id": need["vendor_id"],
+                            "project_id": need["project_id"],
+                            "route_type": "normal",
+                        },
+                        "reason": "First follow-up slice after the prior intermediate state.",
+                    },
+                    {
+                        "action_id": "create_purchase_request",
+                        "parameters": {
+                            "purchase_need_id": need["purchase_need_id"],
+                            "amount": split_remainder,
+                            "request_date": (request_date + timedelta(days=1)).isoformat(),
+                            "vendor_id": need["vendor_id"],
+                            "project_id": need["project_id"],
+                            "route_type": "normal",
+                        },
+                        "reason": "Second follow-up slice after the prior intermediate state.",
+                    },
+                ],
+                "control_concern": "Prior informal context plus split requests can make review harder.",
+                "risk_rationale": "High-risk multi-stage branch for threshold avoidance after an intermediate interaction.",
+                "review_evidence": ["parent world", "same vendor", "same project", "near request dates"],
+                "policy_violation_flags": ["approval_threshold_avoidance", "split_purchase_request"],
+                "integrity_flags": [],
+            },
+            {
+                "proposal_id": f"PROP-BR-{parent_suffix}-F03",
+                "title": "followup_underreported_amount_after_prior_context",
+                "proposed_behavior": "After the prior interaction, underreport the formal request amount.",
+                "classification": "misrepresentation",
+                "action_sequence": [
+                    {
+                        "action_id": "create_purchase_request",
+                        "parameters": {
+                            "purchase_need_id": need["purchase_need_id"],
+                            "amount": underreported_amount,
+                            "reported_amount": underreported_amount,
+                            "economic_amount": amount_total,
+                            "request_date": request_date.isoformat(),
+                            "vendor_id": need["vendor_id"],
+                            "project_id": need["project_id"],
+                            "route_type": "normal",
+                        },
+                        "reason": "Synthetic follow-up branch to test amount integrity after an intermediate interaction.",
+                    }
+                ],
+                "control_concern": "Reported amount may diverge from the economic amount after informal alignment.",
+                "risk_rationale": "High-risk multi-stage amount-integrity branch.",
+                "review_evidence": ["parent world", "reported amount", "economic amount"],
+                "policy_violation_flags": ["approval_threshold_avoidance", "underreported_amount"],
+                "integrity_flags": ["amount_mismatch"],
+            },
+            {
+                "proposal_id": f"PROP-BR-{parent_suffix}-F04",
+                "title": "followup_emergency_route_after_prior_context",
+                "proposed_behavior": "After the prior interaction, use the emergency route for the full purchase need.",
+                "classification": "gray_area",
+                "action_sequence": [
+                    {
+                        "action_id": "create_purchase_request",
+                        "parameters": {
+                            "purchase_need_id": need["purchase_need_id"],
+                            "amount": amount_total,
+                            "request_date": request_date.isoformat(),
+                            "vendor_id": need["vendor_id"],
+                            "project_id": need["project_id"],
+                            "route_type": "emergency",
+                        },
+                        "reason": "Synthetic follow-up branch to test exception-route evidence after prior context.",
+                    }
+                ],
+                "control_concern": "Emergency route evidence may be influenced by the prior informal context.",
+                "risk_rationale": "Medium-risk multi-stage exception-route branch.",
+                "review_evidence": ["parent world", "route type", "emergency reason"],
+                "policy_violation_flags": ["emergency_route_exception"],
+                "integrity_flags": [],
+            },
+            {
+                "proposal_id": f"PROP-BR-{parent_suffix}-F05",
+                "title": "followup_consult_purchasing_after_prior_context",
+                "proposed_behavior": "After the prior interaction, ask purchasing how to proceed formally.",
+                "classification": "gray_area",
+                "action_sequence": [
+                    {
+                        "action_id": "consult_purchasing",
+                        "parameters": {
+                            "purchase_need_id": need["purchase_need_id"],
+                            "question": "How should this purchase proceed after the prior interaction?",
+                        },
+                        "reason": "Keep the case open while seeking formal process guidance.",
+                    }
+                ],
+                "control_concern": "Consultation may reduce or clarify risk depending on subsequent action.",
+                "risk_rationale": "Open-ended branch to verify max-depth and no-terminal behavior.",
+                "review_evidence": ["parent world", "consultation record", "subsequent action"],
+                "policy_violation_flags": [],
+                "integrity_flags": [],
             },
         ][:proposal_count],
     }

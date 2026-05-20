@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 from ia_sim.config import validate_config_tree
+from ia_sim.evidence import export_redacted_branching_evidence
 from ia_sim.orchestrator import (
     compare_runs,
     run_agent_stress_experiment,
@@ -122,6 +123,15 @@ def build_parser() -> argparse.ArgumentParser:
     branching_compare.add_argument("--provider", default="openai")
     branching_compare.add_argument("--model", default="gpt-4.1-mini")
     branching_compare.add_argument("--temperature", type=float, default=0.7)
+
+    evidence = subparsers.add_parser(
+        "export-branching-evidence",
+        help="Copy a Branching Proposal run and comparison into a redacted evidence directory",
+    )
+    evidence.add_argument("--source-root", required=True)
+    evidence.add_argument("--output-dir", required=True)
+    evidence.add_argument("--run-id", default="RUN-S002-BRANCHING-BASELINE")
+    evidence.add_argument("--comparison-id", default="CMP-S002-BRANCHING-BASELINE-VARIANTS")
     return parser
 
 
@@ -353,6 +363,16 @@ def main(argv: list[str] | None = None) -> int:
                 indent=2,
             )
         )
+        return 0
+
+    if args.command == "export-branching-evidence":
+        manifest = export_redacted_branching_evidence(
+            source_root=Path(args.source_root),
+            output_dir=Path(args.output_dir),
+            run_id=args.run_id,
+            comparison_id=args.comparison_id,
+        )
+        print(json.dumps(manifest, ensure_ascii=False, indent=2))
         return 0
 
     parser.error("unknown command")

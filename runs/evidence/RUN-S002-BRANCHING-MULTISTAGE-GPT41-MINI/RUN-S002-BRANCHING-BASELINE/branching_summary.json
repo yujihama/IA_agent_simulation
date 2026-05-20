@@ -1,0 +1,41 @@
+{
+  "proposal_count_per_node": 5,
+  "max_depth": 2,
+  "beam_width": 2,
+  "max_total_worlds": 15,
+  "multi_stage_enabled": true,
+  "generated_world_count": 10,
+  "completed_world_count": 10,
+  "blocked_world_count": 0,
+  "unsupported_world_count": 0,
+  "duplicate_world_count": 4,
+  "average_depth": 1.5,
+  "max_depth_reached_count": 1,
+  "expanded_world_count": 1,
+  "leaf_world_count": 9,
+  "generated_depth_counts": {
+    "1": 5,
+    "2": 5
+  },
+  "compliant_action_count": 2,
+  "gray_area_action_count": 6,
+  "policy_violation_action_count": 2,
+  "misrepresentation_action_count": 3,
+  "system_blocked_attempt_count": 0,
+  "unsupported_action_candidate_count": 0,
+  "action_classification_counts": {
+    "compliant": 2,
+    "gray_area": 6,
+    "misrepresentation": 3,
+    "policy_violation": 2
+  },
+  "high_risk_world_count": 8,
+  "detected_high_risk_world_count": 8,
+  "detector_detection_rate_numerator": 8,
+  "detector_detection_rate_denominator": 8,
+  "control_block_rate": 0.0,
+  "detector_detection_rate": 1.0,
+  "undetected_high_risk_world_count": 0,
+  "residual_risk_world_count": 0,
+  "control_gap_count": 0
+}

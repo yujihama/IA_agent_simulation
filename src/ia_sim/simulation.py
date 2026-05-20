@@ -453,6 +453,7 @@ def behavior_replay_rows(run_id: str, plan: list[PlannedAction], behavior_mode: 
                 "branch_reason": action.branch_reason,
                 "proposal_id": action.proposal_id,
                 "risk_score": action.risk_score,
+                "depth": action.depth,
             }
         )
     return rows

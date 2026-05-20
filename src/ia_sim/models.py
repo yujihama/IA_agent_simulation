@@ -121,6 +121,7 @@ class PlannedAction:
     branch_reason: str = ""
     proposal_id: str = ""
     risk_score: int = 0
+    depth: int = 1
 
 
 @dataclass

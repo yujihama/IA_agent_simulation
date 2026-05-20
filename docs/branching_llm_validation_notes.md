@@ -27,11 +27,11 @@
 
 したがって、この結果は「LLMが未知の統制不備を自律的に発見した」という意味ではない。より正確には、**統制ストレステスト用のカバレッジ目標を与えたとき、代表的な高リスクWorldを安定生成できた** という結果である。
 
-また、現時点の実装は初期状態から複数Worldを生成する最小実装である。`max_depth`, `beam_width`, `max_total_worlds` は設定として保持しているが、各Worldの途中状態からさらにLLM proposalを生成する多段階探索は次フェーズの課題である。
+PR#6時点の実装は初期状態から複数Worldを生成する最小実装だった。本追補では最小スコープの多段階探索として、`max_depth=2` で expandable な中間Worldを `parent_world_context` としてLLMへ再入力し、子Worldを生成する。
 
 ## Run Artifact方針
 
-実LLM run artifacts はPoC検証時に一時ディレクトリへ出力し、今回のPRではコミットしない。
+PR#6までは、実LLM run artifacts はPoC検証時に一時ディレクトリへ出力し、コミットしない方針だった。
 
 理由は以下である。
 
@@ -39,7 +39,7 @@
 - 実LLM結果は非決定的で、コミット済み証跡として固定する前に再現条件・モデルバージョン・秘匿情報レビューのルールが必要である
 - 今回は、実LLM検証から得られた示唆を本メモに要約し、回帰テストはstub providerで安定化する
 
-実LLM成果物をPoC evidenceとして保存する場合は、別PRで redaction / provenance / retention policy を決めたうえでコミットする。
+本追補ではこの方針を改め、少なくとも1つの代表runについて redacted artifacts をPoC evidenceとして保存する。prompt / raw response / parsed JSON / validation status はレビュー可能性のため保持し、API keyやtokenに見える文字列、ローカルユーザーパスのみpattern redactionする。
 
 ## 観察結果
 
@@ -90,8 +90,33 @@
 
 Variant比較では、Baselineで未緩和だったWorld群に対し、Variant Aは分割申請 `D-001`、Variant Bは緊急ルート `D-002` をそれぞれ緩和する。一方、過少申請 `D-003` と非公式事前承認 `D-004` は、別の統制・証跡設計が必要なレビュー面として残る。
 
+さらに本PRで、`gpt-4.1-mini` / temperature `0.7` / `max_depth=2` の代表runを作成し、`runs/evidence/RUN-S002-BRANCHING-MULTISTAGE-GPT41-MINI/` にredacted PoC evidenceとして保存した。結果は以下である。
+
+- 生成World: 10件 (`depth=1`: 5件, `depth=2`: 5件)
+- 展開World: 1件 (`WORLD-005` 非公式事前承認から `WORLD-006` - `WORLD-010` へ展開)
+- `detector_detection_rate`: `8 / 8 = 1.0`
+- Baseline未緩和finding: 15件
+- Variant A: 2件をmitigate (`D-001`)
+- Variant B: 2件をmitigate (`D-002`)
+
+子Worldでは親Worldの非公式事前承認イベントが引き継がれるため、通常申請や分割申請に進んだ後も `D-004` が残る。この点は、多段階探索で「前段のシステム外運用が後続の通常フローに残留する」ことを追跡できるようになった、という有用な示唆である。
+
 ## 次フェーズ
 
-1. まず1 temperatureで、少数のWorldに絞った多段階分岐探索を疎通させる
-2. 多段階探索の停止条件、重複排除、beam selectionの評価指標を追加する
-3. 実LLM run artifactsをPoC evidenceとして保存する場合の redaction / provenance / retention policy を定義する
+## 多段階探索・Evidence追補
+
+本追補では、Priority 1 / 2として以下を実装した。
+
+- `max_depth`, `beam_width`, `max_total_worlds` を実際の探索制御に使う
+- 親Worldのイベント列を `parent_world_context` としてLLMへ再入力する
+- 子Worldに `parent_world_id` と `depth` を持たせ、`world_tree.json` に親子関係を出力する
+- 終端理由として `paid`, `blocked_attempt`, `unsupported`, `max_depth_reached`, `no_valid_action`, `expanded`, `open` を集計する
+- `export-branching-evidence` で代表runをredacted PoC evidenceとして保存する
+
+この追補により、PoCは「初期World生成」から「最小スコープの多段階Branching Proposal探索」へ進む。
+
+残る次フェーズ課題は以下である。
+
+1. `max_depth=3` 以上での枝刈り・重複排除・beam selectionの評価
+2. D-003 / D-004に効く追加Variantの設計
+3. 実LLM evidenceを複数temperature・複数scenarioへ拡張する
