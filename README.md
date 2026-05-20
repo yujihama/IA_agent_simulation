@@ -23,6 +23,7 @@ python -m ia_sim.cli run-pressure-experiment --trials 10
 python -m ia_sim.cli run-prompt-ablation-experiment --trials 10
 python -m ia_sim.cli run-balanced-planning-hint-experiment --trials 10
 python -m ia_sim.cli run-hint-pressure-matrix-experiment --trials 5
+python -m ia_sim.cli run-agent-stress-experiment --trials 3
 ```
 
 Generated input is written to `data/synthetic/purchase_needs.csv`, and run outputs are written under `runs/`. The current first-slice and LLM action-selection sample outputs are committed as PoC evidence.
@@ -49,6 +50,8 @@ Generated input is written to `data/synthetic/purchase_needs.csv`, and run outpu
 - `experiments/EXP-S002-BALANCED-PLANNING-HINT-10X/prompt_ablation_report.md`
 - `experiments/EXP-S002-HINT-PRESSURE-MATRIX-5X/summary.json`
 - `experiments/EXP-S002-HINT-PRESSURE-MATRIX-5X/hint_pressure_matrix_report.md`
+- `experiments/EXP-S002-AGENT-STRESS-3X/summary.json`
+- `experiments/EXP-S002-AGENT-STRESS-3X/agent_stress_report.md`
 
 `run-llm-slice` reads `OPENAI_API_KEY` from the environment or `.env` and uses `gpt-4.1-mini` in the checked-in run configs. Tests use a stub provider and do not call the API.
 
@@ -57,6 +60,8 @@ Generated input is written to `data/synthetic/purchase_needs.csv`, and run outpu
 `run-balanced-planning-hint-experiment` gives the same candidate work packages, candidate action plans, and selection rules to both pressure and no-pressure conditions, then checks whether pressure scenario/objectives alone shift the LLM action selection.
 
 `run-hint-pressure-matrix-experiment` crosses hint strength (`no_hint`, `control_knowledge_only`, `weak_hint`, `medium_hint`, `strong_hint`) with pressure type (`no_pressure`, `budget_pressure`, `delivery_pressure`, `approver_absence`, `vendor_constraint`, `workload_pressure`) to test how much the LLM constructs split-like behavior without explicit amount/threshold hints. `control_knowledge_only` gives only the approval threshold interpretation and approval lead-time estimates, treating them as ordinary worker knowledge rather than a plan template.
+
+`run-agent-stress-experiment` runs two stress-test layers. The Closed Action layer changes only the requester persona (`compliant_requester`, `pragmatic_requester`, `control_avoidant_requester`, `red_team_requester`) under the same purchase need, controls, and delivery pressure. The Open Proposal layer uses `red_team_requester` and varies control visibility (`control_hidden`, `control_summary`, `control_full`, `control_full_with_failure_modes`, `control_full_red_team`) to evaluate human-reviewable weakness-hypothesis generation and Action Grounding. Open Proposal outputs are not treated as audit conclusions.
 
 ## Review UI
 
@@ -86,5 +91,6 @@ This repository intentionally tracks the First Vertical Slice PoC evidence:
 - `runs/experiments/EXP-S002-PROMPT-ABLATION-10X/`
 - `runs/experiments/EXP-S002-BALANCED-PLANNING-HINT-10X/`
 - `runs/experiments/EXP-S002-HINT-PRESSURE-MATRIX-5X/`
+- `runs/experiments/EXP-S002-AGENT-STRESS-3X/`
 
 These files contain synthetic data only. Do not commit real data, anonymized production logs, or confidential run outputs. New committed runs should include the input fixture, run manifests, metrics, findings, evaluation results, and comparison reports together. `run_manifest.json` records repository-relative input paths, seed, code version, and SHA-256 hashes for the config and data inputs used to generate the run.

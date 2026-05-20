@@ -50,6 +50,12 @@ ACTION_METRIC_LABELS = {
     "reason_groundedness": "\u7406\u7531\u306e\u6839\u62e0\u6027",
     "fact_in_reason_error_rate": "\u7406\u7531\u5185\u306e\u4e8b\u5b9f\u8aa4\u308a\u7387",
     "human_plausibility_score": "\u4eba\u9593\u30ec\u30d3\u30e5\u30fc\u4e0a\u306e\u59a5\u5f53\u6027",
+    "mapped_to_action_rate": "Action Grounding\u6210\u529f\u7387",
+    "unsupported_action_proposal_count": "\u672a\u5bfe\u5fdcAction\u63d0\u6848\u6570",
+    "emergency_proposal_rate": "\u7dca\u6025\u30fb\u4f8b\u5916\u63d0\u6848\u7387",
+    "compliance_concern_coverage": "\u7d71\u5236\u61f8\u5ff5\u8a18\u8f09\u7387",
+    "human_useful_hypothesis_rate": "\u4eba\u9593\u30ec\u30d3\u30e5\u30fc\u6709\u7528\u4eee\u8aac\u7387",
+    "detector_candidate_generation_rate": "Detector\u5019\u88dc\u751f\u6210\u7387",
 }
 
 STATUS_LABELS = {
@@ -108,7 +114,9 @@ evaluation_results = read_json(evaluation_results_path) if evaluation_results_pa
 action_metrics_path = selected_run / "action_selection_metrics.json"
 action_metrics = read_json(action_metrics_path) if action_metrics_path.exists() else None
 llm_decisions = read_jsonl(selected_run / "llm_action_decisions.jsonl")
-llm_calls = read_jsonl(selected_run / "llm_calls.jsonl")
+llm_calls = read_jsonl(selected_run / "llm_calls.jsonl") or read_jsonl(selected_run / "open_proposal_calls.jsonl")
+open_proposals = read_jsonl(selected_run / "open_proposals.jsonl")
+action_grounding = read_jsonl(selected_run / "action_grounding.jsonl")
 
 review_mode = MODE_OPTIONS[st.radio("\u30ec\u30d3\u30e5\u30fc\u7a2e\u5225", list(MODE_OPTIONS), horizontal=True)]
 
@@ -183,6 +191,12 @@ if action_metrics:
             ],
             use_container_width=True,
         )
+    if open_proposals:
+        st.markdown("#### Open Proposal")
+        st.dataframe(open_proposals, use_container_width=True)
+    if action_grounding:
+        st.markdown("#### Action Grounding")
+        st.dataframe(action_grounding, use_container_width=True)
 
 st.subheader("\u4e0d\u5099\u5019\u88dc")
 if not findings:
@@ -222,7 +236,12 @@ for comparison_report in [
 
 experiment_reports = []
 if (RUNS_DIR / "experiments").exists():
-    for pattern in ["*/pressure_effect_report.md", "*/prompt_ablation_report.md", "*/hint_pressure_matrix_report.md"]:
+    for pattern in [
+        "*/pressure_effect_report.md",
+        "*/prompt_ablation_report.md",
+        "*/hint_pressure_matrix_report.md",
+        "*/agent_stress_report.md",
+    ]:
         experiment_reports.extend((RUNS_DIR / "experiments").glob(pattern))
 experiment_reports = sorted(experiment_reports)
 if experiment_reports:

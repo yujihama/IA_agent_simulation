@@ -7,6 +7,7 @@ from pathlib import Path
 from ia_sim.config import validate_config_tree
 from ia_sim.orchestrator import (
     compare_runs,
+    run_agent_stress_experiment,
     run_balanced_planning_hint_experiment,
     run_first_slice,
     run_hint_pressure_matrix_experiment,
@@ -91,6 +92,16 @@ def build_parser() -> argparse.ArgumentParser:
     matrix.add_argument("--temperature", type=float, default=0.7)
     matrix.add_argument("--hint-strength", action="append", dest="hint_strengths")
     matrix.add_argument("--pressure-type", action="append", dest="pressure_types")
+
+    stress = subparsers.add_parser(
+        "run-agent-stress-experiment",
+        help="Run closed personality ablation and red-team open-proposal control visibility trials",
+    )
+    stress.add_argument("--trials", type=int, default=3)
+    stress.add_argument("--output-root")
+    stress.add_argument("--provider", default="openai")
+    stress.add_argument("--model", default="gpt-4.1-mini")
+    stress.add_argument("--temperature", type=float, default=0.7)
     return parser
 
 
@@ -243,6 +254,29 @@ def main(argv: list[str] | None = None) -> int:
             temperature=args.temperature,
             hint_strengths=args.hint_strengths,
             pressure_types=args.pressure_types,
+        )
+        print(
+            json.dumps(
+                {
+                    "experiment_id": result["experiment_id"],
+                    "experiment_dir": str(result["experiment_dir"]),
+                    "summary": result["summary"],
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+        return 0
+
+    if args.command == "run-agent-stress-experiment":
+        output_root = Path(args.output_root) if args.output_root else None
+        result = run_agent_stress_experiment(
+            repo_root,
+            trials=args.trials,
+            output_root_override=output_root,
+            provider=args.provider,
+            model=args.model,
+            temperature=args.temperature,
         )
         print(
             json.dumps(
