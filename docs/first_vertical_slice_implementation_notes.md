@@ -46,3 +46,16 @@ In this First Slice, approval actors and SOD checks are still stubs. The reposit
 `seed` is passed into synthetic data generation. The embedded D-001 scenario remains fixed for `NEED-001`, while routine synthetic purchases vary deterministically by seed.
 
 `max_purchase_needs` counts purchase needs, not purchase requests. With the S-002 first-slice fixture, 100 purchase needs produce 101 purchase requests because `NEED-001` is represented by two neutral `create_purchase_request` actions.
+
+## Committed Evidence
+
+The First Vertical Slice fixture and outputs are committed as PoC evidence:
+
+- `data/synthetic/purchase_needs.csv`
+- `runs/RUN-S002-BASELINE/`
+- `runs/RUN-S002-VARIANT-A/`
+- `runs/comparisons/CMP-S002-BASELINE-VARIANT-A/`
+
+`purchase_needs.csv` is a fixed synthetic input fixture for `RUN-S002-BASELINE` and `RUN-S002-VARIANT-A`. It does not contain Ground Truth labels. Ground Truth remains isolated in `data/synthetic/ground_truth_labels.yaml`.
+
+The committed run manifests use repository-relative paths and include `seed`, `code_version`, `config_hashes`, and `data_hashes`. Real data, anonymized production logs, and confidential run outputs should not be committed.

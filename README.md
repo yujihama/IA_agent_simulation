@@ -42,3 +42,14 @@ streamlit run ui/streamlit_app.py
 python -m pytest
 ```
 `max_purchase_needs: 100` produces 100 purchase needs. In this first slice, one need is represented by two neutral `create_purchase_request` actions, so the generated run has 101 purchase requests.
+
+## PoC Result Versioning
+
+This repository intentionally tracks the First Vertical Slice PoC evidence:
+
+- `data/synthetic/purchase_needs.csv`
+- `runs/RUN-S002-BASELINE/`
+- `runs/RUN-S002-VARIANT-A/`
+- `runs/comparisons/CMP-S002-BASELINE-VARIANT-A/`
+
+These files contain synthetic data only. Do not commit real data, anonymized production logs, or confidential run outputs. New committed runs should include the input fixture, run manifests, metrics, findings, evaluation results, and comparison reports together. `run_manifest.json` records repository-relative input paths, seed, code version, and SHA-256 hashes for the config and data inputs used to generate the run.

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -87,6 +89,9 @@ def run_simulation(
     )
 
     run_dir = _resolve_run_dir(repo_root, run_config.outputs["dir"], run_config.run_id, output_root_override)
+    run_config_rel = _repo_relative_or_str(config_path, repo_root)
+    purchase_needs_rel = _repo_relative_or_str(purchase_needs_path, repo_root)
+    ground_truth_path = repo_root / run_config.evaluation_inputs["ground_truth_labels"]
     manifest = {
         "run_id": run_config.run_id,
         "name": run_config.name,
@@ -94,8 +99,20 @@ def run_simulation(
         "process": run_config.process,
         "scenario_id": run_config.scenario_id,
         "variant_id": run_config.variant_id,
+        "seed": run_config.seed,
         "behavior_mode": run_config.behavior_mode,
         "comparison_mode": run_config.comparison_mode,
+        "code_version": _git_code_version(repo_root),
+        "config_hashes": {
+            "run_config": _sha256_file(config_path),
+            "actions": _sha256_file(repo_root / run_config.inputs["actions"]),
+            "controls": _sha256_file(repo_root / run_config.inputs["controls"]),
+            "variants": _sha256_file(repo_root / run_config.inputs["variants"]),
+        },
+        "data_hashes": {
+            "purchase_needs": _sha256_file(purchase_needs_path),
+            "ground_truth_labels": _sha256_file(ground_truth_path),
+        },
         "action_library": [action.action_id for action in actions],
         "forbidden_actions_present": [
             action.action_id
@@ -109,8 +126,8 @@ def run_simulation(
             "postponed": "Requester chose postpone_request.",
         },
         "inputs": {
-            "run_config": str(config_path),
-            "purchase_needs": str(purchase_needs_path),
+            "run_config": run_config_rel,
+            "purchase_needs": purchase_needs_rel,
             "ground_truth_labels": run_config.evaluation_inputs["ground_truth_labels"],
         },
         "outputs": {
@@ -211,3 +228,33 @@ def _resolve_run_dir(repo_root: Path, template: str, run_id: str, output_root_ov
 
 def _max_purchase_needs(simulation_config: dict[str, Any]) -> int:
     return int(simulation_config["max_purchase_needs"])
+
+
+def _repo_relative_or_str(path: Path, repo_root: Path) -> str:
+    resolved_path = path.resolve()
+    resolved_root = repo_root.resolve()
+    try:
+        return resolved_path.relative_to(resolved_root).as_posix()
+    except ValueError:
+        return str(resolved_path)
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return f"sha256:{digest.hexdigest()}"
+
+
+def _git_code_version(repo_root: Path) -> str:
+    result = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repo_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        return "git:unknown"
+    return f"git:{result.stdout.strip()}"
