@@ -1,14 +1,14 @@
 {
   "run_id": "RUN-S002-BASELINE",
   "name": "baseline_s002_budget_pressure",
-  "created_at": "2026-05-20T00:08:42Z",
+  "created_at": "2026-05-20T00:54:13Z",
   "process": "p2p",
   "scenario_id": "S-002",
   "variant_id": "baseline",
   "seed": 20260519,
   "behavior_mode": "closed_action",
   "comparison_mode": "frozen_behavior",
-  "code_version": "git:c4ad06d7d33dbbb47ef429d725be1c6b4afe4b4d",
+  "code_version": "git:0867a2d6547cb438176dbb9238542060659e36e5",
   "config_hashes": {
     "run_config": "sha256:35dc514e5c0d814c2ca3bde81d178d778237730af15aa25fba729de8712dc1de",
     "actions": "sha256:20235230bff1363a047d62f6f8dfbf413246209da9ca2a75cff52f6f1288b65b",

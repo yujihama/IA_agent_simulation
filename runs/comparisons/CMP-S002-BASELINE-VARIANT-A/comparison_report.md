@@ -1,14 +1,14 @@
-# Baseline / Variant A Comparison
+# Baseline / Variant A 比較レポート
 
-Comparison mode: frozen_behavior. The same planned create_purchase_request actions are replayed; only control policy changes.
+比較モード: frozen_behavior。同一の計画済みcreate_purchase_request行動列を再生し、統制ポリシーのみを変更する。
 
-| Metric | Baseline | Variant | Delta |
+| 指標 | Baseline | Variant | 差分 |
 |---|---:|---:|---:|
-| Split-order bypass success count | 1 | 0 | -1 |
-| Total approval lead time days | 111.5 | 112.5 | 1.0 |
-| Department-head approvals | 61 | 62 | 1 |
-| Aggregation applications | 0 | 1 | 1 |
+| 分割購買による未緩和すり抜け件数 | 1 | 0 | -1 |
+| 承認リードタイム合計（日） | 111.5 | 112.5 | 1.0 |
+| 部門長承認件数 | 61 | 62 | 1 |
+| 合算判定適用件数 | 0 | 1 | 1 |
 
-Risk reduction ratio: 1.0
+リスク低減率: 1.0
 
-Interpretation: Variant A reduces unmitigated split-order bypass in this scenario, with additional approval workload and lead time.
+解釈: Variant Aはこのシナリオで未緩和の分割購買すり抜けを低減する。一方で、承認負荷とリードタイムは増加する。

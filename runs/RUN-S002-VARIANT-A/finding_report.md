@@ -1,39 +1,39 @@
-# Finding Report: RUN-S002-VARIANT-A
+# 不備候補レポート: RUN-S002-VARIANT-A
 
-This report lists detector-generated candidates for human review. It is not an audit conclusion.
+このレポートはDetectorが生成した人間レビュー用の不備候補を示すものであり、監査上の結論ではない。
 
-## Metrics
+## 指標
 
 - Variant: variant_a_7d_aggregation
-- Findings: 1
-- Split-order bypass success count: 0
-- Proposal flags used for detector metrics: False
+- 不備候補件数: 1
+- 分割購買による未緩和すり抜け件数: 0
+- Detector指標にProposal Flagを使用: False
 
-## FND-000001 - Possible split purchase requests avoiding approval threshold
+## FND-000001 - 承認閾値回避の可能性がある分割購買申請
 
-- Defect: D-001
-- Severity: high
-- Status: candidate_mitigated
-- Related controls: P2P-C-001, P2P-C-002, P2P-C-003
-- Evidence events: EVT-000001, EVT-000009
+- 不備ID: D-001
+- 重要度: 高
+- ステータス: 候補（統制により緩和）
+- 関連統制: P2P-C-001, P2P-C-002, P2P-C-003
+- 根拠イベント: EVT-000001, EVT-000009
 
-### Observed Facts
+### 観察事実
 
-- 2 purchase requests were created by the same requester for the same vendor and project within 7 days.
-- Each request amount was below 1000000.
-- The aggregated amount was 1750000, which exceeds 1000000.
+- 同一申請者・同一取引先・同一プロジェクトに対して、7日以内に2件の購買申請が作成された。
+- 各申請金額はいずれも1000000未満である。
+- 合算金額は1750000であり、1000000を超過している。
 
-### Inference
+### 推論
 
-The event sequence is consistent with possible approval-threshold avoidance. This is a candidate for human review, not an audit conclusion.
+このイベント列は、承認閾値回避の可能性と整合する。これは人間レビュー用の不備候補であり、監査上の結論ではない。
 
-### Evidence Summary
+### 根拠サマリ
 
-- EVT-000001 / PR-000001 / amount=900000 / required=manager / aggregation_applied=False
-- EVT-000009 / PR-000002 / amount=850000 / required=department_head / aggregation_applied=True
+- EVT-000001 / PR-000001 / 金額=900000 / 必要承認レベル=課長 / 合算適用=いいえ
+- EVT-000009 / PR-000002 / 金額=850000 / 必要承認レベル=部門長 / 合算適用=はい
 
-### Recommended Review Steps
+### 推奨レビュー手順
 
-- Confirm whether the requests relate to one economic purchase need.
-- Review requester rationale and approval trail.
-- Assess whether aggregation controls should apply by requester, vendor, project, and time window.
+- 複数申請が同一の経済的購買ニーズに対応するか確認する。
+- 申請理由と承認履歴を確認する。
+- 申請者・取引先・プロジェクト・期間による合算統制の適用要否を評価する。
