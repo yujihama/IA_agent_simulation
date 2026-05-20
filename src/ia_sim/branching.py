@@ -175,7 +175,10 @@ def write_branching_report(path: Path, *, run_id: str, summary: dict[str, Any], 
         "unsupported_world_count",
         "duplicate_world_count",
         "high_risk_world_count",
+        "detected_high_risk_world_count",
         "undetected_high_risk_world_count",
+        "detector_detection_rate_numerator",
+        "detector_detection_rate_denominator",
         "residual_risk_world_count",
         "control_gap_count",
     ]:
@@ -294,6 +297,9 @@ def _branching_summary(
         "unsupported_action_candidate_count": len(action_library_candidates),
         "action_classification_counts": dict(sorted(action_classification_counts.items())),
         "high_risk_world_count": high_risk_count,
+        "detected_high_risk_world_count": len(detected_high_risk_worlds),
+        "detector_detection_rate_numerator": len(detected_high_risk_worlds),
+        "detector_detection_rate_denominator": high_risk_count,
         "control_block_rate": round(blocked_world_count / high_risk_count, 4) if high_risk_count else 0.0,
         "detector_detection_rate": round(len(detected_high_risk_worlds) / high_risk_count, 4)
         if high_risk_count

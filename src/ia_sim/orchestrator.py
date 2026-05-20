@@ -36,7 +36,7 @@ from ia_sim.llm import (
 )
 from ia_sim.llm_metrics import compare_action_selection_metric_sets, compute_action_selection_metrics
 from ia_sim.metrics import compare_metric_sets, compute_metrics
-from ia_sim.models import RunResult, now_utc_iso
+from ia_sim.models import PlannedAction, RunResult, now_utc_iso
 from ia_sim.reports import write_comparison_report, write_finding_report, write_llm_action_review_report
 from ia_sim.rule_engine import RuleEngine, VariantPolicy
 from ia_sim.simulation import SimulationEngine, behavior_replay_rows, build_behavior_plan
@@ -63,17 +63,25 @@ PRESSURE_TYPES = [
     "vendor_constraint",
     "workload_pressure",
 ]
+BRANCHING_COMPARISON_VARIANTS = [
+    "baseline",
+    "variant_a_7d_aggregation",
+    "variant_b_emergency_post_approval",
+]
 
 
 def load_variant_policy(repo_root: Path, variant_id: str) -> VariantPolicy:
     raw = read_yaml(repo_root / "configs/variants/p2p_control_variants.yaml")
     for item in raw["variants"]:
         if item["variant_id"] == variant_id:
-            aggregate_days = item.get("rules", {}).get("aggregate_approval_window_days")
+            rules = item.get("rules", {})
+            aggregate_days = rules.get("aggregate_approval_window_days")
             return VariantPolicy(
                 variant_id=item["variant_id"],
                 name=item["name"],
                 aggregate_approval_window_days=aggregate_days,
+                emergency_route_reason_required=bool(rules.get("emergency_route_reason_required", False)),
+                emergency_route_post_approval_hours=rules.get("emergency_route_post_approval_hours"),
             )
     raise ValueError(f"Unknown variant_id: {variant_id}")
 
@@ -515,6 +523,267 @@ def run_branching_simulation(
         purchase_needs_path_override=purchase_needs_path,
     )
     return {"run": result, "config_path": config_path}
+
+
+def run_branching_variant_comparison(
+    repo_root: Path,
+    *,
+    output_root_override: Path | None = None,
+    provider: str = "openai",
+    model: str = "gpt-4.1-mini",
+    temperature: float = 0.7,
+) -> dict[str, Any]:
+    baseline_result = run_branching_simulation(
+        repo_root,
+        output_root_override=output_root_override,
+        provider=provider,
+        model=model,
+        temperature=temperature,
+    )
+    baseline_run: RunResult = baseline_result["run"]
+    base_config = read_yaml(baseline_result["config_path"])
+    purchase_needs_path = repo_root / base_config["inputs"]["purchase_needs"]
+    needs = read_purchase_needs_csv(purchase_needs_path)
+    controls = load_control_cards(repo_root / base_config["inputs"]["controls"])
+    ground_truth = read_yaml(repo_root / base_config["evaluation_inputs"]["ground_truth_labels"])
+    branching_config = _branching_config(base_config.get("branching", {}))
+    planned_actions = [
+        _planned_action_from_behavior_row(row)
+        for row in read_jsonl(baseline_run.run_dir / "behavior_replay_log.jsonl")
+    ]
+    world_rows = read_json(baseline_run.run_dir / "world_summaries.json")["worlds"]
+    action_library_candidates = read_json(baseline_run.run_dir / "action_library_candidates.json")["candidates"]
+
+    variant_runs: dict[str, dict[str, Any]] = {}
+    for variant_id in BRANCHING_COMPARISON_VARIANTS:
+        variant_policy = load_variant_policy(repo_root, variant_id)
+        run_id = f"RUN-S002-BRANCHING-{_branching_variant_label(variant_id)}"
+        rule_engine = RuleEngine(controls, variant_policy)
+        events = execute_branching_worlds(
+            run_id=run_id,
+            needs=needs,
+            planned_actions=planned_actions,
+            rule_engine=rule_engine,
+        )
+        annotations = detect_control_findings(events)
+        findings = build_findings(annotations, events)
+        evaluation_results = evaluate_findings(findings=findings, events=events, ground_truth=ground_truth)
+        metrics = compute_metrics(
+            events=events,
+            annotations=annotations,
+            findings=findings,
+            evaluation_results=evaluation_results,
+            variant_id=variant_id,
+        )
+        artifacts = build_branching_artifacts(
+            run_id=run_id,
+            branching_config=branching_config,
+            world_rows=world_rows,
+            planned_actions=planned_actions,
+            events=events,
+            annotations=annotations,
+            findings=findings,
+            action_library_candidates=action_library_candidates,
+        )
+        metrics.update(artifacts["branching_summary"])
+        variant_runs[variant_id] = {
+            "run_id": run_id,
+            "variant_name": variant_policy.name,
+            "metrics": metrics,
+            "branching_summary": artifacts["branching_summary"],
+            "world_summaries": artifacts["world_summaries"],
+            "findings": findings,
+        }
+
+    comparison = _build_branching_variant_comparison(
+        source_run_id=baseline_run.run_id,
+        provider=provider,
+        model=model,
+        temperature=temperature,
+        variant_runs=variant_runs,
+    )
+    comparison_dir = (output_root_override or repo_root / "runs") / "comparisons/CMP-S002-BRANCHING-BASELINE-VARIANTS"
+    write_json(comparison_dir / "branching_variant_comparison.json", comparison)
+    _write_branching_variant_comparison_report(
+        comparison_dir / "branching_variant_comparison_report.md",
+        comparison,
+    )
+    return {
+        "baseline_run": baseline_run,
+        "comparison_dir": comparison_dir,
+        "comparison": comparison,
+    }
+
+
+def _planned_action_from_behavior_row(row: dict[str, Any]) -> PlannedAction:
+    parameters = dict(row.get("parameters", {}))
+    purchase_need_id = str(parameters.get("purchase_need_id", row.get("purchase_need_id", "")))
+    return PlannedAction(
+        sequence=int(row["sequence"]),
+        purchase_need_id=purchase_need_id,
+        action_id=str(row["selected_action_id"]),
+        parameters=parameters,
+        rationale=str(row.get("rationale", "")),
+        allowed_actions=[str(action_id) for action_id in row.get("allowed_actions_presented", [])],
+        source=str(row.get("source", "branching_replay")),
+        classification=str(row.get("classification", "compliant")),
+        policy_violation_flags=[str(item) for item in row.get("policy_violation_flags", [])],
+        integrity_flags=[str(item) for item in row.get("integrity_flags", [])],
+        world_id=str(row.get("world_id", "")),
+        parent_world_id=str(row.get("parent_world_id", "")),
+        branch_reason=str(row.get("branch_reason", "")),
+        proposal_id=str(row.get("proposal_id", "")),
+        risk_score=int(row.get("risk_score", 0)),
+    )
+
+
+def _branching_variant_label(variant_id: str) -> str:
+    labels = {
+        "baseline": "BASELINE",
+        "variant_a_7d_aggregation": "VARIANT-A",
+        "variant_b_emergency_post_approval": "VARIANT-B",
+    }
+    return labels.get(variant_id, variant_id.upper().replace("_", "-"))
+
+
+def _build_branching_variant_comparison(
+    *,
+    source_run_id: str,
+    provider: str,
+    model: str,
+    temperature: float,
+    variant_runs: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    baseline_findings_by_world = _findings_by_world(variant_runs["baseline"]["findings"])
+    variants: dict[str, Any] = {}
+    worlds: list[dict[str, Any]] = []
+    baseline_worlds = {
+        world["world_id"]: world
+        for world in variant_runs["baseline"]["world_summaries"]
+    }
+
+    for variant_id, result in variant_runs.items():
+        findings_by_world = _findings_by_world(result["findings"])
+        summary = result["branching_summary"]
+        findings = result["findings"]
+        variants[variant_id] = {
+            "run_id": result["run_id"],
+            "variant_name": result["variant_name"],
+            "generated_world_count": summary["generated_world_count"],
+            "detector_detection_rate": summary["detector_detection_rate"],
+            "detector_detection_rate_numerator": summary["detector_detection_rate_numerator"],
+            "detector_detection_rate_denominator": summary["detector_detection_rate_denominator"],
+            "unmitigated_finding_count": sum(
+                1 for finding in findings if finding.get("status") == "candidate_unmitigated"
+            ),
+            "mitigated_finding_count": sum(
+                1 for finding in findings if finding.get("status") == "candidate_mitigated"
+            ),
+            "residual_risk_world_count": summary["residual_risk_world_count"],
+        }
+        for world in result["world_summaries"]:
+            if variant_id == "baseline":
+                continue
+            world_id = world["world_id"]
+            baseline_unmitigated = _world_defects(
+                baseline_findings_by_world.get(world_id, []),
+                status="candidate_unmitigated",
+            )
+            variant_unmitigated = _world_defects(
+                findings_by_world.get(world_id, []),
+                status="candidate_unmitigated",
+            )
+            variant_mitigated = _world_defects(
+                findings_by_world.get(world_id, []),
+                status="candidate_mitigated",
+            )
+            worlds.append(
+                {
+                    "variant_id": variant_id,
+                    "world_id": world_id,
+                    "branch_reason": baseline_worlds.get(world_id, {}).get("branch_reason", ""),
+                    "classification": baseline_worlds.get(world_id, {}).get("classification", ""),
+                    "baseline_unmitigated_defects": baseline_unmitigated,
+                    "variant_unmitigated_defects": variant_unmitigated,
+                    "variant_mitigated_defects": variant_mitigated,
+                    "defects_mitigated_by_variant": sorted(
+                        set(baseline_unmitigated) - set(variant_unmitigated)
+                    ),
+                    "new_unmitigated_defects": sorted(set(variant_unmitigated) - set(baseline_unmitigated)),
+                }
+            )
+
+    return {
+        "comparison_mode": "branching_variant_replay",
+        "world_group_source_run_id": source_run_id,
+        "same_world_group_replayed": True,
+        "provider": provider,
+        "model": model,
+        "temperature": temperature,
+        "variants": variants,
+        "world_effects": worlds,
+    }
+
+
+def _findings_by_world(findings: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for finding in findings:
+        grouped.setdefault(str(finding.get("world_id", "")), []).append(finding)
+    return grouped
+
+
+def _world_defects(findings: list[dict[str, Any]], *, status: str) -> list[str]:
+    return sorted({str(finding["defect_id"]) for finding in findings if finding.get("status") == status})
+
+
+def _write_branching_variant_comparison_report(path: Path, comparison: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lines = [
+        "# Branching Variant Comparison",
+        "",
+        f"- comparison_mode: {comparison['comparison_mode']}",
+        f"- world_group_source_run_id: {comparison['world_group_source_run_id']}",
+        f"- same_world_group_replayed: {comparison['same_world_group_replayed']}",
+        f"- model: {comparison['model']}",
+        f"- temperature: {comparison['temperature']}",
+        "",
+        "## Variant Summary",
+        "",
+        "| Variant | Detection | Unmitigated findings | Mitigated findings | Residual worlds |",
+        "|---|---:|---:|---:|---:|",
+    ]
+    for variant_id, summary in comparison["variants"].items():
+        lines.append(
+            f"| {variant_id} | "
+            f"{summary['detector_detection_rate_numerator']}/{summary['detector_detection_rate_denominator']} "
+            f"({summary['detector_detection_rate']}) | "
+            f"{summary['unmitigated_finding_count']} | "
+            f"{summary['mitigated_finding_count']} | "
+            f"{summary['residual_risk_world_count']} |"
+        )
+
+    lines.extend(
+        [
+            "",
+            "## World Effects",
+            "",
+            "| Variant | World | Branch | Baseline unmitigated | Variant mitigated | Variant unmitigated |",
+            "|---|---|---|---|---|---|",
+        ]
+    )
+    for row in comparison["world_effects"]:
+        lines.append(
+            f"| {row['variant_id']} | {row['world_id']} | {row['branch_reason']} | "
+            f"{row['baseline_unmitigated_defects']} | "
+            f"{row['variant_mitigated_defects']} | "
+            f"{row['variant_unmitigated_defects']} |"
+        )
+    lines.append("")
+    lines.append(
+        "Interpretation: Variant A should mainly mitigate split-request worlds, while Variant B should mainly mitigate emergency-route worlds. "
+        "Underreported amount and informal preapproval remain separate review surfaces."
+    )
+    path.write_text("\n".join(lines), encoding="utf-8")
 
 
 def run_pressure_condition_experiment(

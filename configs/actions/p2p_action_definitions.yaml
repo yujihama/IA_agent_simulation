@@ -31,6 +31,15 @@ actions:
       - purchase_need_id
       - reason
     neutral_name: true
+  - action_id: informal_preapproval_chat
+    description: Record an off-system informal preapproval or process-shortcut discussion as a synthetic stress-test event.
+    mode: branching_action
+    required_fields:
+      - purchase_need_id
+      - channel
+      - counterpart_role
+      - message
+    neutral_name: true
   - action_id: propose_behavior
     description: Open Proposal Mode text proposal. Proposals are not executed directly.
     mode: open_proposal

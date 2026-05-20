@@ -13,10 +13,16 @@ class VariantPolicy:
     name: str
     aggregate_approval_window_days: int | None = None
     aggregate_by_fields: tuple[str, ...] = ("requester_user_id", "vendor_id", "project_id")
+    emergency_route_reason_required: bool = False
+    emergency_route_post_approval_hours: int | None = None
 
     @property
     def aggregation_enabled(self) -> bool:
         return self.aggregate_approval_window_days is not None
+
+    @property
+    def emergency_route_strengthened(self) -> bool:
+        return self.emergency_route_reason_required or self.emergency_route_post_approval_hours is not None
 
 
 class RuleEngine:
@@ -45,6 +51,7 @@ class RuleEngine:
         amount: int,
         route_type: str,
         prior_requests: list[PurchaseRequestRecord],
+        emergency_reason: str = "",
     ) -> dict[str, Any]:
         individual_level = self.required_approver_level(amount)
         aggregate_amount = amount
@@ -70,6 +77,17 @@ class RuleEngine:
             aggregate_level = individual_level
             required_level = individual_level
 
+        emergency_reason_present = bool(str(emergency_reason).strip())
+        emergency_route_reason_required = route_type == "emergency" and self.variant_policy.emergency_route_reason_required
+        emergency_post_approval_required = (
+            route_type == "emergency" and self.variant_policy.emergency_route_post_approval_hours is not None
+        )
+        emergency_evidence_complete = (
+            route_type != "emergency"
+            or not self.variant_policy.emergency_route_strengthened
+            or ((not emergency_route_reason_required or emergency_reason_present) and emergency_post_approval_required)
+        )
+
         return {
             "P2P-C-001": {
                 "status": "passed",
@@ -94,10 +112,19 @@ class RuleEngine:
                 "rule": "Requester must not approve own purchase request",
             },
             "P2P-C-003": {
-                "status": "passed",
+                "status": "passed" if emergency_evidence_complete else "failed",
                 "control_id": "P2P-C-003",
                 "control_name": "Pre-PO approval",
                 "pre_po_approval_required": route_type != "emergency",
+                "emergency_route_reason_required": emergency_route_reason_required,
+                "emergency_route_reason_present": route_type == "emergency" and emergency_reason_present,
+                "post_approval_required": emergency_post_approval_required,
+                "post_approval_hours": self.variant_policy.emergency_route_post_approval_hours
+                if route_type == "emergency"
+                else None,
+                "emergency_route_strengthened": (
+                    route_type == "emergency" and self.variant_policy.emergency_route_strengthened
+                ),
                 "route_type": route_type,
             },
         }

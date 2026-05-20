@@ -9,9 +9,11 @@ from ia_sim.models import APPROVER_RANK
 SPLIT_ORDER_DETECTOR_ID = "split_order_detector"
 AMOUNT_MISMATCH_DETECTOR_ID = "amount_mismatch_detector"
 EMERGENCY_ROUTE_DETECTOR_ID = "emergency_route_detector"
+INFORMAL_PREAPPROVAL_DETECTOR_ID = "informal_preapproval_detector"
 DEFECT_ID = "D-001"
 UNDERREPORTED_AMOUNT_DEFECT_ID = "D-003"
 EMERGENCY_ROUTE_DEFECT_ID = "D-002"
+INFORMAL_PREAPPROVAL_DEFECT_ID = "D-004"
 DEPARTMENT_HEAD_THRESHOLD = 1_000_000
 WINDOW_DAYS = 7
 
@@ -153,6 +155,13 @@ def detect_emergency_route_usage(events: list[dict[str, Any]]) -> list[dict[str,
     for event in events:
         if event["action_id"] != "create_purchase_request" or event.get("route_type") != "emergency":
             continue
+        emergency_control = event.get("control_results", {}).get("P2P-C-003", {})
+        mitigated_by_emergency_control = bool(
+            emergency_control.get("emergency_route_reason_required")
+            and emergency_control.get("emergency_route_reason_present")
+            and emergency_control.get("post_approval_required")
+            and int(emergency_control.get("post_approval_hours") or 9999) <= 48
+        )
         annotations.append(
             {
                 "annotation_id": f"ANN-EMG-{index:06d}",
@@ -165,6 +174,8 @@ def detect_emergency_route_usage(events: list[dict[str, Any]]) -> list[dict[str,
                 "confidence": 0.72,
                 "bypass_success": False,
                 "mitigated_by_aggregation": False,
+                "mitigated_by_variant": mitigated_by_emergency_control,
+                "mitigated_by_emergency_control": mitigated_by_emergency_control,
                 "evidence_event_ids": [event["event_id"]],
                 "observed_facts": [
                     "購買申請が緊急ルートで作成された。",
@@ -183,10 +194,50 @@ def detect_emergency_route_usage(events: list[dict[str, Any]]) -> list[dict[str,
     return annotations
 
 
+def detect_informal_preapprovals(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    annotations: list[dict[str, Any]] = []
+    index = 1
+    for event in events:
+        if event["action_id"] != "informal_preapproval_chat":
+            continue
+        metadata = event.get("metadata", {})
+        annotations.append(
+            {
+                "annotation_id": f"ANN-INF-{index:06d}",
+                "run_id": event["run_id"],
+                "world_id": event.get("world_id", ""),
+                "detector_id": INFORMAL_PREAPPROVAL_DETECTOR_ID,
+                "defect_id": INFORMAL_PREAPPROVAL_DEFECT_ID,
+                "candidate_group_id": f"D004-{index:03d}",
+                "severity": "medium",
+                "confidence": 0.68,
+                "bypass_success": False,
+                "mitigated_by_aggregation": False,
+                "evidence_event_ids": [event["event_id"]],
+                "channel": metadata.get("channel", ""),
+                "counterpart_role": metadata.get("counterpart_role", ""),
+                "observed_facts": [
+                    "正式な購買申請前に、システム外の非公式事前相談が記録された。",
+                    "このイベントは通常の承認ワークフロー上の承認証跡ではない。",
+                ],
+                "inference": (
+                    "非公式事前承認は正式統制を形骸化させる可能性がある。"
+                    "承認コメント、チャット証跡、ヒアリング手続で追加確認すべきレビュー候補である。"
+                ),
+                "related_controls": ["P2P-C-001", "P2P-C-003"],
+                "proposal_flags_used": True,
+                "detection_basis": "branching_action_event",
+            }
+        )
+        index += 1
+    return annotations
+
+
 def detect_control_findings(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
     annotations = detect_split_orders(events)
     annotations.extend(detect_amount_mismatches(events))
     annotations.extend(detect_emergency_route_usage(events))
+    annotations.extend(detect_informal_preapprovals(events))
     return annotations
 
 
@@ -195,7 +246,12 @@ def build_findings(annotations: list[dict[str, Any]], events: list[dict[str, Any
     findings: list[dict[str, Any]] = []
     for index, annotation in enumerate(annotations, start=1):
         evidence = [events_by_id[event_id] for event_id in annotation["evidence_event_ids"]]
-        status = "candidate_mitigated" if annotation["mitigated_by_aggregation"] else "candidate_unmitigated"
+        mitigated_by_variant = bool(annotation.get("mitigated_by_variant", False))
+        status = (
+            "candidate_mitigated"
+            if annotation["mitigated_by_aggregation"] or mitigated_by_variant
+            else "candidate_unmitigated"
+        )
         defect_id = annotation.get("defect_id", DEFECT_ID)
         if defect_id == UNDERREPORTED_AMOUNT_DEFECT_ID:
             title = "申請金額と実質金額の不整合候補"
@@ -210,6 +266,13 @@ def build_findings(annotations: list[dict[str, Any]], events: list[dict[str, Any
                 "緊急理由、証跡添付、事後承認の有無を確認する。",
                 "緊急ルート利用が反復していないか確認する。",
                 "通常ルートでは間に合わなかった合理的理由を確認する。",
+            ]
+        elif defect_id == INFORMAL_PREAPPROVAL_DEFECT_ID:
+            title = "非公式事前承認・システム外相談のレビュー候補"
+            recommended_review_steps = [
+                "正式承認前の非公式な合意形成があったか確認する。",
+                "承認コメント、チャット証跡、ヒアリング手続で根拠を確認する。",
+                "非公式相談が正式承認を形骸化させていないか評価する。",
             ]
         else:
             title = "\u627f\u8a8d\u95be\u5024\u56de\u907f\u306e\u53ef\u80fd\u6027\u304c\u3042\u308b\u5206\u5272\u8cfc\u8cb7\u7533\u8acb"
@@ -234,6 +297,8 @@ def build_findings(annotations: list[dict[str, Any]], events: list[dict[str, Any
                 "inference": annotation["inference"],
                 "bypass_success": annotation["bypass_success"],
                 "mitigated_by_aggregation": annotation["mitigated_by_aggregation"],
+                "mitigated_by_variant": mitigated_by_variant,
+                "mitigated_by_emergency_control": bool(annotation.get("mitigated_by_emergency_control", False)),
                 "recommended_review_steps": recommended_review_steps,
                 "evidence_summary": [
                     {

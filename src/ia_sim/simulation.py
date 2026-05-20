@@ -95,7 +95,12 @@ class SimulationEngine:
             need = need_by_id[action.purchase_need_id]
             if action.action_id == "create_purchase_request":
                 events.extend(self._create_purchase_request_events(need, action))
-            elif action.action_id in {"consult_manager", "consult_purchasing", "postpone_request"}:
+            elif action.action_id in {
+                "consult_manager",
+                "consult_purchasing",
+                "postpone_request",
+                "informal_preapproval_chat",
+            }:
                 events.append(self._non_purchase_request_event(need, action))
         return events
 
@@ -158,6 +163,16 @@ class SimulationEngine:
             state_before = need.status
             state_after = need.status
             metadata = {"question": action.parameters.get("question", ""), "consulted_role": "purchasing"}
+        elif action.action_id == "informal_preapproval_chat":
+            actor_role = "requester"
+            state_before = need.status
+            state_after = need.status
+            metadata = {
+                "channel": action.parameters.get("channel", "chat"),
+                "counterpart_role": action.parameters.get("counterpart_role", "purchasing"),
+                "message": action.parameters.get("message", ""),
+                "system_of_record": False,
+            }
         else:
             actor_role = "requester"
             state_before, state_after = need.apply_postpone()
@@ -215,6 +230,7 @@ class SimulationEngine:
             amount=amount,
             route_type=route_type,
             prior_requests=self.purchase_requests,
+            emergency_reason=str(action.parameters.get("emergency_reason", "")),
         )
         amount_control = control_results["P2P-C-001"]
         required_level = amount_control["effective_required_approver_level"]
@@ -264,6 +280,7 @@ class SimulationEngine:
                 "reported_amount": amount,
                 "economic_amount": economic_amount,
                 "amount_mismatch": amount != economic_amount,
+                "emergency_reason": action.parameters.get("emergency_reason", ""),
                 "classification": action.classification,
                 "policy_violation_flags": action.policy_violation_flags,
                 "integrity_flags": action.integrity_flags,
@@ -309,6 +326,7 @@ class SimulationEngine:
                     "reported_amount": amount,
                     "economic_amount": economic_amount,
                     "amount_mismatch": amount != economic_amount,
+                    "emergency_reason": action.parameters.get("emergency_reason", ""),
                     "classification": action.classification,
                     "policy_violation_flags": action.policy_violation_flags,
                     "integrity_flags": action.integrity_flags,
@@ -347,6 +365,7 @@ class SimulationEngine:
                         "reported_amount": amount,
                         "economic_amount": economic_amount,
                         "amount_mismatch": amount != economic_amount,
+                        "emergency_reason": action.parameters.get("emergency_reason", ""),
                         "classification": action.classification,
                         "policy_violation_flags": action.policy_violation_flags,
                         "integrity_flags": action.integrity_flags,
