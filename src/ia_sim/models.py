@@ -68,6 +68,7 @@ class RunConfig:
     inputs: dict[str, str]
     evaluation_inputs: dict[str, str]
     outputs: dict[str, str]
+    llm: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -94,6 +95,11 @@ class PurchaseNeed:
             self.status = "partially_requested"
         else:
             self.status = "requested"
+        return before, self.status
+
+    def apply_postpone(self) -> tuple[str, str]:
+        before = self.status
+        self.status = "postponed"
         return before, self.status
 
 

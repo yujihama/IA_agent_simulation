@@ -77,13 +77,14 @@ def detect_split_orders(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
                         "project_id": key[2],
                     },
                     "observed_facts": [
-                        f"同一申請者・同一取引先・同一プロジェクトに対して、{WINDOW_DAYS}日以内に{len(window)}件の購買申請が作成された。",
-                        f"各申請金額はいずれも{DEPARTMENT_HEAD_THRESHOLD}未満である。",
-                        f"合算金額は{total_amount}であり、{DEPARTMENT_HEAD_THRESHOLD}を超過している。",
+                        f"\u540c\u4e00\u6761\u4ef6\u3067{WINDOW_DAYS}\u65e5\u4ee5\u5185\u306b{len(window)}\u4ef6\u306e\u8cfc\u8cb7\u7533\u8acb\u304c\u4f5c\u6210\u3055\u308c\u305f\u3002",
+                        f"\u5404\u7533\u8acb\u91d1\u984d\u306f{DEPARTMENT_HEAD_THRESHOLD}\u672a\u6e80\u3067\u3042\u308b\u3002",
+                        f"\u5408\u7b97\u91d1\u984d\u306f{total_amount}\u3067\u3042\u308a\u3001{DEPARTMENT_HEAD_THRESHOLD}\u3092\u8d85\u3048\u3066\u3044\u308b\u3002",
                     ],
                     "inference": (
-                        "このイベント列は、承認閾値回避の可能性と整合する。"
-                        "これは人間レビュー用の不備候補であり、監査上の結論ではない。"
+                        "\u627f\u8a8d\u95be\u5024\u56de\u907f\u306e\u53ef\u80fd\u6027\u3068\u6574\u5408\u3059\u308b\u3002"
+                        "\u3053\u308c\u306f\u4eba\u9593\u30ec\u30d3\u30e5\u30fc\u7528\u306e\u4e0d\u5099\u5019\u88dc\u3067\u3042\u308a\u3001"
+                        "\u76e3\u67fb\u4e0a\u306e\u7d50\u8ad6\u3067\u306f\u306a\u3044\u3002"
                     ),
                     "related_controls": ["P2P-C-001", "P2P-C-002", "P2P-C-003"],
                     "proposal_flags_used": False,
@@ -106,7 +107,7 @@ def build_findings(annotations: list[dict[str, Any]], events: list[dict[str, Any
                 "finding_id": f"FND-{index:06d}",
                 "run_id": annotation["run_id"],
                 "defect_id": DEFECT_ID,
-                "title": "承認閾値回避の可能性がある分割購買申請",
+                "title": "\u627f\u8a8d\u95be\u5024\u56de\u907f\u306e\u53ef\u80fd\u6027\u304c\u3042\u308b\u5206\u5272\u8cfc\u8cb7\u7533\u8acb",
                 "severity": annotation["severity"],
                 "status": status,
                 "detector_id": annotation["detector_id"],
@@ -117,9 +118,9 @@ def build_findings(annotations: list[dict[str, Any]], events: list[dict[str, Any
                 "bypass_success": annotation["bypass_success"],
                 "mitigated_by_aggregation": annotation["mitigated_by_aggregation"],
                 "recommended_review_steps": [
-                    "複数申請が同一の経済的購買ニーズに対応するか確認する。",
-                    "申請理由と承認履歴を確認する。",
-                    "申請者・取引先・プロジェクト・期間による合算統制の適用要否を評価する。",
+                    "\u8907\u6570\u7533\u8acb\u304c\u540c\u4e00\u306e\u8cfc\u8cb7\u30cb\u30fc\u30ba\u306b\u5bfe\u5fdc\u3059\u308b\u304b\u78ba\u8a8d\u3059\u308b\u3002",
+                    "\u7533\u8acb\u7406\u7531\u3068\u627f\u8a8d\u5c65\u6b74\u3092\u78ba\u8a8d\u3059\u308b\u3002",
+                    "\u5408\u7b97\u7d71\u5236\u306e\u9069\u7528\u8981\u5426\u3092\u8a55\u4fa1\u3059\u308b\u3002",
                 ],
                 "evidence_summary": [
                     {

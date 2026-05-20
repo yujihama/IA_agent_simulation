@@ -92,11 +92,55 @@ class SimulationEngine:
         need_by_id = {need.purchase_need_id: need for need in needs}
         events: list[dict[str, Any]] = []
         for action in plan:
-            if action.action_id != "create_purchase_request":
-                continue
             need = need_by_id[action.purchase_need_id]
-            events.extend(self._create_purchase_request_events(need, action))
+            if action.action_id == "create_purchase_request":
+                events.extend(self._create_purchase_request_events(need, action))
+            elif action.action_id in {"consult_manager", "consult_purchasing", "postpone_request"}:
+                events.append(self._non_purchase_request_event(need, action))
         return events
+
+    def _non_purchase_request_event(self, need: PurchaseNeed, action: PlannedAction) -> dict[str, Any]:
+        action_date = action.parameters.get("request_date") or need.request_date.isoformat()
+        timestamp = datetime.combine(datetime.fromisoformat(action_date).date(), time(9, 0), tzinfo=JST)
+        if action.action_id == "consult_manager":
+            actor_role = "requester"
+            state_before = need.status
+            state_after = need.status
+            metadata = {"question": action.parameters.get("question", ""), "consulted_role": "manager"}
+        elif action.action_id == "consult_purchasing":
+            actor_role = "requester"
+            state_before = need.status
+            state_after = need.status
+            metadata = {"question": action.parameters.get("question", ""), "consulted_role": "purchasing"}
+        else:
+            actor_role = "requester"
+            state_before, state_after = need.apply_postpone()
+            metadata = {"reason": action.parameters.get("reason", "")}
+        case_id = f"CASE-ACT-{action.sequence:06d}"
+        metadata.update(
+            {
+                "scenario_id": need.scenario_id,
+                "planned_action_sequence": action.sequence,
+                "item_description": need.item_description,
+            }
+        )
+        return self._event(
+            timestamp=timestamp,
+            case_id=case_id,
+            purchase_need_id=need.purchase_need_id,
+            purchase_request_id="",
+            actor_user_id=need.requester_user_id,
+            actor_role=actor_role,
+            action_id=action.action_id,
+            amount=0,
+            vendor_id=need.vendor_id,
+            project_id=need.project_id,
+            route_type=action.parameters.get("route_type", ""),
+            state_before=state_before,
+            state_after=state_after,
+            control_results={},
+            metadata=metadata,
+        )
 
     def _create_purchase_request_events(self, need: PurchaseNeed, action: PlannedAction) -> list[dict[str, Any]]:
         amount = int(action.parameters["amount"])

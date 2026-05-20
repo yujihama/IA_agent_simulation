@@ -1,0 +1,35 @@
+run_id: RUN-S002-FULL-CONTEXT-NO-PRESSURE-06
+name: s002_full_context_no_pressure_trial_06
+process: p2p
+scenario_id: S-002
+variant_id: baseline
+seed: 20261525
+behavior_mode: adaptive_agent
+comparison_mode: prompt_ablation_experiment
+simulation:
+  max_purchase_needs: 1
+  max_steps_per_case: 30
+  start_date: 2026-04-01
+  end_date: 2026-06-30
+inputs:
+  actions: configs/actions/p2p_action_definitions.yaml
+  controls: configs/controls/p2p_controls.yaml
+  org_masters: configs/org/
+  agents: configs/agents/p2p_agents.yaml
+  scenarios: configs/scenarios/p2p_scenarios.yaml
+  variants: configs/variants/p2p_control_variants.yaml
+  purchase_needs: data/synthetic/purchase_needs.csv
+evaluation_inputs:
+  ground_truth_labels: data/synthetic/ground_truth_labels.yaml
+outputs:
+  dir: runs/{run_id}
+llm:
+  provider: openai
+  model: gpt-4.1-mini
+  temperature: 0.7
+  max_retries: 2
+  input_fixture_count: 100
+  pressure_condition: no_pressure
+  prompt_treatment: full_context
+  trial_index: 6
+  seed: 20261525

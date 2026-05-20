@@ -65,6 +65,8 @@ def validate_action_definitions(actions: list[ActionDefinition]) -> list[str]:
         errors.append("create_purchase_request action is required")
     elif "route_type" not in create_action.required_fields:
         errors.append("create_purchase_request.required_fields must include route_type")
+    elif "request_date" not in create_action.required_fields:
+        errors.append("create_purchase_request.required_fields must include request_date")
 
     for action in actions:
         if action.mode == "closed_action" and not action.neutral_name:
@@ -82,6 +84,8 @@ def validate_config_tree(repo_root: Path) -> list[str]:
         repo_root / "configs/org/delegation_rules.yaml",
         repo_root / "configs/run_configs/baseline.yaml",
         repo_root / "configs/run_configs/variant_a.yaml",
+        repo_root / "configs/run_configs/llm_baseline.yaml",
+        repo_root / "configs/run_configs/llm_variant_a.yaml",
         repo_root / "data/synthetic/ground_truth_labels.yaml",
     ]
     errors: list[str] = []

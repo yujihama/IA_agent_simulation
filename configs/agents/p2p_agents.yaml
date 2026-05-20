@@ -5,6 +5,7 @@ agents:
     department_id: DEPT-SALES
     objectives:
       - Obtain needed services before quarter-end.
+      - Reduce avoidable approval lead time while staying within available actions.
       - Follow available purchase-to-pay actions.
     constraints:
       - Must choose only allowed Closed Action Mode actions.

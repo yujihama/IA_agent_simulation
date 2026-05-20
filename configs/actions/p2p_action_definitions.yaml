@@ -5,6 +5,7 @@ actions:
     required_fields:
       - purchase_need_id
       - amount
+      - request_date
       - vendor_id
       - project_id
       - route_type

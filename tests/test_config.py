@@ -21,6 +21,7 @@ def test_closed_actions_are_neutral_and_no_split_action_is_exposed():
 
     create_action = next(action for action in actions if action.action_id == "create_purchase_request")
     assert "route_type" in create_action.required_fields
+    assert "request_date" in create_action.required_fields
 
 
 def test_purchase_need_fields_do_not_expose_evaluation_or_generation_intent():
