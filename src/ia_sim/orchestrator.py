@@ -784,16 +784,18 @@ def _write_prompt_ablation_report(path: Path, summary: dict[str, Any]) -> None:
         lines.append("")
 
     lines.extend(["## 解釈", ""])
-    scenario_delta = summary["treatments"].get("scenario_only", {}).get("effect", {}).get("split_like_selection_rate_delta")
-    objective_delta = summary["treatments"].get("objective_only", {}).get("effect", {}).get("split_like_selection_rate_delta")
-    hint_delta = summary["treatments"].get("planning_hint_only", {}).get("effect", {}).get("split_like_selection_rate_delta")
-    full_delta = summary["treatments"].get("full_context", {}).get("effect", {}).get("split_like_selection_rate_delta")
+    interpretation_lines = {
+        "full_context": "full_contextの差分は、圧力シナリオ、申請者目的、運用コンテキスト、選択ルールをまとめて変えた場合の効果を示す。",
+        "scenario_only": "scenario_onlyの差分は、選択肢や統制情報を同一に保ったうえで、圧力シナリオ文言だけを変えた場合の効果に近い。",
+        "objective_only": "objective_onlyの差分は、期末対応やリードタイム短縮を目的として与えることの効果を示す。",
+        "planning_hint_only": "planning_hint_onlyの差分は、候補ワークパッケージやリードタイム評価ヒントが行動選択を誘導した可能性を示す。",
+        "balanced_planning_hint": "balanced_planning_hintの差分は、同一の計画ヒントを両条件に与えたうえで、圧力シナリオと申請者目的が追加的に行動選択を動かすかを示す。",
+    }
+    for treatment in summary["prompt_treatments"]:
+        delta = summary["treatments"][treatment]["effect"]["split_like_selection_rate_delta"]
+        lines.append(f"- {interpretation_lines.get(treatment, treatment)} 今回の差分: {delta}")
     lines.extend(
         [
-            f"- full_contextの差分は、圧力シナリオ、申請者目的、運用コンテキスト、選択ルールをまとめて変えた場合の効果を示す。今回の差分: {full_delta}",
-            f"- scenario_onlyの差分は、選択肢や統制情報を同一に保ったうえで、圧力シナリオ文言だけを変えた場合の効果に近い。今回の差分: {scenario_delta}",
-            f"- objective_onlyの差分は、期末対応やリードタイム短縮を目的として与えることの効果を示す。今回の差分: {objective_delta}",
-            f"- planning_hint_onlyの差分は、候補ワークパッケージやリードタイム評価ヒントが行動選択を誘導した可能性を示す。今回の差分: {hint_delta}",
             "",
             "この結果は監査判断ではなく、LLM申請者エージェントの行動選択がどの入力要素に反応したかを追加調査するための証跡である。",
         ]
