@@ -10,46 +10,51 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 RUNS_DIR = REPO_ROOT / "runs"
 
 MODE_OPTIONS = {
-    "ブラインドレビュー": "blind_review",
-    "評価結果": "evaluation",
+    "\u30d6\u30e9\u30a4\u30f3\u30c9\u30ec\u30d3\u30e5\u30fc": "blind_review",
+    "\u8a55\u4fa1\u7d50\u679c": "evaluation",
 }
-SEVERITY_LABELS = {"high": "高", "medium": "中", "low": "低"}
-STATUS_LABELS = {
-    "candidate_unmitigated": "候補（未緩和）",
-    "candidate_mitigated": "候補（統制により緩和）",
-}
-LEVEL_LABELS = {
-    "manager": "課長",
-    "department_head": "部門長",
-    "division_head": "本部長",
-}
-RESULT_LABELS = {
-    "true_positive": "真陽性",
-    "false_positive": "偽陽性",
-    "false_negative": "偽陰性",
-}
+
 METRIC_LABELS = {
     "variant_id": "Variant",
-    "event_count": "イベント件数",
-    "purchase_need_count": "購買ニーズ件数",
-    "purchase_request_count": "購買申請件数",
-    "detector_annotation_count": "Detector Annotation件数",
-    "finding_count": "不備候補件数",
-    "split_order_bypass_success_count": "分割購買による未緩和すり抜け件数",
-    "split_order_mitigated_candidate_count": "合算統制で緩和された候補件数",
-    "aggregation_applications": "合算判定適用件数",
-    "true_positive": "真陽性",
-    "false_positive": "偽陽性",
-    "false_negative": "偽陰性",
-    "precision": "適合率",
-    "recall": "再現率",
-    "high_recall": "High重要度再現率",
-    "approval_event_count": "承認イベント件数",
-    "department_head_approval_count": "部門長承認件数",
-    "division_head_approval_count": "本部長承認件数",
-    "total_approval_lead_time_days": "承認リードタイム合計（日）",
-    "average_approval_lead_time_days": "平均承認リードタイム（日）",
-    "proposal_flags_excluded_from_detector_metrics": "Proposal FlagをDetector指標から除外",
+    "event_count": "\u30a4\u30d9\u30f3\u30c8\u4ef6\u6570",
+    "purchase_need_count": "\u8cfc\u8cb7\u30cb\u30fc\u30ba\u4ef6\u6570",
+    "purchase_request_count": "\u8cfc\u8cb7\u7533\u8acb\u4ef6\u6570",
+    "detector_annotation_count": "Detector Annotation\u4ef6\u6570",
+    "finding_count": "\u4e0d\u5099\u5019\u88dc\u4ef6\u6570",
+    "split_order_bypass_success_count": "\u672a\u7de9\u548c\u3059\u308a\u629c\u3051\u5019\u88dc\u4ef6\u6570",
+    "split_order_mitigated_candidate_count": "\u7d71\u5236\u306b\u3088\u308a\u7de9\u548c\u3055\u308c\u305f\u5019\u88dc\u4ef6\u6570",
+    "aggregation_applications": "\u5408\u7b97\u5224\u5b9a\u9069\u7528\u4ef6\u6570",
+    "true_positive": "\u771f\u967d\u6027",
+    "false_positive": "\u507d\u967d\u6027",
+    "false_negative": "\u507d\u9670\u6027",
+    "precision": "\u9069\u5408\u7387",
+    "recall": "\u518d\u73fe\u7387",
+    "approval_event_count": "\u627f\u8a8d\u30a4\u30d9\u30f3\u30c8\u4ef6\u6570",
+    "department_head_approval_count": "\u90e8\u9580\u9577\u627f\u8a8d\u4ef6\u6570",
+    "total_approval_lead_time_days": "\u627f\u8a8d\u30ea\u30fc\u30c9\u30bf\u30a4\u30e0\u5408\u8a08\uff08\u65e5\uff09",
+}
+
+ACTION_METRIC_LABELS = {
+    "selected_action_distribution": "\u9078\u629eAction\u5206\u5e03",
+    "amount_selection_distribution": "\u91d1\u984d\u9078\u629e\u5206\u5e03",
+    "partial_request_rate": "\u90e8\u5206\u7533\u8acb\u7387",
+    "consult_rate": "\u76f8\u8ac7\u7387",
+    "postpone_rate": "\u5ef6\u671f\u7387",
+    "invalid_action_rate": "\u7121\u52b9Action\u7387",
+    "retry_rate": "Retry\u7387",
+    "fallback_rate": "Fallback\u7387",
+    "split_order_candidate_count": "\u5206\u5272\u8cfc\u8cb7\u5019\u88dc\u4ef6\u6570",
+    "bypass_success_count": "\u672a\u7de9\u548c\u5019\u88dc\u4ef6\u6570",
+    "aggregation_mitigation_count": "\u5408\u7b97\u7de9\u548c\u4ef6\u6570",
+    "control_awareness": "\u7d71\u5236\u8a8d\u8b58",
+    "reason_groundedness": "\u7406\u7531\u306e\u6839\u62e0\u6027",
+    "fact_in_reason_error_rate": "\u7406\u7531\u5185\u306e\u4e8b\u5b9f\u8aa4\u308a\u7387",
+    "human_plausibility_score": "\u4eba\u9593\u30ec\u30d3\u30e5\u30fc\u4e0a\u306e\u59a5\u5f53\u6027",
+}
+
+STATUS_LABELS = {
+    "candidate_unmitigated": "\u5019\u88dc\uff08\u672a\u7de9\u548c\uff09",
+    "candidate_mitigated": "\u5019\u88dc\uff08\u7d71\u5236\u306b\u3088\u308a\u7de9\u548c\uff09",
 }
 
 
@@ -70,154 +75,147 @@ def run_dirs() -> list[Path]:
 
 
 def label_dict(values: dict) -> dict:
-    return {METRIC_LABELS.get(key, key): localize_value(key, value) for key, value in values.items()}
+    labels = {**METRIC_LABELS, **ACTION_METRIC_LABELS}
+    return {labels.get(key, key): localize_value(key, value) for key, value in values.items()}
 
 
 def localize_value(key: str, value):
     if isinstance(value, bool):
-        return "はい" if value else "いいえ"
-    if key in {"severity"}:
-        return SEVERITY_LABELS.get(value, value)
-    if key in {"status"}:
+        return "\u306f\u3044" if value else "\u3044\u3044\u3048"
+    if key == "status":
         return STATUS_LABELS.get(value, value)
-    if key in {"required_approver_level", "individual_required_approver_level", "aggregate_required_approver_level"}:
-        return LEVEL_LABELS.get(value, value)
-    if key == "evaluation_result":
-        return RESULT_LABELS.get(value, value)
     return value
 
 
-def localized_evaluation_results(value: dict) -> dict:
-    return {
-        "モード": "評価専用",
-        "Ground Truthをレビュー画面に表示": "はい" if value.get("ground_truth_visible_to_review") else "いいえ",
-        "照合キー": value.get("matching_basis"),
-        "サマリ": label_dict(value.get("summary", {})),
-        "Finding別評価": [
-            {
-                "Finding ID": item["finding_id"],
-                "Detector": item["detector_id"],
-                "不備ID": item["defect_id"],
-                "評価結果": item.get("result_label", RESULT_LABELS.get(item["evaluation_result"], item["evaluation_result"])),
-                "照合Ground Truth": item.get("matched_evaluation_group_id"),
-                "根拠PurchaseNeed": ", ".join(item.get("evidence_purchase_need_ids", [])),
-            }
-            for item in value.get("finding_results", [])
-        ],
-        "未検出Ground Truth": value.get("false_negative_labels", []),
-    }
-
-
-def localized_events(event_ids: list[str], events_by_id: dict[str, dict]) -> list[dict]:
-    rows = []
-    for event_id in event_ids:
-        event = events_by_id[event_id]
-        rows.append(
-            {
-                "イベントID": event["event_id"],
-                "日時": event["timestamp"],
-                "Action": event["action_id"],
-                "PurchaseNeed": event["purchase_need_id"],
-                "PurchaseRequest": event["purchase_request_id"],
-                "申請者/実行者": event["actor_user_id"],
-                "役割": event["actor_role"],
-                "金額": event["amount"],
-                "取引先": event["vendor_id"],
-                "プロジェクト": event["project_id"],
-                "状態Before": event["state_before"],
-                "状態After": event["state_after"],
-            }
-        )
-    return rows
-
-
-st.set_page_config(page_title="P2P統制シミュレーションレビュー", layout="wide")
-st.title("P2P統制シミュレーションレビュー")
-st.caption("Detectorの出力は人間レビュー用の不備候補であり、監査上の結論ではありません。")
+st.set_page_config(page_title="P2P\u7d71\u5236\u30b7\u30df\u30e5\u30ec\u30fc\u30b7\u30e7\u30f3\u30ec\u30d3\u30e5\u30fc", layout="wide")
+st.title("P2P\u7d71\u5236\u30b7\u30df\u30e5\u30ec\u30fc\u30b7\u30e7\u30f3\u30ec\u30d3\u30e5\u30fc")
+st.caption("Detector\u306e\u51fa\u529b\u306f\u4eba\u9593\u30ec\u30d3\u30e5\u30fc\u7528\u306e\u4e0d\u5099\u5019\u88dc\u3067\u3042\u308a\u3001\u76e3\u67fb\u4e0a\u306e\u7d50\u8ad6\u3067\u306f\u3042\u308a\u307e\u305b\u3093\u3002")
 
 runs = run_dirs()
 if not runs:
-    st.info("Run出力が見つかりません。先に `python -m ia_sim.cli run-first-slice` を実行してください。")
+    st.info("Run\u51fa\u529b\u304c\u898b\u3064\u304b\u308a\u307e\u305b\u3093\u3002`python -m ia_sim.cli run-first-slice` \u307e\u305f\u306f `python -m ia_sim.cli run-llm-slice` \u3092\u5b9f\u884c\u3057\u3066\u304f\u3060\u3055\u3044\u3002")
     st.stop()
 
-selected_run = st.selectbox("Run選択", runs, format_func=lambda path: path.name)
+selected_run = st.selectbox("Run\u9078\u629e", runs, format_func=lambda path: path.name)
 manifest = read_json(selected_run / "run_manifest.json")
 metrics = read_json(selected_run / "metrics.json")
 findings = read_json(selected_run / "findings.json").get("findings", [])
+events = read_jsonl(selected_run / "events.jsonl")
+annotations = read_jsonl(selected_run / "detector_annotations.jsonl")
+events_by_id = {event["event_id"]: event for event in events}
 evaluation_results_path = selected_run / "evaluation_results.json"
 evaluation_results = read_json(evaluation_results_path) if evaluation_results_path.exists() else None
-annotations = read_jsonl(selected_run / "detector_annotations.jsonl")
-events = read_jsonl(selected_run / "events.jsonl")
-events_by_id = {event["event_id"]: event for event in events}
-selected_mode_label = st.radio("レビュー種別", list(MODE_OPTIONS), horizontal=True)
-review_mode = MODE_OPTIONS[selected_mode_label]
+action_metrics_path = selected_run / "action_selection_metrics.json"
+action_metrics = read_json(action_metrics_path) if action_metrics_path.exists() else None
+llm_decisions = read_jsonl(selected_run / "llm_action_decisions.jsonl")
+llm_calls = read_jsonl(selected_run / "llm_calls.jsonl")
+
+review_mode = MODE_OPTIONS[st.radio("\u30ec\u30d3\u30e5\u30fc\u7a2e\u5225", list(MODE_OPTIONS), horizontal=True)]
 
 left, right = st.columns(2)
 with left:
-    st.subheader("Run概要")
+    st.subheader("Run\u6982\u8981")
     st.json(
         {
             "Run ID": manifest["run_id"],
             "Scenario": manifest["scenario_id"],
             "Variant": manifest["variant_id"],
             "Seed": manifest.get("seed"),
-            "行動モード": manifest["behavior_mode"],
-            "比較モード": manifest["comparison_mode"],
-            "禁止Action検出": manifest["forbidden_actions_present"],
-            "コードバージョン": manifest.get("code_version"),
+            "\u884c\u52d5\u30e2\u30fc\u30c9": manifest["behavior_mode"],
+            "\u6bd4\u8f03\u30e2\u30fc\u30c9": manifest["comparison_mode"],
+            "LLM": manifest.get("llm"),
+            "\u7981\u6b62Action\u691c\u51fa": manifest["forbidden_actions_present"],
         }
     )
 with right:
-    st.subheader("指標")
-    if review_mode == "blind_review":
-        st.json(label_dict(
-            {
-                "variant_id": metrics["variant_id"],
-                "event_count": metrics["event_count"],
-                "purchase_need_count": metrics["purchase_need_count"],
-                "purchase_request_count": metrics["purchase_request_count"],
-                "detector_annotation_count": metrics["detector_annotation_count"],
-                "finding_count": metrics["finding_count"],
-                "split_order_bypass_success_count": metrics["split_order_bypass_success_count"],
-                "split_order_mitigated_candidate_count": metrics["split_order_mitigated_candidate_count"],
-                "aggregation_applications": metrics["aggregation_applications"],
-            }
-        ))
-    else:
-        st.json(label_dict(metrics))
-        if evaluation_results:
-            st.markdown("#### 評価結果")
-            st.json(localized_evaluation_results(evaluation_results))
+    st.subheader("\u6307\u6a19")
+    blind_keys = [
+        "variant_id",
+        "event_count",
+        "purchase_need_count",
+        "purchase_request_count",
+        "detector_annotation_count",
+        "finding_count",
+        "split_order_bypass_success_count",
+        "split_order_mitigated_candidate_count",
+        "aggregation_applications",
+    ]
+    st.json(label_dict({key: metrics[key] for key in blind_keys if key in metrics} if review_mode == "blind_review" else metrics))
+    if review_mode == "evaluation" and evaluation_results:
+        st.markdown("#### \u8a55\u4fa1\u7d50\u679c")
+        st.json(evaluation_results)
 
-st.subheader("不備候補")
+if action_metrics:
+    st.subheader("LLM\u884c\u52d5\u9078\u629e")
+    st.json(label_dict(action_metrics))
+    if llm_decisions:
+        st.markdown("#### \u9078\u629eAction")
+        st.dataframe(
+            [
+                {
+                    "Decision": row["decision_id"],
+                    "PurchaseNeed": row["purchase_need_id"],
+                    "Action": row["selected_action_id"],
+                    "Source": row["source"],
+                    "Retry": row["retry_count"],
+                    "Fallback": "\u306f\u3044" if row["fallback_used"] else "\u3044\u3044\u3048",
+                    "\u7406\u7531": row["reason"],
+                    "\u7d71\u5236\u8a8d\u8b58": row["control_awareness"],
+                    "Parameters": row["parameters"],
+                }
+                for row in llm_decisions
+            ],
+            use_container_width=True,
+        )
+    if review_mode == "evaluation" and llm_calls:
+        st.markdown("#### LLM Call / Validation")
+        st.dataframe(
+            [
+                {
+                    "PurchaseNeed": row["purchase_need_id"],
+                    "Attempt": row["attempt"],
+                    "Model": row["model"],
+                    "Status": row["validation_status"],
+                    "Retry": "\u306f\u3044" if row["retry_scheduled"] else "\u3044\u3044\u3048",
+                    "Errors": row["validation_errors"],
+                }
+                for row in llm_calls
+            ],
+            use_container_width=True,
+        )
+
+st.subheader("\u4e0d\u5099\u5019\u88dc")
 if not findings:
-    st.write("不備候補はありません。")
+    st.write("\u4e0d\u5099\u5019\u88dc\u306f\u3042\u308a\u307e\u305b\u3093\u3002")
 else:
-    finding = st.selectbox("不備候補", findings, format_func=lambda item: item["finding_id"])
+    finding = st.selectbox("\u4e0d\u5099\u5019\u88dc", findings, format_func=lambda item: item["finding_id"])
     st.markdown(f"### {finding['title']}")
     st.json(
         {
-            "重要度": SEVERITY_LABELS.get(finding["severity"], finding["severity"]),
-            "ステータス": STATUS_LABELS.get(finding["status"], finding["status"]),
-            "未緩和すり抜け": "はい" if finding["bypass_success"] else "いいえ",
-            "合算統制により緩和": "はい" if finding["mitigated_by_aggregation"] else "いいえ",
+            "\u91cd\u8981\u5ea6": finding["severity"],
+            "\u30b9\u30c6\u30fc\u30bf\u30b9": STATUS_LABELS.get(finding["status"], finding["status"]),
+            "\u672a\u7de9\u548c\u3059\u308a\u629c\u3051": "\u306f\u3044" if finding["bypass_success"] else "\u3044\u3044\u3048",
+            "\u5408\u7b97\u7d71\u5236\u306b\u3088\u308a\u7de9\u548c": "\u306f\u3044" if finding["mitigated_by_aggregation"] else "\u3044\u3044\u3048",
         }
     )
-    st.markdown("#### 観察事実")
+    st.markdown("#### \u89b3\u5bdf\u4e8b\u5b9f")
     for fact in finding["observed_facts"]:
         st.write(f"- {fact}")
-    st.markdown("#### 推論")
+    st.markdown("#### \u63a8\u8ad6")
     st.write(finding["inference"])
-    st.markdown("#### 推奨レビュー手順")
+    st.markdown("#### \u63a8\u5968\u30ec\u30d3\u30e5\u30fc\u624b\u9806")
     for step in finding["recommended_review_steps"]:
         st.write(f"- {step}")
-    st.markdown("#### 根拠イベント")
-    st.dataframe(localized_events(finding["evidence_event_ids"], events_by_id), use_container_width=True)
+    st.markdown("#### \u6839\u62e0\u30a4\u30d9\u30f3\u30c8")
+    st.dataframe([events_by_id[event_id] for event_id in finding["evidence_event_ids"]], use_container_width=True)
 
 st.subheader("Detector Annotation")
 st.dataframe(annotations, use_container_width=True)
 
-comparison_report = RUNS_DIR / "comparisons/CMP-S002-BASELINE-VARIANT-A/comparison_report.md"
-if comparison_report.exists():
-    st.subheader("Baseline / Variant A 比較")
-    st.markdown(comparison_report.read_text(encoding="utf-8"))
+for comparison_report in [
+    RUNS_DIR / "comparisons/CMP-S002-BASELINE-VARIANT-A/comparison_report.md",
+    RUNS_DIR / "comparisons/CMP-S002-LLM-BASELINE-VARIANT-A/comparison_report.md",
+]:
+    if comparison_report.exists():
+        st.subheader(comparison_report.parent.name)
+        st.markdown(comparison_report.read_text(encoding="utf-8"))

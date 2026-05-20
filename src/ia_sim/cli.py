@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 
 from ia_sim.config import validate_config_tree
-from ia_sim.orchestrator import compare_runs, run_first_slice, run_simulation
+from ia_sim.orchestrator import compare_runs, run_first_slice, run_llm_action_slice, run_simulation
 from ia_sim.synthetic import generate_synthetic_data
 
 
@@ -31,6 +31,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     first = subparsers.add_parser("run-first-slice", help="Generate data, run baseline and Variant A, then compare")
     first.add_argument("--output-root")
+
+    llm = subparsers.add_parser("run-llm-slice", help="Run LLM adaptive-agent baseline and Variant A, then compare")
+    llm.add_argument("--output-root")
     return parser
 
 
@@ -71,6 +74,23 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "run-first-slice":
         output_root = Path(args.output_root) if args.output_root else None
         result = run_first_slice(repo_root, output_root_override=output_root)
+        print(
+            json.dumps(
+                {
+                    "baseline_run_dir": str(result["baseline"].run_dir),
+                    "variant_run_dir": str(result["variant"].run_dir),
+                    "comparison_dir": str(result["comparison_dir"]),
+                    "comparison": result["comparison"],
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+        return 0
+
+    if args.command == "run-llm-slice":
+        output_root = Path(args.output_root) if args.output_root else None
+        result = run_llm_action_slice(repo_root, output_root_override=output_root)
         print(
             json.dumps(
                 {
