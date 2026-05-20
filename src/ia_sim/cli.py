@@ -10,6 +10,7 @@ from ia_sim.orchestrator import (
     run_agent_stress_experiment,
     run_balanced_planning_hint_experiment,
     run_branching_simulation,
+    run_branching_variant_comparison,
     run_first_slice,
     run_hint_pressure_matrix_experiment,
     run_llm_action_slice,
@@ -112,6 +113,15 @@ def build_parser() -> argparse.ArgumentParser:
     branching.add_argument("--provider", default="openai")
     branching.add_argument("--model", default="gpt-4.1-mini")
     branching.add_argument("--temperature", type=float, default=0.7)
+
+    branching_compare = subparsers.add_parser(
+        "run-branching-variant-comparison",
+        help="Generate Branching Proposal worlds once, then replay them under Baseline and Variants A/B",
+    )
+    branching_compare.add_argument("--output-root")
+    branching_compare.add_argument("--provider", default="openai")
+    branching_compare.add_argument("--model", default="gpt-4.1-mini")
+    branching_compare.add_argument("--temperature", type=float, default=0.7)
     return parser
 
 
@@ -316,6 +326,28 @@ def main(argv: list[str] | None = None) -> int:
                     "run_id": result["run"].run_id,
                     "run_dir": str(result["run"].run_dir),
                     "config_path": str(result["config_path"]),
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+        return 0
+
+    if args.command == "run-branching-variant-comparison":
+        output_root = Path(args.output_root) if args.output_root else None
+        result = run_branching_variant_comparison(
+            repo_root,
+            output_root_override=output_root,
+            provider=args.provider,
+            model=args.model,
+            temperature=args.temperature,
+        )
+        print(
+            json.dumps(
+                {
+                    "baseline_run_dir": str(result["baseline_run"].run_dir),
+                    "comparison_dir": str(result["comparison_dir"]),
+                    "comparison": result["comparison"],
                 },
                 ensure_ascii=False,
                 indent=2,

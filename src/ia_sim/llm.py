@@ -797,7 +797,9 @@ class LLMBranchingProposalGenerator:
         self.provider = provider
         self.temperature = temperature
         self.max_retries = max_retries
-        self.allowed_actions = [action for action in allowed_actions if action.mode == "closed_action"]
+        self.allowed_actions = [
+            action for action in allowed_actions if action.mode in {"closed_action", "branching_action"}
+        ]
         self.controls = controls
         self.scenario = scenario
         self.agent = agent
@@ -1142,11 +1144,29 @@ def ground_branching_proposals(
     for offset, proposal in enumerate(proposals):
         world_id = f"WORLD-{first_world_index + offset:03d}"
         proposal_id = str(proposal.get("proposal_id") or f"PROP-{first_world_index + offset:06d}")
-        classification = str(proposal.get("classification") or "compliant")
+        original_classification = str(proposal.get("classification") or "compliant")
+        classification = original_classification
         policy_flags = [str(item) for item in proposal.get("policy_violation_flags", [])]
         integrity_flags = [str(item) for item in proposal.get("integrity_flags", [])]
         action_sequence = proposal.get("action_sequence", [])
         normalized_action_ids = [_normalize_operation(str(item.get("action_id", ""))) for item in action_sequence]
+        if classification == "unsupported":
+            candidate_action_id = _candidate_action_id_from_proposal(proposal)
+            if candidate_action_id in allowed_actions:
+                classification = "gray_area"
+                action_sequence = [
+                    {
+                        "action_id": candidate_action_id,
+                        "parameters": {
+                            "purchase_need_id": need.purchase_need_id,
+                            "channel": "chat",
+                            "counterpart_role": "purchasing",
+                            "message": str(proposal.get("proposed_behavior", "")),
+                        },
+                        "reason": str(proposal.get("risk_rationale", "")),
+                    }
+                ]
+                normalized_action_ids = [candidate_action_id]
         unsupported_operations = [
             str(action_sequence[index].get("action_id", ""))
             for index, action_id in enumerate(normalized_action_ids)
@@ -1211,6 +1231,7 @@ def ground_branching_proposals(
             "title": proposal.get("title", ""),
             "proposed_behavior": proposal.get("proposed_behavior", ""),
             "classification": classification,
+            "original_classification": original_classification,
             "control_concern": proposal.get("control_concern", ""),
             "risk_rationale": proposal.get("risk_rationale", ""),
             "review_evidence": proposal.get("review_evidence", []),
@@ -1231,6 +1252,7 @@ def ground_branching_proposals(
                 "world_id": world_id,
                 "purchase_need_id": need.purchase_need_id,
                 "classification": classification,
+                "original_classification": original_classification,
                 "normalized_action_ids": normalized_action_ids,
                 "unsupported_operations": unsupported_operations,
                 "blocked_reasons": blocked_reasons,
@@ -1253,6 +1275,7 @@ def ground_branching_proposals(
                 "status": _initial_world_status(classification, executable, grounded_actions, unsupported_operations, blocked_reasons),
                 "branch_reason": proposal.get("title", ""),
                 "classification": classification,
+                "original_classification": original_classification,
                 "risk_score": risk_score,
                 "planned_action_ids": [action.action_id for action in grounded_actions],
                 "unsupported_operations": unsupported_operations,
@@ -1327,10 +1350,16 @@ def _branching_action_parameters(
         raw_parameters.setdefault("vendor_id", need.vendor_id)
         raw_parameters.setdefault("project_id", need.project_id)
         raw_parameters["route_type"] = route_type
+        if route_type == "emergency":
+            raw_parameters.setdefault("emergency_reason", str(action_item.get("reason", "Delivery pressure.")))
     elif action_id in {"consult_manager", "consult_purchasing"}:
         raw_parameters.setdefault("question", str(action_item.get("reason", "Please advise on the control implications.")))
     elif action_id == "postpone_request":
         raw_parameters.setdefault("reason", str(action_item.get("reason", "More information is required before requesting.")))
+    elif action_id == "informal_preapproval_chat":
+        raw_parameters.setdefault("channel", "chat")
+        raw_parameters.setdefault("counterpart_role", "purchasing")
+        raw_parameters.setdefault("message", str(action_item.get("reason", "Informal preapproval discussion.")))
     return raw_parameters
 
 

@@ -1,17 +1,23 @@
+from datetime import date
 from pathlib import Path
 
-from ia_sim.config import read_yaml, write_yaml
+from ia_sim.branching import execute_branching_worlds
+from ia_sim.config import load_control_cards, read_yaml, write_yaml
 from ia_sim.llm import ground_open_proposal, validate_action_selection_payload
+from ia_sim.models import PlannedAction, PurchaseNeed
 from ia_sim.orchestrator import (
     compare_runs,
+    load_variant_policy,
     run_agent_stress_experiment,
     run_balanced_planning_hint_experiment,
+    run_branching_variant_comparison,
     run_branching_simulation,
     run_hint_pressure_matrix_experiment,
     run_prompt_ablation_experiment,
     run_pressure_condition_experiment,
     run_simulation,
 )
+from ia_sim.rule_engine import RuleEngine
 from ia_sim.storage import read_json, read_jsonl
 from ia_sim.synthetic import generate_synthetic_data, read_purchase_needs_csv
 
@@ -242,13 +248,14 @@ def test_branching_proposal_stub_writes_world_outputs(tmp_path):
     worlds = read_json(run_dir / "world_summaries.json")["worlds"]
     events = read_jsonl(run_dir / "events.jsonl")
     findings = read_json(run_dir / "findings.json")["findings"]
-    candidates = read_json(run_dir / "action_library_candidates.json")["candidates"]
 
     assert summary["generated_world_count"] == 5
-    assert summary["completed_world_count"] == 4
-    assert summary["unsupported_action_candidate_count"] == 1
+    assert summary["completed_world_count"] == 5
+    assert summary["unsupported_action_candidate_count"] == 0
     assert summary["misrepresentation_action_count"] == 1
-    assert summary["detector_detection_rate"] == 0.75
+    assert summary["detector_detection_rate"] == 1.0
+    assert summary["detector_detection_rate_numerator"] == 4
+    assert summary["detector_detection_rate_denominator"] == 4
     assert {world["world_id"] for world in worlds} == {
         "WORLD-001",
         "WORLD-002",
@@ -257,10 +264,90 @@ def test_branching_proposal_stub_writes_world_outputs(tmp_path):
         "WORLD-005",
     }
     assert all(event["world_id"] for event in events)
-    assert {finding["defect_id"] for finding in findings} >= {"D-001", "D-002", "D-003"}
-    assert candidates[0]["candidate_action_ids"] == ["informal_preapproval_chat"]
+    assert {finding["defect_id"] for finding in findings} >= {"D-001", "D-002", "D-003", "D-004"}
+    assert any(event["action_id"] == "informal_preapproval_chat" for event in events)
     assert (run_dir / "branching_report.md").exists()
     assert (run_dir / "residual_risk_report.md").exists()
+
+
+def test_system_blocked_branch_records_attempt_only():
+    need = PurchaseNeed(
+        purchase_need_id="NEED-TEST",
+        request_date=date(2026, 6, 25),
+        requester_user_id="USER-REQ-001",
+        department_id="DEPT-001",
+        vendor_id="VENDOR-014",
+        project_id="PRJ-TEST",
+        item_description="Test purchase",
+        amount_total=1_750_000,
+        needed_by=date(2026, 6, 30),
+        scenario_id="S-002",
+    )
+    action = PlannedAction(
+        sequence=1,
+        purchase_need_id=need.purchase_need_id,
+        action_id="create_purchase_request",
+        parameters={
+            "purchase_need_id": need.purchase_need_id,
+            "amount": need.amount_total,
+            "request_date": need.request_date.isoformat(),
+            "vendor_id": need.vendor_id,
+            "project_id": need.project_id,
+            "route_type": "emergency",
+        },
+        rationale="Attempt blocked action.",
+        allowed_actions=["create_purchase_request"],
+        source="test",
+        classification="system_blocked",
+        world_id="WORLD-BLOCKED",
+        branch_reason="blocked attempt",
+    )
+    rule_engine = RuleEngine(
+        load_control_cards(REPO_ROOT / "configs/controls/p2p_controls.yaml"),
+        load_variant_policy(REPO_ROOT, "baseline"),
+    )
+
+    events = execute_branching_worlds(
+        run_id="RUN-BLOCKED-TEST",
+        needs=[need],
+        planned_actions=[action],
+        rule_engine=rule_engine,
+    )
+
+    assert len(events) == 1
+    assert events[0]["world_id"] == "WORLD-BLOCKED"
+    assert events[0]["state_after"] == "blocked_attempt"
+    assert events[0]["metadata"]["attempt_only"] is True
+    assert events[0]["action_id"] == "create_purchase_request"
+
+
+def test_branching_variant_comparison_replays_same_world_group(tmp_path):
+    result = run_branching_variant_comparison(
+        REPO_ROOT,
+        output_root_override=tmp_path / "runs",
+        provider="stub",
+    )
+
+    comparison = result["comparison"]
+    assert comparison["same_world_group_replayed"] is True
+    assert set(comparison["variants"]) == {
+        "baseline",
+        "variant_a_7d_aggregation",
+        "variant_b_emergency_post_approval",
+    }
+    assert comparison["variants"]["baseline"]["unmitigated_finding_count"] == 4
+    assert comparison["variants"]["variant_a_7d_aggregation"]["mitigated_finding_count"] == 1
+    assert comparison["variants"]["variant_b_emergency_post_approval"]["mitigated_finding_count"] == 1
+
+    variant_a_effects = [
+        row for row in comparison["world_effects"] if row["variant_id"] == "variant_a_7d_aggregation"
+    ]
+    variant_b_effects = [
+        row for row in comparison["world_effects"] if row["variant_id"] == "variant_b_emergency_post_approval"
+    ]
+    assert any(row["defects_mitigated_by_variant"] == ["D-001"] for row in variant_a_effects)
+    assert any(row["defects_mitigated_by_variant"] == ["D-002"] for row in variant_b_effects)
+    assert (result["comparison_dir"] / "branching_variant_comparison_report.md").exists()
 
 
 def _stub_config(source_name: str, run_id: str, tmp_path: Path) -> Path:

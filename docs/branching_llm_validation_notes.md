@@ -21,13 +21,35 @@
 - 対象: `NEED-001` / S-002 四半期末・納期圧力
 - 温度条件: `0.3`, `0.7`, `0.9`
 
+## 解釈境界
+
+今回のプロンプトでは、coverage target として split / underreported amount / emergency route / informal preapproval を明示している。
+
+したがって、この結果は「LLMが未知の統制不備を自律的に発見した」という意味ではない。より正確には、**統制ストレステスト用のカバレッジ目標を与えたとき、代表的な高リスクWorldを安定生成できた** という結果である。
+
+また、現時点の実装は初期状態から複数Worldを生成する最小実装である。`max_depth`, `beam_width`, `max_total_worlds` は設定として保持しているが、各Worldの途中状態からさらにLLM proposalを生成する多段階探索は次フェーズの課題である。
+
+## Run Artifact方針
+
+実LLM run artifacts はPoC検証時に一時ディレクトリへ出力し、今回のPRではコミットしない。
+
+理由は以下である。
+
+- `branching_calls.jsonl` にはLLMリクエスト/レスポンス全文が含まれるため、将来のプロンプトや環境情報の取り扱い方針を先に決める必要がある
+- 実LLM結果は非決定的で、コミット済み証跡として固定する前に再現条件・モデルバージョン・秘匿情報レビューのルールが必要である
+- 今回は、実LLM検証から得られた示唆を本メモに要約し、回帰テストはstub providerで安定化する
+
+実LLM成果物をPoC evidenceとして保存する場合は、別PRで redaction / provenance / retention policy を決めたうえでコミットする。
+
 ## 観察結果
 
-| 温度 | 生成World | 検出率 | 主なWorld | 残余リスク |
+| 温度 | 生成World | 検出率 | 分子/分母 | 主なWorld | 残余リスク |
 |---:|---:|---:|---|---|
-| 0.3 | 5 | 0.75 | 正規申請、分割申請、過少申請、緊急ルート、非公式事前承認 | 非公式事前承認 |
-| 0.7 | 5 | 0.75 | 正規申請、分割申請、緊急ルート、過少申請、非公式事前承認 | 非公式事前承認 |
-| 0.9 | 5 | 0.75 | 正規申請、分割申請、緊急ルート、過少申請、非公式事前承認 | 非公式事前承認 |
+| 0.3 | 5 | 0.75 | 3 / 4 | 正規申請、分割申請、過少申請、緊急ルート、非公式事前承認 | 非公式事前承認 |
+| 0.7 | 5 | 0.75 | 3 / 4 | 正規申請、分割申請、緊急ルート、過少申請、非公式事前承認 | 非公式事前承認 |
+| 0.9 | 5 | 0.75 | 3 / 4 | 正規申請、分割申請、緊急ルート、過少申請、非公式事前承認 | 非公式事前承認 |
+
+検出率の分母は高リスクWorld数、分子はDetector findingが生成された高リスクWorld数である。正規申請Worldは分母に含めない。
 
 実LLMは、単一行動選択では自然に出にくかった分割申請を、分岐仮説としては安定して生成した。これは方針転換メモの中心仮説である「LLMを直接実行者として使うより、複数の行動可能性を提案させる方が統制ストレステストに向く」を支持する結果である。
 
@@ -43,7 +65,7 @@
    LLMは緊急・例外ルートを提案した。Detectorはルート利用を拾えるが、妥当性判断には理由証跡、事後承認、反復利用の評価が必要になる。
 
 4. **非公式事前承認は一貫して残余リスクになった。**  
-   LLMはチャットや非公式相談による事前合意を繰り返し提案したが、現行Action Libraryでは実行・ログ化できない。これは `informal_preapproval_chat` のAction候補、または承認コメント・チャットログ・ヒアリング手続の設計課題として扱うべきである。
+   LLMはチャットや非公式相談による事前合意を繰り返し提案したが、初回実装のAction Libraryでは実行・ログ化できなかった。この示唆を受けて、`informal_preapproval_chat` を分岐探索専用Actionとして実装対象に引き上げた。
 
 5. **system_blocked は通常フローとして進めず、試行イベントとして記録すべきだった。**  
    初回実行で、ブロック対象の仮説が支払完了まで進んでしまう問題を確認した。これを修正し、`system_blocked` は `blocked_attempt` のイベントだけを残す扱いにした。
@@ -52,4 +74,24 @@
 
 `branching_proposal` は、Closed Action Modeでは観察しにくかった統制弱点候補をWorldとして安定生成できた。
 
-特に、分割申請・過少申請・緊急ルートはDetectorやRule Engineの評価対象にできる。一方で、非公式事前承認はログ化されないため、現行PoCでは検出不能な残余リスクとして残る。この結果は、次の実装優先度を `informal_preapproval_chat` のAction Library化、または承認コメント・外部証跡レビューの設計に置くべきことを示している。
+特に、分割申請・過少申請・緊急ルートはDetectorやRule Engineの評価対象にできる。初回検証で残余リスクとして残った非公式事前承認は、`informal_preapproval_chat` と `informal_preapproval_detector` を追加した後、合成環境上では検出可能になった。
+
+## 追補検証
+
+ユーザー指摘後の追補実装として、以下を追加した。
+
+- `informal_preapproval_chat` を `branching_action` としてAction Libraryに追加
+- `informal_preapproval_detector` を追加し、非公式事前承認Worldを `D-004` としてレビュー候補化
+- `detector_detection_rate_numerator` / `detector_detection_rate_denominator` をsummaryとreportへ明記
+- `system_blocked` actionが通常フローに進まず、`blocked_attempt` の試行イベントだけを残すテストを追加
+- 同一Branching World群を Baseline / Variant A / Variant B でリプレイ比較する `run-branching-variant-comparison` を追加
+
+追補後に `gpt-4.1-mini` / temperature `0.7` で1回再実行したところ、5Worldが生成され、高リスクWorld 4件すべてにDetector findingが付いた。検出率は `4 / 4 = 1.0`、Action Library candidate は0件だった。
+
+Variant比較では、Baselineで未緩和だったWorld群に対し、Variant Aは分割申請 `D-001`、Variant Bは緊急ルート `D-002` をそれぞれ緩和する。一方、過少申請 `D-003` と非公式事前承認 `D-004` は、別の統制・証跡設計が必要なレビュー面として残る。
+
+## 次フェーズ
+
+1. まず1 temperatureで、少数のWorldに絞った多段階分岐探索を疎通させる
+2. 多段階探索の停止条件、重複排除、beam selectionの評価指標を追加する
+3. 実LLM run artifactsをPoC evidenceとして保存する場合の redaction / provenance / retention policy を定義する
