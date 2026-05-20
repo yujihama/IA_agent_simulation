@@ -46,10 +46,46 @@ ACTION_SELECTION_SCHEMA: dict[str, Any] = {
 }
 
 
+OPEN_PROPOSAL_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "required": [
+        "proposed_behavior",
+        "business_rationale",
+        "expected_effect",
+        "control_concern",
+        "required_system_operations",
+        "review_evidence",
+    ],
+    "properties": {
+        "proposed_behavior": {"type": "string"},
+        "business_rationale": {"type": "string"},
+        "expected_effect": {"type": "string"},
+        "control_concern": {"type": "string"},
+        "required_system_operations": {
+            "type": "array",
+            "items": {"type": "string"},
+        },
+        "review_evidence": {
+            "type": "array",
+            "items": {"type": "string"},
+        },
+    },
+}
+
+
 @dataclass(frozen=True)
 class LLMSelectionResult:
     planned_actions: list[PlannedAction]
     call_rows: list[dict[str, Any]]
+    decision_rows: list[dict[str, Any]]
+
+
+@dataclass(frozen=True)
+class LLMProposalResult:
+    planned_actions: list[PlannedAction]
+    call_rows: list[dict[str, Any]]
+    proposal_rows: list[dict[str, Any]]
+    grounding_rows: list[dict[str, Any]]
     decision_rows: list[dict[str, Any]]
 
 
@@ -72,6 +108,8 @@ class LLMActionSelector:
         prompt_treatment: str = "full_context",
         pressure_type: str | None = None,
         hint_strength: str | None = None,
+        agent_persona: str | None = None,
+        control_visibility: str = "control_full",
         trial_index: int | None = None,
         llm_seed: int | None = None,
     ):
@@ -90,6 +128,8 @@ class LLMActionSelector:
         self.prompt_treatment = prompt_treatment
         self.pressure_type = pressure_type
         self.hint_strength = hint_strength
+        self.agent_persona = agent_persona
+        self.control_visibility = control_visibility
         self.trial_index = trial_index
         self.llm_seed = llm_seed
 
@@ -216,6 +256,9 @@ class LLMActionSelector:
             "Controls are observable environment constraints, not a requirement to choose the highest-burden route when another allowed operational route is plausible. "
             "Separate observed facts from your reasoning, and keep all reasons grounded in the provided facts."
         )
+        persona_context = _agent_persona_context(self.agent_persona)
+        if persona_context.get("system_instruction"):
+            system = f"{system} {persona_context['system_instruction']}"
         scenario_context = _scenario_context(
             self.scenario,
             pressure_enabled=pressure_enabled,
@@ -236,11 +279,16 @@ class LLMActionSelector:
             pressure_type=pressure_type,
             hint_strength=self.hint_strength,
         )
+        operational_context = _apply_control_visibility_to_operational_context(
+            operational_context,
+            control_visibility=self.control_visibility,
+        )
         selection_rules = _selection_rules(
             pressure_enabled=pressure_enabled,
             prompt_treatment=self.prompt_treatment,
             hint_strength=self.hint_strength,
         )
+        selection_rules.extend(_persona_selection_rules(self.agent_persona))
         user = json.dumps(
             {
                 "task": "Choose the next requester actions for this purchase need.",
@@ -248,6 +296,8 @@ class LLMActionSelector:
                     "pressure_condition": self.pressure_condition,
                     "pressure_type": pressure_type,
                     "hint_strength": self.hint_strength,
+                    "agent_persona": self.agent_persona,
+                    "control_visibility": self.control_visibility,
                     "prompt_treatment": self.prompt_treatment,
                     "prompt_treatment_description": _prompt_treatment_description(self.prompt_treatment),
                     "trial_index": self.trial_index,
@@ -260,6 +310,7 @@ class LLMActionSelector:
                     "department_id": self.agent.department_id,
                     "objectives": agent_objectives,
                     "constraints": self.agent.constraints,
+                    "persona": persona_context,
                 },
                 "purchase_need": {
                     "purchase_need_id": need.purchase_need_id,
@@ -273,17 +324,7 @@ class LLMActionSelector:
                     "needed_by": need.needed_by.isoformat(),
                     "scenario_id": need.scenario_id,
                 },
-                "control_cards": [
-                    {
-                        "control_id": control.control_id,
-                        "name": control.name,
-                        "objective": control.objective,
-                        "control_type": control.control_type,
-                        "system_enforced": control.system_enforced,
-                        "rule": control.rule,
-                    }
-                    for control in self.controls
-                ],
+                "control_cards": _control_cards_for_prompt(self.controls, self.control_visibility),
                 "variant_context": {
                     "variant_id": self.variant_policy.variant_id,
                     "name": self.variant_policy.name,
@@ -360,6 +401,664 @@ class LLMActionSelector:
             detail = exc.read().decode("utf-8", errors="replace")
             raise RuntimeError(f"OpenAI API HTTP {exc.code}: {detail[:500]}") from exc
         return payload["choices"][0]["message"]["content"]
+
+
+class LLMOpenProposalGenerator:
+    def __init__(
+        self,
+        *,
+        repo_root: Path,
+        run_id: str,
+        model: str,
+        provider: str,
+        temperature: float,
+        max_retries: int,
+        allowed_actions: list[ActionDefinition],
+        controls: list[ControlCard],
+        scenario: ScenarioCard,
+        agent: AgentProfile,
+        variant_policy: VariantPolicy,
+        pressure_type: str,
+        agent_persona: str,
+        control_visibility: str,
+        trial_index: int | None = None,
+        llm_seed: int | None = None,
+    ):
+        self.repo_root = repo_root
+        self.run_id = run_id
+        self.model = model
+        self.provider = provider
+        self.temperature = temperature
+        self.max_retries = max_retries
+        self.allowed_actions = [action for action in allowed_actions if action.mode == "closed_action"]
+        self.controls = controls
+        self.scenario = scenario
+        self.agent = agent
+        self.variant_policy = variant_policy
+        self.pressure_type = pressure_type
+        self.agent_persona = agent_persona
+        self.control_visibility = control_visibility
+        self.trial_index = trial_index
+        self.llm_seed = llm_seed
+
+    def propose_for_needs(self, needs: list[PurchaseNeed], max_purchase_needs: int) -> LLMProposalResult:
+        planned_actions: list[PlannedAction] = []
+        call_rows: list[dict[str, Any]] = []
+        proposal_rows: list[dict[str, Any]] = []
+        grounding_rows: list[dict[str, Any]] = []
+        decision_rows: list[dict[str, Any]] = []
+        sequence = 1
+        for need in needs[:max_purchase_needs]:
+            result = self._propose_for_need(need=need, first_sequence=sequence)
+            planned_actions.extend(result.planned_actions)
+            call_rows.extend(result.call_rows)
+            proposal_rows.extend(result.proposal_rows)
+            grounding_rows.extend(result.grounding_rows)
+            decision_rows.extend(result.decision_rows)
+            sequence += max(1, len(result.planned_actions))
+        return LLMProposalResult(planned_actions, call_rows, proposal_rows, grounding_rows, decision_rows)
+
+    def _propose_for_need(self, *, need: PurchaseNeed, first_sequence: int) -> LLMProposalResult:
+        messages = self._build_messages(need)
+        call_rows: list[dict[str, Any]] = []
+        parsed_payload: dict[str, Any] | None = None
+        validation_errors: list[str] = []
+        retry_count = 0
+
+        for attempt in range(1, self.max_retries + 2):
+            raw_response = ""
+            api_error = None
+            try:
+                raw_response = self._call_model(messages)
+                parsed_payload = _parse_json_object(raw_response)
+                validation_errors = validate_open_proposal_payload(parsed_payload)
+            except Exception as exc:  # noqa: BLE001 - logged for auditability, then retried/fallback.
+                parsed_payload = None
+                validation_errors = [f"{type(exc).__name__}: {exc}"]
+                api_error = _safe_error(exc)
+
+            is_valid = parsed_payload is not None and not validation_errors
+            call_rows.append(
+                {
+                    "run_id": self.run_id,
+                    "purchase_need_id": need.purchase_need_id,
+                    "attempt": attempt,
+                    "provider": self.provider,
+                    "model": self.model,
+                    "temperature": self.temperature,
+                    "proposal_mode": "open_proposal",
+                    "pressure_type": self.pressure_type,
+                    "agent_persona": self.agent_persona,
+                    "control_visibility": self.control_visibility,
+                    "trial_index": self.trial_index,
+                    "request_messages": messages,
+                    "raw_response": raw_response,
+                    "parsed_response": parsed_payload,
+                    "validation_status": "valid" if is_valid else "invalid",
+                    "validation_errors": validation_errors,
+                    "api_error": api_error,
+                    "retry_scheduled": (not is_valid) and attempt <= self.max_retries,
+                    "created_at": now_utc_iso(),
+                }
+            )
+            if is_valid:
+                assert parsed_payload is not None
+                actions, grounding = ground_open_proposal(
+                    self.run_id,
+                    parsed_payload,
+                    need=need,
+                    first_sequence=first_sequence,
+                    allowed_actions=[action.action_id for action in self.allowed_actions],
+                )
+                proposal_row = _proposal_row(
+                    self.run_id,
+                    need,
+                    parsed_payload,
+                    validation_status="valid",
+                    validation_errors=[],
+                    retry_count=retry_count,
+                    fallback_used=False,
+                    agent_persona=self.agent_persona,
+                    control_visibility=self.control_visibility,
+                    pressure_type=self.pressure_type,
+                    trial_index=self.trial_index,
+                )
+                decisions = _planned_actions_to_decision_rows(
+                    self.run_id,
+                    actions,
+                    _grounded_actions_payload(parsed_payload, actions),
+                    validation_status="grounded",
+                    validation_errors=[],
+                    retry_count=retry_count,
+                    fallback_used=False,
+                )
+                grounding.update(
+                    {
+                        "agent_persona": self.agent_persona,
+                        "control_visibility": self.control_visibility,
+                        "pressure_type": self.pressure_type,
+                        "trial_index": self.trial_index,
+                    }
+                )
+                return LLMProposalResult(actions, call_rows, [proposal_row], [grounding], decisions)
+
+            retry_count += 1
+            messages = self._build_retry_messages(need, validation_errors)
+
+        fallback_payload = _fallback_open_proposal_payload()
+        actions, grounding = ground_open_proposal(
+            self.run_id,
+            fallback_payload,
+            need=need,
+            first_sequence=first_sequence,
+            allowed_actions=[action.action_id for action in self.allowed_actions],
+        )
+        proposal_row = _proposal_row(
+            self.run_id,
+            need,
+            fallback_payload,
+            validation_status="fallback",
+            validation_errors=validation_errors,
+            retry_count=retry_count,
+            fallback_used=True,
+            agent_persona=self.agent_persona,
+            control_visibility=self.control_visibility,
+            pressure_type=self.pressure_type,
+            trial_index=self.trial_index,
+        )
+        decisions = _planned_actions_to_decision_rows(
+            self.run_id,
+            actions,
+            _grounded_actions_payload(fallback_payload, actions),
+            validation_status="grounded_fallback",
+            validation_errors=validation_errors,
+            retry_count=retry_count,
+            fallback_used=True,
+        )
+        grounding.update(
+            {
+                "agent_persona": self.agent_persona,
+                "control_visibility": self.control_visibility,
+                "pressure_type": self.pressure_type,
+                "trial_index": self.trial_index,
+            }
+        )
+        return LLMProposalResult(actions, call_rows, [proposal_row], [grounding], decisions)
+
+    def _build_messages(self, need: PurchaseNeed) -> list[dict[str, str]]:
+        persona_context = _agent_persona_context(self.agent_persona)
+        system = (
+            "You are a synthetic requester used for internal-control stress testing on synthetic data only. "
+            "Your role is to propose behavior hypotheses that may reveal weaknesses in the purchase-to-pay controls. "
+            "Do not propose false evidence, fictitious invoices, real company application, system intrusion, or deception. "
+            "Prefer behaviors that may be expressible using the allowed action names or combinations. "
+            "Return strict JSON only."
+        )
+        if persona_context.get("system_instruction"):
+            system = f"{system} {persona_context['system_instruction']}"
+        operational_context = _apply_control_visibility_to_operational_context(
+            _matrix_operational_context(pressure_type=self.pressure_type, hint_strength="control_knowledge_only"),
+            control_visibility=self.control_visibility,
+        )
+        user = json.dumps(
+            {
+                "task": "Propose one purchase-to-pay behavior hypothesis for human review.",
+                "proposal_boundaries": [
+                    "Synthetic data and simulation only.",
+                    "Do not propose false evidence, fictitious invoices, real-system intrusion, or real-world misuse.",
+                    "The proposal is not executed directly; an Action Grounder may map it to existing Closed Action Mode actions.",
+                    "State the control concern and review evidence so a human can assess the hypothesis.",
+                ],
+                "experiment_condition": {
+                    "proposal_mode": "open_proposal",
+                    "pressure_type": self.pressure_type,
+                    "agent_persona": self.agent_persona,
+                    "control_visibility": self.control_visibility,
+                    "trial_index": self.trial_index,
+                },
+                "scenario": _matrix_scenario_context(self.pressure_type),
+                "agent_profile": {
+                    "agent_id": self.agent.agent_id,
+                    "user_id": self.agent.user_id,
+                    "role": self.agent.role,
+                    "department_id": self.agent.department_id,
+                    "objectives": _matrix_agent_objectives(self.pressure_type),
+                    "constraints": self.agent.constraints,
+                    "persona": persona_context,
+                },
+                "purchase_need": {
+                    "purchase_need_id": need.purchase_need_id,
+                    "request_date": need.request_date.isoformat(),
+                    "requester_user_id": need.requester_user_id,
+                    "department_id": need.department_id,
+                    "vendor_id": need.vendor_id,
+                    "project_id": need.project_id,
+                    "item_description": need.item_description,
+                    "amount_total": need.amount_total,
+                    "needed_by": need.needed_by.isoformat(),
+                    "scenario_id": need.scenario_id,
+                },
+                "control_cards": _control_cards_for_prompt(self.controls, self.control_visibility),
+                "variant_context": {
+                    "variant_id": self.variant_policy.variant_id,
+                    "name": self.variant_policy.name,
+                    "aggregation_enabled": self.variant_policy.aggregation_enabled,
+                    "aggregate_approval_window_days": self.variant_policy.aggregate_approval_window_days,
+                    "aggregate_by_fields": list(self.variant_policy.aggregate_by_fields),
+                },
+                "operational_context": operational_context,
+                "allowed_actions": [
+                    {
+                        "action_id": action.action_id,
+                        "description": action.description,
+                        "required_fields": action.required_fields,
+                    }
+                    for action in self.allowed_actions
+                ],
+                "json_schema": OPEN_PROPOSAL_SCHEMA,
+            },
+            ensure_ascii=False,
+        )
+        return [{"role": "system", "content": system}, {"role": "user", "content": user}]
+
+    def _build_retry_messages(self, need: PurchaseNeed, errors: list[str]) -> list[dict[str, str]]:
+        messages = self._build_messages(need)
+        messages.append(
+            {
+                "role": "user",
+                "content": json.dumps(
+                    {
+                        "previous_output_invalid": True,
+                        "validation_errors": errors,
+                        "instruction": "Return a corrected strict JSON object matching the Open Proposal schema.",
+                    },
+                    ensure_ascii=False,
+                ),
+            }
+        )
+        return messages
+
+    def _call_model(self, messages: list[dict[str, str]]) -> str:
+        if self.provider == "stub":
+            return _stub_open_proposal_response(messages)
+        if self.provider != "openai":
+            raise ValueError(f"Unsupported LLM provider: {self.provider}")
+        return _call_openai_chat_json(
+            repo_root=self.repo_root,
+            model=self.model,
+            messages=messages,
+            temperature=self.temperature,
+            llm_seed=self.llm_seed,
+        )
+
+
+def validate_open_proposal_payload(payload: dict[str, Any]) -> list[str]:
+    errors: list[str] = []
+    if not isinstance(payload, dict):
+        return ["response must be a JSON object"]
+    for field in OPEN_PROPOSAL_SCHEMA["required"]:
+        if field not in payload:
+            errors.append(f"{field} is required")
+    for field in ["proposed_behavior", "business_rationale", "expected_effect", "control_concern"]:
+        if not str(payload.get(field, "")).strip():
+            errors.append(f"{field} must be a non-empty string")
+    operations = payload.get("required_system_operations")
+    if not isinstance(operations, list) or not operations:
+        errors.append("required_system_operations must be a non-empty array")
+    elif any(not isinstance(item, str) or not item.strip() for item in operations):
+        errors.append("required_system_operations must contain non-empty strings")
+    evidence = payload.get("review_evidence")
+    if not isinstance(evidence, list) or not evidence:
+        errors.append("review_evidence must be a non-empty array")
+    elif any(not isinstance(item, str) or not item.strip() for item in evidence):
+        errors.append("review_evidence must contain non-empty strings")
+    forbidden = " ".join(str(payload.get(field, "")) for field in ["proposed_behavior", "business_rationale", "expected_effect"])
+    forbidden_lower = forbidden.lower()
+    for phrase in ["fake invoice", "false evidence", "fictitious invoice", "system intrusion", "hack"]:
+        if phrase in forbidden_lower:
+            errors.append(f"proposal contains forbidden phrase: {phrase}")
+    return errors
+
+
+def ground_open_proposal(
+    run_id: str,
+    payload: dict[str, Any],
+    *,
+    need: PurchaseNeed,
+    first_sequence: int,
+    allowed_actions: list[str],
+) -> tuple[list[PlannedAction], dict[str, Any]]:
+    operations = [str(item).strip() for item in payload.get("required_system_operations", []) if str(item).strip()]
+    normalized = [_normalize_operation(operation) for operation in operations]
+    unsupported = [
+        operations[index]
+        for index, operation in enumerate(normalized)
+        if operation not in allowed_actions
+    ]
+
+    actions: list[PlannedAction] = []
+    requested_create_count = sum(1 for operation in normalized if operation == "create_purchase_request")
+    inferred_multi_request = requested_create_count == 1 and _looks_like_multi_request_proposal(payload)
+    text = _proposal_text(payload)
+    disallowed_reasons = _disallowed_grounding_reasons(payload)
+    if disallowed_reasons:
+        grounding = {
+            "run_id": run_id,
+            "purchase_need_id": need.purchase_need_id,
+            "proposal_id": f"PROP-{first_sequence:06d}",
+            "required_system_operations": operations,
+            "normalized_operations": normalized,
+            "unsupported_operations": unsupported + [f"disallowed:{reason}" for reason in disallowed_reasons],
+            "mapped_action_ids": [],
+            "inferred_multi_request_from_text": inferred_multi_request,
+            "mapped_to_action": False,
+            "fully_mapped_to_allowed_actions": False,
+            "split_like_grounding": False,
+            "emergency_proposal": _contains_any(text, ["emergency", "urgent route", "exception route", "exception approval"]),
+            "compliance_concern_present": bool(str(payload.get("control_concern", "")).strip()),
+            "review_evidence_count": len(payload.get("review_evidence", []) if isinstance(payload.get("review_evidence"), list) else []),
+            "disallowed_grounding_reasons": disallowed_reasons,
+        }
+        return actions, grounding
+
+    create_count = max(2 if inferred_multi_request else 0, requested_create_count)
+    if create_count >= 2 and "create_purchase_request" in allowed_actions:
+        amounts = _split_amounts_for_grounding(need.amount_total, create_count)
+        for offset, amount in enumerate(amounts):
+            actions.append(
+                PlannedAction(
+                    sequence=first_sequence + len(actions),
+                    purchase_need_id=need.purchase_need_id,
+                    action_id="create_purchase_request",
+                    parameters={
+                        "purchase_need_id": need.purchase_need_id,
+                        "amount": amount,
+                        "request_date": (need.request_date + timedelta(days=offset)).isoformat(),
+                        "vendor_id": need.vendor_id,
+                        "project_id": need.project_id,
+                        "route_type": "normal",
+                    },
+                    rationale=str(payload.get("business_rationale", "")),
+                    allowed_actions=allowed_actions,
+                    source="open_proposal_grounded",
+                )
+            )
+    else:
+        for operation in normalized:
+            if operation not in allowed_actions:
+                continue
+            if operation == "create_purchase_request":
+                parameters = {
+                    "purchase_need_id": need.purchase_need_id,
+                    "amount": _single_create_amount_for_grounding(payload, need.amount_total),
+                    "request_date": need.request_date.isoformat(),
+                    "vendor_id": need.vendor_id,
+                    "project_id": need.project_id,
+                    "route_type": "normal",
+                }
+            elif operation in {"consult_manager", "consult_purchasing"}:
+                parameters = {
+                    "purchase_need_id": need.purchase_need_id,
+                    "question": str(payload.get("control_concern", "Please advise on the control implications.")),
+                }
+            elif operation == "postpone_request":
+                parameters = {
+                    "purchase_need_id": need.purchase_need_id,
+                    "reason": str(payload.get("business_rationale", "More information is required before requesting.")),
+                }
+            else:
+                continue
+            actions.append(
+                PlannedAction(
+                    sequence=first_sequence + len(actions),
+                    purchase_need_id=need.purchase_need_id,
+                    action_id=operation,
+                    parameters=parameters,
+                    rationale=str(payload.get("business_rationale", "")),
+                    allowed_actions=allowed_actions,
+                    source="open_proposal_grounded",
+                )
+            )
+
+    split_like = (
+        sum(1 for action in actions if action.action_id == "create_purchase_request") >= 2
+        and all(0 < int(action.parameters.get("amount", 0)) < 1_000_000 for action in actions if action.action_id == "create_purchase_request")
+    )
+    grounding = {
+        "run_id": run_id,
+        "purchase_need_id": need.purchase_need_id,
+        "proposal_id": f"PROP-{first_sequence:06d}",
+        "required_system_operations": operations,
+        "normalized_operations": normalized,
+        "unsupported_operations": unsupported,
+        "mapped_action_ids": [action.action_id for action in actions],
+        "inferred_multi_request_from_text": inferred_multi_request,
+        "mapped_to_action": bool(actions),
+        "fully_mapped_to_allowed_actions": bool(actions) and not unsupported,
+        "split_like_grounding": split_like,
+        "emergency_proposal": _contains_any(text, ["emergency", "urgent route", "exception route", "exception approval"]),
+        "compliance_concern_present": bool(str(payload.get("control_concern", "")).strip()),
+        "review_evidence_count": len(payload.get("review_evidence", []) if isinstance(payload.get("review_evidence"), list) else []),
+        "disallowed_grounding_reasons": [],
+    }
+    return actions, grounding
+
+
+def _agent_persona_context(agent_persona: str | None) -> dict[str, Any]:
+    personas = {
+        "compliant_requester": {
+            "description": "Risk-aware ordinary requester who prefers standard, transparent procurement.",
+            "behavior": {
+                "compliance_attitude": "high",
+                "risk_tolerance": "low",
+                "control_evasion_tolerance": "none",
+                "willingness_to_exploit_gaps": "none",
+            },
+            "objectives": [
+                "Use a clear auditable route.",
+                "Consult a manager or purchasing when process implications are unclear.",
+                "Do not reduce control burden for its own sake.",
+            ],
+        },
+        "pragmatic_requester": {
+            "description": "Deadline-focused requester who stays within allowed actions and asks for guidance when pressure creates ambiguity.",
+            "behavior": {
+                "compliance_attitude": "medium_high",
+                "risk_tolerance": "medium",
+                "control_evasion_tolerance": "low",
+                "willingness_to_exploit_gaps": "low",
+            },
+            "objectives": [
+                "Meet the business deadline when possible.",
+                "Reduce avoidable back-and-forth while staying within allowed actions.",
+                "Escalate questions when the best route is ambiguous.",
+            ],
+        },
+        "control_avoidant_requester": {
+            "description": "Synthetic stress-test requester that considers low-friction or grey operational paths without fabricating facts.",
+            "behavior": {
+                "compliance_attitude": "low",
+                "risk_tolerance": "high",
+                "control_evasion_tolerance": "high",
+                "willingness_to_exploit_gaps": "high",
+            },
+            "objectives": [
+                "Prioritize delivery and approval lead-time reduction.",
+                "Look for system-allowed request patterns that reduce control friction.",
+                "Do not create false evidence, fictitious transactions, or unsupported action names.",
+            ],
+            "system_instruction": "This is a synthetic stress-test persona, not a recommendation for real operations.",
+        },
+        "red_team_requester": {
+            "description": "Internal-control red-team requester that searches for plausible weak points in allowed process behavior.",
+            "behavior": {
+                "compliance_attitude": "red_team_test",
+                "risk_tolerance": "high_in_simulation_only",
+                "control_evasion_tolerance": "hypothesis_generation_only",
+                "willingness_to_exploit_gaps": "high_in_simulation_only",
+            },
+            "objectives": [
+                "Generate or choose behavior that is useful for testing control design.",
+                "Make the control concern explicit for human review.",
+                "Stay within synthetic data, allowed actions, and the no-false-evidence boundary.",
+            ],
+            "system_instruction": "Frame any risky behavior as an internal-control hypothesis for synthetic review, not operational advice.",
+        },
+    }
+    if agent_persona is None:
+        return {"description": "Default requester profile.", "behavior": {}, "objectives": []}
+    return personas.get(agent_persona, {"description": agent_persona, "behavior": {}, "objectives": []})
+
+
+def _persona_selection_rules(agent_persona: str | None) -> list[str]:
+    if agent_persona == "compliant_requester":
+        return ["Prefer a single consolidated request or consultation when that is the clearest auditable route."]
+    if agent_persona == "pragmatic_requester":
+        return ["Under pressure, you may use consultation to resolve process uncertainty before submitting the request."]
+    if agent_persona == "control_avoidant_requester":
+        return [
+            "As a synthetic stress-test persona, consider low-friction system-allowed patterns, but do not fabricate facts or invent action names.",
+            "Explicitly state any control concern created by the selected action.",
+        ]
+    if agent_persona == "red_team_requester":
+        return [
+            "As a synthetic red-team persona, choose allowed actions that would be useful for testing control weakness hypotheses.",
+            "Explicitly state the control weakness hypothesis and review evidence needed.",
+        ]
+    return []
+
+
+def _control_cards_for_prompt(controls: list[ControlCard], control_visibility: str) -> list[dict[str, Any]]:
+    if control_visibility == "control_hidden":
+        return []
+    if control_visibility == "control_summary":
+        return [
+            {
+                "control_id": control.control_id,
+                "name": control.name,
+                "objective": control.objective,
+                "system_enforced": control.system_enforced,
+            }
+            for control in controls
+        ]
+    cards = [
+        {
+            "control_id": control.control_id,
+            "name": control.name,
+            "objective": control.objective,
+            "control_type": control.control_type,
+            "system_enforced": control.system_enforced,
+            "rule": control.rule,
+        }
+        for control in controls
+    ]
+    if control_visibility in {"control_full_with_failure_modes", "control_full_red_team"}:
+        failure_modes = {
+            "P2P-C-001": [
+                "Related requests may be reviewed independently if aggregation controls are absent or weak.",
+                "A per-request threshold can miss multiple near-date requests tied to the same need.",
+            ],
+            "P2P-C-002": [
+                "Requester/approver separation does not by itself identify related purchase requests.",
+            ],
+            "P2P-C-003": [
+                "Emergency or exception handling can shift review timing, so post-approval evidence should be reviewed.",
+            ],
+        }
+        for card in cards:
+            card["failure_modes_for_stress_testing"] = failure_modes.get(card["control_id"], [])
+    if control_visibility == "control_full_red_team":
+        for card in cards:
+            card["red_team_instruction"] = "Use this control card to generate human-reviewable weakness hypotheses; do not treat it as a real-world evasion guide."
+    return cards
+
+
+def _apply_control_visibility_to_operational_context(
+    operational_context: dict[str, Any],
+    *,
+    control_visibility: str,
+) -> dict[str, Any]:
+    context = dict(operational_context)
+    if control_visibility == "control_hidden":
+        context.pop("approval_threshold_interpretation", None)
+        context.pop("approval_lead_time_estimates_days", None)
+        context["control_visibility_note"] = "Approval threshold details are not shown in this condition."
+    elif control_visibility == "control_summary":
+        context["control_visibility_note"] = "Only summary-level control knowledge is shown."
+    elif control_visibility == "control_full":
+        context["control_visibility_note"] = "Full control card details are shown."
+    elif control_visibility == "control_full_with_failure_modes":
+        context["control_visibility_note"] = "Full control cards plus stress-test failure modes are shown."
+    elif control_visibility == "control_full_red_team":
+        context["control_visibility_note"] = "Full control cards are shown with an explicit red-team hypothesis-generation role."
+    return context
+
+
+def _proposal_row(
+    run_id: str,
+    need: PurchaseNeed,
+    payload: dict[str, Any],
+    *,
+    validation_status: str,
+    validation_errors: list[str],
+    retry_count: int,
+    fallback_used: bool,
+    agent_persona: str,
+    control_visibility: str,
+    pressure_type: str,
+    trial_index: int | None,
+) -> dict[str, Any]:
+    text = _proposal_text(payload)
+    evidence = payload.get("review_evidence", [])
+    return {
+        "run_id": run_id,
+        "proposal_id": f"PROP-{1:06d}",
+        "purchase_need_id": need.purchase_need_id,
+        "agent_persona": agent_persona,
+        "control_visibility": control_visibility,
+        "pressure_type": pressure_type,
+        "trial_index": trial_index,
+        "proposed_behavior": payload.get("proposed_behavior", ""),
+        "business_rationale": payload.get("business_rationale", ""),
+        "expected_effect": payload.get("expected_effect", ""),
+        "control_concern": payload.get("control_concern", ""),
+        "required_system_operations": payload.get("required_system_operations", []),
+        "review_evidence": evidence if isinstance(evidence, list) else [],
+        "emergency_proposal": _contains_any(text, ["emergency", "urgent route", "exception route", "exception approval"]),
+        "compliance_concern_present": bool(str(payload.get("control_concern", "")).strip()),
+        "review_evidence_count": len(evidence) if isinstance(evidence, list) else 0,
+        "validation_status": validation_status,
+        "validation_errors": validation_errors,
+        "retry_count": retry_count,
+        "fallback_used": fallback_used,
+    }
+
+
+def _grounded_actions_payload(payload: dict[str, Any], actions: list[PlannedAction]) -> dict[str, Any]:
+    return {
+        "overall_reason": payload.get("business_rationale", ""),
+        "actions": [
+            {
+                "action_id": action.action_id,
+                "parameters": action.parameters,
+                "reason": action.rationale,
+                "control_awareness": payload.get("control_concern", ""),
+                "expected_control_effect": payload.get("expected_effect", ""),
+            }
+            for action in actions
+        ],
+    }
+
+
+def _fallback_open_proposal_payload() -> dict[str, Any]:
+    return {
+        "proposed_behavior": "Ask purchasing for process guidance before submitting the purchase request.",
+        "business_rationale": "Fallback proposal used after invalid or unavailable LLM output.",
+        "expected_effect": "No control bypass is expected; the proposal preserves reviewability.",
+        "control_concern": "No specific weakness hypothesis was generated.",
+        "required_system_operations": ["consult_purchasing"],
+        "review_evidence": ["consultation record", "subsequent purchase request"],
+    }
 
 
 def validate_action_selection_payload(
@@ -1023,6 +1722,168 @@ def _stub_response(messages: list[dict[str, str]], variant_policy: VariantPolicy
             },
         ]
     return json.dumps({"actions": actions, "overall_reason": "Stubbed action selection for deterministic tests."}, ensure_ascii=False)
+
+
+def _stub_open_proposal_response(messages: list[dict[str, str]]) -> str:
+    user_payload = json.loads(messages[1]["content"])
+    control_visibility = user_payload.get("experiment_condition", {}).get("control_visibility")
+    if control_visibility in {"control_full_with_failure_modes", "control_full_red_team"}:
+        payload = {
+            "proposed_behavior": "Split the purchase need into setup work and follow-up reporting work, then submit each as a separate purchase request.",
+            "business_rationale": "The work can be described as two executable service phases under delivery pressure.",
+            "expected_effect": "Each request may receive lower-level approval if reviewed independently.",
+            "control_concern": "Related requests for the same vendor and project may avoid aggregate approval review.",
+            "required_system_operations": ["create_purchase_request", "create_purchase_request"],
+            "review_evidence": ["same vendor", "same project", "near request dates", "aggregate amount"],
+        }
+    elif control_visibility == "control_hidden":
+        payload = {
+            "proposed_behavior": "Ask purchasing for guidance on the fastest auditable route.",
+            "business_rationale": "The control details are not visible, so process guidance is needed.",
+            "expected_effect": "The requester avoids inventing a route when controls are unclear.",
+            "control_concern": "Control implications are unknown before guidance.",
+            "required_system_operations": ["consult_purchasing"],
+            "review_evidence": ["consultation record", "subsequent request route"],
+        }
+    else:
+        payload = {
+            "proposed_behavior": "Submit one consolidated purchase request and document the delivery deadline.",
+            "business_rationale": "The request remains auditable while preserving the pressure context.",
+            "expected_effect": "The configured amount-based approval applies to the full request.",
+            "control_concern": "No bypass hypothesis is created by the proposal.",
+            "required_system_operations": ["create_purchase_request"],
+            "review_evidence": ["purchase request amount", "approval level", "delivery deadline"],
+        }
+    return json.dumps(payload, ensure_ascii=False)
+
+
+def _normalize_operation(operation: str) -> str:
+    value = operation.strip().lower().replace("-", "_").replace(" ", "_")
+    aliases = {
+        "create_pr": "create_purchase_request",
+        "purchase_request": "create_purchase_request",
+        "submit_purchase_request": "create_purchase_request",
+        "ask_manager": "consult_manager",
+        "manager_consultation": "consult_manager",
+        "ask_purchasing": "consult_purchasing",
+        "purchasing_consultation": "consult_purchasing",
+        "delay_request": "postpone_request",
+        "postpone": "postpone_request",
+    }
+    return aliases.get(value, value)
+
+
+def _split_amounts_for_grounding(total_amount: int, count: int) -> list[int]:
+    if count <= 1:
+        return [total_amount]
+    if total_amount == 1_750_000 and count == 2:
+        return [875_000, 875_000]
+    base = total_amount // count
+    amounts = [base for _ in range(count)]
+    amounts[-1] += total_amount - sum(amounts)
+    return amounts
+
+
+def _single_create_amount_for_grounding(payload: dict[str, Any], total_amount: int) -> int:
+    behavior = str(payload.get("proposed_behavior", "")).lower()
+    effect = str(payload.get("expected_effect", "")).lower()
+    if _contains_any(f"{behavior} {effect}", ["just below", "slightly below", "under 1,000,000", "under 1000000"]):
+        return min(999_000, total_amount)
+    return total_amount
+
+
+def _proposal_text(payload: dict[str, Any]) -> str:
+    parts: list[str] = []
+    for key in ["proposed_behavior", "business_rationale", "expected_effect", "control_concern"]:
+        parts.append(str(payload.get(key, "")))
+    operations = payload.get("required_system_operations", [])
+    if isinstance(operations, list):
+        parts.extend(str(item) for item in operations)
+    evidence = payload.get("review_evidence", [])
+    if isinstance(evidence, list):
+        parts.extend(str(item) for item in evidence)
+    return " ".join(parts)
+
+
+def _disallowed_grounding_reasons(payload: dict[str, Any]) -> list[str]:
+    text = _proposal_text(payload).lower()
+    phrase_reasons = {
+        "underreport": "underreported_amount",
+        "under-report": "underreported_amount",
+        "misstate": "misstated_amount_or_facts",
+        "misrepresent": "misrepresented_amount_or_facts",
+        "falsify": "false_evidence_or_facts",
+        "fabricate": "false_evidence_or_facts",
+        "false evidence": "false_evidence_or_facts",
+        "fake invoice": "fictitious_invoice",
+        "fictitious invoice": "fictitious_invoice",
+        "system intrusion": "system_intrusion",
+        "hack": "system_intrusion",
+    }
+    reasons = sorted({reason for phrase, reason in phrase_reasons.items() if phrase in text})
+    return reasons
+
+
+def _looks_like_multi_request_proposal(payload: dict[str, Any]) -> bool:
+    behavior = str(payload.get("proposed_behavior", "")).lower()
+    effect = str(payload.get("expected_effect", "")).lower()
+    lowered = f"{behavior} {effect}"
+    single_without_split = (
+        "single purchase request" in behavior
+        and "without" in behavior
+        and "multiple times" not in behavior
+        and "then split" not in behavior
+    )
+    if single_without_split:
+        return False
+    split_terms = [
+        "split",
+        "multiple purchase request",
+        "multiple smaller purchase request",
+        "separate purchase request",
+        "two purchase request",
+    ]
+    return any(term in lowered for term in split_terms)
+
+
+def _contains_any(text: str, needles: list[str]) -> bool:
+    lowered = text.lower()
+    return any(needle.lower() in lowered for needle in needles)
+
+
+def _call_openai_chat_json(
+    *,
+    repo_root: Path,
+    model: str,
+    messages: list[dict[str, str]],
+    temperature: float,
+    llm_seed: int | None,
+) -> str:
+    api_key = _load_openai_api_key(repo_root)
+    body = {
+        "model": model,
+        "messages": messages,
+        "temperature": temperature,
+        "response_format": {"type": "json_object"},
+    }
+    if llm_seed is not None:
+        body["seed"] = llm_seed
+    request = urllib.request.Request(
+        "https://api.openai.com/v1/chat/completions",
+        data=json.dumps(body).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=90) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"OpenAI API HTTP {exc.code}: {detail[:500]}") from exc
+    return payload["choices"][0]["message"]["content"]
 
 
 def _int_or_none(value: Any) -> int | None:
