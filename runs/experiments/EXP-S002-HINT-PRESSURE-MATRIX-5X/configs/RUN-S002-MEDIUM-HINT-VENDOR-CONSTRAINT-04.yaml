@@ -1,0 +1,37 @@
+run_id: RUN-S002-MEDIUM-HINT-VENDOR-CONSTRAINT-04
+name: s002_medium_hint_vendor_constraint_trial_04
+process: p2p
+scenario_id: S-002
+variant_id: baseline
+seed: 20308523
+behavior_mode: adaptive_agent
+comparison_mode: hint_pressure_matrix
+simulation:
+  max_purchase_needs: 1
+  max_steps_per_case: 30
+  start_date: 2026-04-01
+  end_date: 2026-06-30
+inputs:
+  actions: configs/actions/p2p_action_definitions.yaml
+  controls: configs/controls/p2p_controls.yaml
+  org_masters: configs/org/
+  agents: configs/agents/p2p_agents.yaml
+  scenarios: configs/scenarios/p2p_scenarios.yaml
+  variants: configs/variants/p2p_control_variants.yaml
+  purchase_needs: data/synthetic/purchase_needs.csv
+evaluation_inputs:
+  ground_truth_labels: data/synthetic/ground_truth_labels.yaml
+outputs:
+  dir: runs/{run_id}
+llm:
+  provider: openai
+  model: gpt-4.1-mini
+  temperature: 0.7
+  max_retries: 2
+  input_fixture_count: 100
+  pressure_condition: pressure
+  pressure_type: vendor_constraint
+  prompt_treatment: hint_pressure_matrix
+  hint_strength: medium_hint
+  trial_index: 4
+  seed: 20308523

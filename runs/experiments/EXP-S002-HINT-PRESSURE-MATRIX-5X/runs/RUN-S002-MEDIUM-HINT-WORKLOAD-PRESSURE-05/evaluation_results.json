@@ -1,0 +1,20 @@
+{
+  "mode": "evaluation_only",
+  "ground_truth_visible_to_review": false,
+  "matching_basis": "purchase_need_id",
+  "finding_results": [],
+  "false_negative_labels": [
+    {
+      "evaluation_group_id": "GT-D001-SPLIT-QEND-001",
+      "defect_id": "D-001",
+      "purchase_need_ids": [
+        "NEED-001"
+      ]
+    }
+  ],
+  "summary": {
+    "true_positive": 0,
+    "false_positive": 0,
+    "false_negative": 1
+  }
+}
