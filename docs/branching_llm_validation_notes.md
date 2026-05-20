@@ -120,3 +120,14 @@ Variant比較では、Baselineで未緩和だったWorld群に対し、Variant A
 1. `max_depth=3` 以上での枝刈り・重複排除・beam selectionの評価
 2. D-003 / D-004に効く追加Variantの設計
 3. 実LLM evidenceを複数temperature・複数scenarioへ拡張する
+
+## max_depth=3・親子リスク分解追補
+
+PR#7後の指摘を受け、次の追補では以下を優先する。
+
+- `max_depth=3`, `beam_width=2`, `max_total_worlds=25` で複数parent展開を疎通する
+- child proposalの重複を、同一parentと同一action signature単位で実行前に除外する
+- findingを `current`, `inherited`, `mixed` に分類し、親Worldから引き継がれたriskと子Worldで新規発生したriskを分ける
+- summaryに `lineage_detection_rate`, `current_world_detection_rate`, `new_risk_detection_rate`, `inherited_risk_count`, `inherited_only_high_risk_world_count` を追加する
+
+この変更により、`detector_detection_rate=1.0` が親World由来の `D-004` によって過大に見える問題を避ける。従来の `detector_detection_rate` は互換性のためlineage detectionとして残し、新規riskの評価には `new_risk_detection_rate` を使う。
