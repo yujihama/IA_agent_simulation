@@ -33,6 +33,7 @@ def evaluate_findings(
                 "detector_id": finding["detector_id"],
                 "defect_id": finding["defect_id"],
                 "evaluation_result": result,
+                "result_label": "真陽性" if result == "true_positive" else "偽陽性",
                 "matched_evaluation_group_id": matched_label["evaluation_group_id"] if matched_label else None,
                 "evidence_purchase_need_ids": sorted(evidence_purchase_need_ids),
             }

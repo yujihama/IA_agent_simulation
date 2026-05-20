@@ -77,13 +77,13 @@ def detect_split_orders(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
                         "project_id": key[2],
                     },
                     "observed_facts": [
-                        f"{len(window)} purchase requests were created by the same requester for the same vendor and project within {WINDOW_DAYS} days.",
-                        f"Each request amount was below {DEPARTMENT_HEAD_THRESHOLD}.",
-                        f"The aggregated amount was {total_amount}, which exceeds {DEPARTMENT_HEAD_THRESHOLD}.",
+                        f"同一申請者・同一取引先・同一プロジェクトに対して、{WINDOW_DAYS}日以内に{len(window)}件の購買申請が作成された。",
+                        f"各申請金額はいずれも{DEPARTMENT_HEAD_THRESHOLD}未満である。",
+                        f"合算金額は{total_amount}であり、{DEPARTMENT_HEAD_THRESHOLD}を超過している。",
                     ],
                     "inference": (
-                        "The event sequence is consistent with possible approval-threshold avoidance. "
-                        "This is a candidate for human review, not an audit conclusion."
+                        "このイベント列は、承認閾値回避の可能性と整合する。"
+                        "これは人間レビュー用の不備候補であり、監査上の結論ではない。"
                     ),
                     "related_controls": ["P2P-C-001", "P2P-C-002", "P2P-C-003"],
                     "proposal_flags_used": False,
@@ -106,7 +106,7 @@ def build_findings(annotations: list[dict[str, Any]], events: list[dict[str, Any
                 "finding_id": f"FND-{index:06d}",
                 "run_id": annotation["run_id"],
                 "defect_id": DEFECT_ID,
-                "title": "Possible split purchase requests avoiding approval threshold",
+                "title": "承認閾値回避の可能性がある分割購買申請",
                 "severity": annotation["severity"],
                 "status": status,
                 "detector_id": annotation["detector_id"],
@@ -117,9 +117,9 @@ def build_findings(annotations: list[dict[str, Any]], events: list[dict[str, Any
                 "bypass_success": annotation["bypass_success"],
                 "mitigated_by_aggregation": annotation["mitigated_by_aggregation"],
                 "recommended_review_steps": [
-                    "Confirm whether the requests relate to one economic purchase need.",
-                    "Review requester rationale and approval trail.",
-                    "Assess whether aggregation controls should apply by requester, vendor, project, and time window.",
+                    "複数申請が同一の経済的購買ニーズに対応するか確認する。",
+                    "申請理由と承認履歴を確認する。",
+                    "申請者・取引先・プロジェクト・期間による合算統制の適用要否を評価する。",
                 ],
                 "evidence_summary": [
                     {
