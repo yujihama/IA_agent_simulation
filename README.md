@@ -25,6 +25,8 @@ python -m ia_sim.cli run-balanced-planning-hint-experiment --trials 10
 python -m ia_sim.cli run-hint-pressure-matrix-experiment --trials 5
 python -m ia_sim.cli run-agent-stress-experiment --trials 3
 python -m ia_sim.cli run-branching-simulation --provider stub
+python -m ia_sim.cli run-branching-variant-comparison --provider stub
+python -m ia_sim.cli export-branching-evidence --source-root runs --output-dir runs/evidence/RUN-S002-BRANCHING-MULTISTAGE-GPT41-MINI
 ```
 
 Generated input is written to `data/synthetic/purchase_needs.csv`, and run outputs are written under `runs/`. The current first-slice and LLM action-selection sample outputs are committed as PoC evidence.
@@ -64,7 +66,9 @@ Generated input is written to `data/synthetic/purchase_needs.csv`, and run outpu
 
 `run-agent-stress-experiment` runs two stress-test layers. The Closed Action layer changes only the requester persona (`compliant_requester`, `pragmatic_requester`, `control_avoidant_requester`, `red_team_requester`) under the same purchase need, controls, and delivery pressure. The Open Proposal layer uses `red_team_requester` and varies control visibility (`control_hidden`, `control_summary`, `control_full`, `control_full_with_failure_modes`, `control_full_red_team`) to evaluate human-reviewable weakness-hypothesis generation and Action Grounding. Open Proposal outputs are not treated as audit conclusions.
 
-`run-branching-simulation` runs the new Branching Proposal stress-test mode. It asks for multiple behavior hypotheses, grounds each executable hypothesis into a separate `world_id`, executes policy-violation and misrepresentation branches only inside the synthetic environment, and writes `branching_summary.json`, `world_summaries.json`, `world_tree.json`, `branching_report.md`, and `residual_risk_report.md`. Unsupported branches, such as off-system informal approval, are saved as Action Library candidates rather than executed.
+`run-branching-simulation` runs the Branching Proposal stress-test mode. It asks for multiple behavior hypotheses, grounds each executable hypothesis into a separate `world_id`, executes policy-violation and misrepresentation branches only inside the synthetic environment, and writes `branching_summary.json`, `world_summaries.json`, `world_tree.json`, `branching_report.md`, and `residual_risk_report.md`. With `max_depth > 1`, expandable intermediate Worlds are fed back into the LLM as `parent_world_context`, producing child Worlds with `parent_world_id` links in `world_tree.json`. `beam_width` and `max_total_worlds` limit expansion.
+
+`run-branching-variant-comparison` generates the Branching Worlds once, then replays the same World group under Baseline, Variant A, and Variant B. `export-branching-evidence` copies a representative run and comparison into a redacted evidence directory while preserving prompts, raw responses, parsed JSON, validation status, events, findings, and reports.
 
 ## Review UI
 
@@ -95,5 +99,6 @@ This repository intentionally tracks the First Vertical Slice PoC evidence:
 - `runs/experiments/EXP-S002-BALANCED-PLANNING-HINT-10X/`
 - `runs/experiments/EXP-S002-HINT-PRESSURE-MATRIX-5X/`
 - `runs/experiments/EXP-S002-AGENT-STRESS-3X/`
+- `runs/evidence/RUN-S002-BRANCHING-MULTISTAGE-GPT41-MINI/`
 
 These files contain synthetic data only. Do not commit real data, anonymized production logs, or confidential run outputs. New committed runs should include the input fixture, run manifests, metrics, findings, evaluation results, and comparison reports together. `run_manifest.json` records repository-relative input paths, seed, code version, and SHA-256 hashes for the config and data inputs used to generate the run.

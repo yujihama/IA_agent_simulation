@@ -34,9 +34,9 @@ llm:
   input_fixture_count: 100
 branching:
   proposal_count_per_node: 5
-  max_depth: 4
-  beam_width: 5
-  max_total_worlds: 100
+  max_depth: 2
+  beam_width: 2
+  max_total_worlds: 15
   include_policy_violating_actions: true
   include_misrepresentation_actions: true
   require_action_classification: true

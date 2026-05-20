@@ -171,6 +171,9 @@ def run_simulation(
             agent=agent,
             variant_policy=variant_policy,
             proposal_count_per_node=int(branching_config["proposal_count_per_node"]),
+            max_depth=int(branching_config["max_depth"]),
+            beam_width=int(branching_config["beam_width"]),
+            max_total_worlds=int(branching_config["max_total_worlds"]),
             include_policy_violating_actions=bool(branching_config["include_policy_violating_actions"]),
             include_misrepresentation_actions=bool(branching_config["include_misrepresentation_actions"]),
             require_action_classification=bool(branching_config["require_action_classification"]),
@@ -185,7 +188,18 @@ def run_simulation(
             llm_seed=run_config.llm.get("seed"),
         )
         branching_result = generator.propose_for_needs(needs, max_purchase_needs=max_purchase_needs)
-        plan = _select_branching_actions(branching_result.planned_actions, branching_config)
+        if int(branching_config["max_depth"]) > 1:
+            branching_result = _expand_multistage_branching(
+                generator=generator,
+                initial_result=branching_result,
+                needs=needs[:max_purchase_needs],
+                rule_engine=rule_engine,
+                branching_config=branching_config,
+                run_id=run_config.run_id,
+            )
+            plan = branching_result.planned_actions
+        else:
+            plan = _select_branching_actions(branching_result.planned_actions, branching_config)
         events = execute_branching_worlds(
             run_id=run_config.run_id,
             needs=needs,
@@ -428,6 +442,142 @@ def compare_runs(baseline_run_dir: Path, variant_run_dir: Path, output_dir: Path
     return comparison
 
 
+def _expand_multistage_branching(
+    *,
+    generator: LLMBranchingProposalGenerator,
+    initial_result: LLMBranchingResult,
+    needs: list[Any],
+    rule_engine: RuleEngine,
+    branching_config: dict[str, Any],
+    run_id: str,
+) -> LLMBranchingResult:
+    result = initial_result
+    max_depth = int(branching_config.get("max_depth", 1))
+    max_total_worlds = int(branching_config.get("max_total_worlds", 100))
+    if max_depth <= 1 or not result.world_rows:
+        return result
+
+    needs_by_id = {need.purchase_need_id: need for need in needs}
+    frontier = list(result.world_rows)
+    next_sequence = _next_branching_sequence(result.planned_actions)
+    next_world_index = _next_branching_world_index(result.world_rows)
+
+    while frontier and len(result.world_rows) < max_total_worlds:
+        parent_events = execute_branching_worlds(
+            run_id=run_id,
+            needs=needs,
+            planned_actions=result.planned_actions,
+            rule_engine=rule_engine,
+        )
+        events_by_world = _rows_by_world(parent_events)
+        actions_by_world = _actions_by_world(result.planned_actions)
+        parents = _select_expandable_branching_parents(
+            frontier=frontier,
+            events_by_world=events_by_world,
+            branching_config=branching_config,
+        )
+        if not parents:
+            break
+
+        next_frontier: list[dict[str, Any]] = []
+        for parent in parents:
+            remaining_worlds = max_total_worlds - len(result.world_rows)
+            if remaining_worlds <= 0:
+                break
+            need = needs_by_id[parent["purchase_need_id"]]
+            child_result = generator.propose_next_for_world(
+                need=need,
+                parent_world=parent,
+                parent_actions=actions_by_world.get(parent["world_id"], []),
+                parent_events=events_by_world.get(parent["world_id"], []),
+                first_sequence=next_sequence,
+                first_world_index=next_world_index,
+            )
+            child_result = _limit_branching_result_worlds(child_result, remaining_worlds)
+            if not child_result.world_rows:
+                continue
+            result = _combine_branching_results(result, child_result)
+            next_frontier.extend(child_result.world_rows)
+            next_sequence = _next_branching_sequence(result.planned_actions)
+            next_world_index = _next_branching_world_index(result.world_rows)
+        frontier = next_frontier
+    return result
+
+
+def _select_expandable_branching_parents(
+    *,
+    frontier: list[dict[str, Any]],
+    events_by_world: dict[str, list[dict[str, Any]]],
+    branching_config: dict[str, Any],
+) -> list[dict[str, Any]]:
+    max_depth = int(branching_config.get("max_depth", 1))
+    candidates: list[dict[str, Any]] = []
+    for world in frontier:
+        if int(world.get("depth", 1)) >= max_depth:
+            continue
+        if world.get("status") in {"unsupported", "blocked", "out_of_scope"}:
+            continue
+        world_events = events_by_world.get(world["world_id"], [])
+        if not world_events:
+            continue
+        terminal_state = world_events[-1]["state_after"]
+        if terminal_state in {"paid", "blocked_attempt", "postponed"}:
+            continue
+        candidates.append(world)
+    if branching_config.get("risk_guided_selection", True):
+        candidates = sorted(candidates, key=lambda world: (-int(world.get("risk_score", 0)), world["world_id"]))
+    return candidates[: max(1, int(branching_config.get("beam_width", 1)))]
+
+
+def _rows_by_world(rows: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for row in rows:
+        grouped.setdefault(str(row.get("world_id", "")), []).append(row)
+    return grouped
+
+
+def _actions_by_world(actions: list[PlannedAction]) -> dict[str, list[PlannedAction]]:
+    grouped: dict[str, list[PlannedAction]] = {}
+    for action in actions:
+        grouped.setdefault(action.world_id, []).append(action)
+    return grouped
+
+
+def _next_branching_sequence(actions: list[PlannedAction]) -> int:
+    return max((int(action.sequence) for action in actions), default=0) + 1
+
+
+def _next_branching_world_index(world_rows: list[dict[str, Any]]) -> int:
+    return len(world_rows) + 1
+
+
+def _limit_branching_result_worlds(result: LLMBranchingResult, max_worlds: int) -> LLMBranchingResult:
+    selected_world_ids = {row["world_id"] for row in result.world_rows[:max_worlds]}
+    return LLMBranchingResult(
+        planned_actions=[action for action in result.planned_actions if action.world_id in selected_world_ids],
+        call_rows=result.call_rows,
+        proposal_rows=[row for row in result.proposal_rows if row["world_id"] in selected_world_ids],
+        grounding_rows=[row for row in result.grounding_rows if row["world_id"] in selected_world_ids],
+        decision_rows=[row for row in result.decision_rows if row.get("world_id") in selected_world_ids],
+        world_rows=[row for row in result.world_rows if row["world_id"] in selected_world_ids],
+        action_library_candidates=[
+            row for row in result.action_library_candidates if row["world_id"] in selected_world_ids
+        ],
+    )
+
+
+def _combine_branching_results(left: LLMBranchingResult, right: LLMBranchingResult) -> LLMBranchingResult:
+    return LLMBranchingResult(
+        planned_actions=[*left.planned_actions, *right.planned_actions],
+        call_rows=[*left.call_rows, *right.call_rows],
+        proposal_rows=[*left.proposal_rows, *right.proposal_rows],
+        grounding_rows=[*left.grounding_rows, *right.grounding_rows],
+        decision_rows=[*left.decision_rows, *right.decision_rows],
+        world_rows=[*left.world_rows, *right.world_rows],
+        action_library_candidates=[*left.action_library_candidates, *right.action_library_candidates],
+    )
+
+
 def run_first_slice(repo_root: Path, *, output_root_override: Path | None = None) -> dict[str, Any]:
     data_dir = repo_root / "data/synthetic"
     baseline_config = load_run_config(repo_root / "configs/run_configs/baseline.yaml")
@@ -634,6 +784,7 @@ def _planned_action_from_behavior_row(row: dict[str, Any]) -> PlannedAction:
         branch_reason=str(row.get("branch_reason", "")),
         proposal_id=str(row.get("proposal_id", "")),
         risk_score=int(row.get("risk_score", 0)),
+        depth=int(row.get("depth", 1)),
     )
 
 
@@ -2346,9 +2497,9 @@ def _branching_config(raw: dict[str, Any] | None) -> dict[str, Any]:
     config = dict(raw or {})
     defaults = {
         "proposal_count_per_node": 5,
-        "max_depth": 4,
-        "beam_width": 5,
-        "max_total_worlds": 100,
+        "max_depth": 2,
+        "beam_width": 2,
+        "max_total_worlds": 15,
         "include_policy_violating_actions": True,
         "include_misrepresentation_actions": True,
         "require_action_classification": True,

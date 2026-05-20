@@ -3,6 +3,7 @@ from pathlib import Path
 
 from ia_sim.branching import execute_branching_worlds
 from ia_sim.config import load_control_cards, read_yaml, write_yaml
+from ia_sim.evidence import export_redacted_branching_evidence
 from ia_sim.llm import ground_open_proposal, validate_action_selection_payload
 from ia_sim.models import PlannedAction, PurchaseNeed
 from ia_sim.orchestrator import (
@@ -249,20 +250,27 @@ def test_branching_proposal_stub_writes_world_outputs(tmp_path):
     events = read_jsonl(run_dir / "events.jsonl")
     findings = read_json(run_dir / "findings.json")["findings"]
 
-    assert summary["generated_world_count"] == 5
-    assert summary["completed_world_count"] == 5
+    assert summary["generated_world_count"] == 10
+    assert summary["completed_world_count"] == 10
+    assert summary["multi_stage_enabled"] is True
+    assert summary["expanded_world_count"] == 1
+    assert summary["max_depth_reached_count"] == 1
+    assert summary["generated_depth_counts"] == {"1": 5, "2": 5}
     assert summary["unsupported_action_candidate_count"] == 0
-    assert summary["misrepresentation_action_count"] == 1
+    assert summary["misrepresentation_action_count"] == 2
     assert summary["detector_detection_rate"] == 1.0
-    assert summary["detector_detection_rate_numerator"] == 4
-    assert summary["detector_detection_rate_denominator"] == 4
-    assert {world["world_id"] for world in worlds} == {
-        "WORLD-001",
-        "WORLD-002",
-        "WORLD-003",
-        "WORLD-004",
-        "WORLD-005",
-    }
+    assert summary["detector_detection_rate_numerator"] == 8
+    assert summary["detector_detection_rate_denominator"] == 8
+    assert {world["world_id"] for world in worlds} == {f"WORLD-{index:03d}" for index in range(1, 11)}
+    world_by_id = {world["world_id"]: world for world in worlds}
+    assert world_by_id["WORLD-005"]["child_world_ids"] == [
+        "WORLD-006",
+        "WORLD-007",
+        "WORLD-008",
+        "WORLD-009",
+        "WORLD-010",
+    ]
+    assert world_by_id["WORLD-010"]["terminal_reason"] == "max_depth_reached"
     assert all(event["world_id"] for event in events)
     assert {finding["defect_id"] for finding in findings} >= {"D-001", "D-002", "D-003", "D-004"}
     assert any(event["action_id"] == "informal_preapproval_chat" for event in events)
@@ -335,9 +343,10 @@ def test_branching_variant_comparison_replays_same_world_group(tmp_path):
         "variant_a_7d_aggregation",
         "variant_b_emergency_post_approval",
     }
-    assert comparison["variants"]["baseline"]["unmitigated_finding_count"] == 4
-    assert comparison["variants"]["variant_a_7d_aggregation"]["mitigated_finding_count"] == 1
-    assert comparison["variants"]["variant_b_emergency_post_approval"]["mitigated_finding_count"] == 1
+    assert comparison["variants"]["baseline"]["generated_world_count"] == 10
+    assert comparison["variants"]["baseline"]["unmitigated_finding_count"] == 12
+    assert comparison["variants"]["variant_a_7d_aggregation"]["mitigated_finding_count"] == 2
+    assert comparison["variants"]["variant_b_emergency_post_approval"]["mitigated_finding_count"] == 2
 
     variant_a_effects = [
         row for row in comparison["world_effects"] if row["variant_id"] == "variant_a_7d_aggregation"
@@ -348,6 +357,35 @@ def test_branching_variant_comparison_replays_same_world_group(tmp_path):
     assert any(row["defects_mitigated_by_variant"] == ["D-001"] for row in variant_a_effects)
     assert any(row["defects_mitigated_by_variant"] == ["D-002"] for row in variant_b_effects)
     assert (result["comparison_dir"] / "branching_variant_comparison_report.md").exists()
+
+
+def test_export_redacted_branching_evidence_writes_reviewable_artifacts(tmp_path):
+    result = run_branching_variant_comparison(
+        REPO_ROOT,
+        output_root_override=tmp_path / "runs",
+        provider="stub",
+    )
+    evidence_dir = tmp_path / "evidence"
+
+    manifest = export_redacted_branching_evidence(
+        source_root=tmp_path / "runs",
+        output_dir=evidence_dir,
+    )
+
+    assert not manifest["missing_files"]
+    calls_path = evidence_dir / "RUN-S002-BRANCHING-BASELINE/branching_calls.jsonl"
+    comparison_path = (
+        evidence_dir
+        / "comparisons/CMP-S002-BRANCHING-BASELINE-VARIANTS/branching_variant_comparison.json"
+    )
+    calls_text = calls_path.read_text(encoding="utf-8")
+    assert calls_path.exists()
+    assert comparison_path.exists()
+    assert "request_messages" in calls_text
+    assert "raw_response" in calls_text
+    assert "sk-" not in calls_text
+    assert (evidence_dir / "redaction_policy.json").exists()
+    assert result["comparison"]["same_world_group_replayed"] is True
 
 
 def _stub_config(source_name: str, run_id: str, tmp_path: Path) -> Path:

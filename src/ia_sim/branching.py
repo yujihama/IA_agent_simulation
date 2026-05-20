@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 from collections import Counter, OrderedDict
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -21,14 +22,18 @@ def execute_branching_worlds(
     rule_engine: RuleEngine,
 ) -> list[dict[str, Any]]:
     actions_by_world: OrderedDict[str, list[PlannedAction]] = OrderedDict()
+    parent_by_world: dict[str, str] = {}
     for action in planned_actions:
-        actions_by_world.setdefault(action.world_id or "WORLD-000", []).append(action)
+        world_id = action.world_id or "WORLD-000"
+        actions_by_world.setdefault(world_id, []).append(action)
+        parent_by_world.setdefault(world_id, action.parent_world_id)
 
     engine = SimulationEngine(run_id, rule_engine)
     events: list[dict[str, Any]] = []
-    for actions in actions_by_world.values():
+    for world_id in actions_by_world:
         engine.purchase_requests = []
         world_needs = copy.deepcopy(needs)
+        actions = _lineage_actions_for_world(world_id, actions_by_world, parent_by_world)
         executable_actions = [action for action in actions if action.classification != "system_blocked"]
         blocked_actions = [action for action in actions if action.classification == "system_blocked"]
         if executable_actions:
@@ -37,6 +42,28 @@ def execute_branching_worlds(
         for action in blocked_actions:
             events.append(engine.record_system_blocked_attempt(need_by_id[action.purchase_need_id], action))
     return events
+
+
+def _lineage_actions_for_world(
+    world_id: str,
+    actions_by_world: OrderedDict[str, list[PlannedAction]],
+    parent_by_world: dict[str, str],
+) -> list[PlannedAction]:
+    lineage: list[str] = []
+    current = world_id
+    seen: set[str] = set()
+    while current and current not in seen:
+        lineage.append(current)
+        seen.add(current)
+        current = parent_by_world.get(current, "")
+    lineage.reverse()
+
+    actions: list[PlannedAction] = []
+    parent_world_id = parent_by_world.get(world_id, "")
+    for lineage_world_id in lineage:
+        for action in actions_by_world.get(lineage_world_id, []):
+            actions.append(replace(action, world_id=world_id, parent_world_id=parent_world_id))
+    return actions
 
 
 def build_branching_artifacts(
@@ -62,6 +89,11 @@ def build_branching_artifacts(
     findings_by_world: dict[str, list[dict[str, Any]]] = {}
     for finding in findings:
         findings_by_world.setdefault(finding.get("world_id", ""), []).append(finding)
+    children_by_parent: dict[str, list[str]] = {}
+    for row in world_rows:
+        parent_world_id = row.get("parent_world_id", "")
+        if parent_world_id:
+            children_by_parent.setdefault(parent_world_id, []).append(row["world_id"])
 
     world_summaries: list[dict[str, Any]] = []
     for row in world_rows:
@@ -73,6 +105,7 @@ def build_branching_artifacts(
         initial_status = row["status"]
         status = "completed" if initial_status == "planned" and world_events else initial_status
         terminal_state = world_events[-1]["state_after"] if world_events else status
+        depth = int(row.get("depth", len(world_actions)))
         triggered_controls = sorted(
             {
                 control_id
@@ -83,6 +116,14 @@ def build_branching_artifacts(
         )
         detected_findings = [finding["finding_id"] for finding in world_findings]
         undetected_risks = _undetected_risks(row, world_findings)
+        child_world_ids = children_by_parent.get(world_id, [])
+        terminal_reason = _terminal_reason(
+            row=row,
+            world_events=world_events,
+            world_actions=world_actions,
+            branching_config=branching_config,
+            child_world_ids=child_world_ids,
+        )
         world_summaries.append(
             {
                 "run_id": run_id,
@@ -91,7 +132,8 @@ def build_branching_artifacts(
                 "proposal_id": row.get("proposal_id", ""),
                 "status": status,
                 "terminal_state": terminal_state,
-                "depth": len(world_actions),
+                "terminal_reason": terminal_reason,
+                "depth": depth,
                 "branch_reason": row.get("branch_reason", ""),
                 "classification": row.get("classification", "compliant"),
                 "risk_score": row.get("risk_score", 0),
@@ -107,6 +149,7 @@ def build_branching_artifacts(
                 "unsupported_operations": row.get("unsupported_operations", []),
                 "blocked_reasons": row.get("blocked_reasons", []),
                 "review_evidence": row.get("review_evidence", []),
+                "child_world_ids": child_world_ids,
             }
         )
 
@@ -124,9 +167,11 @@ def build_branching_artifacts(
                 "parent_world_id": world["parent_world_id"],
                 "proposal_id": world["proposal_id"],
                 "status": world["status"],
+                "terminal_reason": world["terminal_reason"],
+                "depth": world["depth"],
                 "classification": world["classification"],
                 "risk_score": world["risk_score"],
-                "children": [],
+                "children": world["child_world_ids"],
             }
             for world in world_summaries
         ],
@@ -174,6 +219,9 @@ def write_branching_report(path: Path, *, run_id: str, summary: dict[str, Any], 
         "blocked_world_count",
         "unsupported_world_count",
         "duplicate_world_count",
+        "expanded_world_count",
+        "leaf_world_count",
+        "generated_depth_counts",
         "high_risk_world_count",
         "detected_high_risk_world_count",
         "undetected_high_risk_world_count",
@@ -205,7 +253,10 @@ def write_branching_report(path: Path, *, run_id: str, summary: dict[str, Any], 
                 f"- status: {world['status']}",
                 f"- classification: {world['classification']}",
                 f"- risk_score: {world['risk_score']}",
+                f"- depth: {world['depth']}",
+                f"- terminal_reason: {world['terminal_reason']}",
                 f"- actions: {world['actions']}",
+                f"- children: {world['child_world_ids']}",
                 f"- detected_findings: {world['detected_findings']}",
                 f"- undetected_risks: {world['undetected_risks']}",
                 "",
@@ -250,6 +301,32 @@ def _undetected_risks(row: dict[str, Any], findings: list[dict[str, Any]]) -> li
     return []
 
 
+def _terminal_reason(
+    *,
+    row: dict[str, Any],
+    world_events: list[dict[str, Any]],
+    world_actions: list[PlannedAction],
+    branching_config: dict[str, Any],
+    child_world_ids: list[str],
+) -> str:
+    if child_world_ids:
+        return "expanded"
+    if row.get("unsupported_operations") or row.get("status") == "unsupported":
+        return "unsupported"
+    if row.get("blocked_reasons") or row.get("classification") == "system_blocked":
+        return "blocked_attempt"
+    if not world_actions and not world_events:
+        return "no_valid_action"
+    terminal_state = world_events[-1]["state_after"] if world_events else row.get("status", "")
+    if terminal_state == "paid":
+        return "paid"
+    if terminal_state == "blocked_attempt":
+        return "blocked_attempt"
+    if int(row.get("depth", 1)) >= int(branching_config.get("max_depth", 1)):
+        return "max_depth_reached"
+    return "open"
+
+
 def _branching_summary(
     *,
     branching_config: dict[str, Any],
@@ -275,11 +352,13 @@ def _branching_summary(
             action_classification_counts[world["classification"]] += 1
     residual_risk_world_count = sum(1 for world in world_summaries if world["undetected_risks"])
     high_risk_count = len(high_risk_worlds)
+    depth_counts = Counter(str(world["depth"]) for world in world_summaries)
     return {
         "proposal_count_per_node": int(branching_config.get("proposal_count_per_node", 0)),
         "max_depth": int(branching_config.get("max_depth", 0)),
         "beam_width": int(branching_config.get("beam_width", 0)),
         "max_total_worlds": int(branching_config.get("max_total_worlds", 0)),
+        "multi_stage_enabled": int(branching_config.get("max_depth", 0)) > 1,
         "generated_world_count": len(world_summaries),
         "completed_world_count": sum(1 for world in world_summaries if world["status"] == "completed"),
         "blocked_world_count": blocked_world_count,
@@ -287,8 +366,11 @@ def _branching_summary(
         "duplicate_world_count": duplicate_world_count,
         "average_depth": round(sum(depths) / len(depths), 4) if depths else 0.0,
         "max_depth_reached_count": sum(
-            1 for depth in depths if depth >= int(branching_config.get("max_depth", 0))
+            1 for world in world_summaries if world["terminal_reason"] == "max_depth_reached"
         ),
+        "expanded_world_count": sum(1 for world in world_summaries if world["child_world_ids"]),
+        "leaf_world_count": sum(1 for world in world_summaries if not world["child_world_ids"]),
+        "generated_depth_counts": dict(sorted(depth_counts.items())),
         "compliant_action_count": action_classification_counts.get("compliant", 0),
         "gray_area_action_count": action_classification_counts.get("gray_area", 0),
         "policy_violation_action_count": action_classification_counts.get("policy_violation", 0),
