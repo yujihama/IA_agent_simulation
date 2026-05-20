@@ -86,6 +86,7 @@ def validate_config_tree(repo_root: Path) -> list[str]:
         repo_root / "configs/run_configs/variant_a.yaml",
         repo_root / "configs/run_configs/llm_baseline.yaml",
         repo_root / "configs/run_configs/llm_variant_a.yaml",
+        repo_root / "configs/run_configs/branching_baseline.yaml",
         repo_root / "data/synthetic/ground_truth_labels.yaml",
     ]
     errors: list[str] = []

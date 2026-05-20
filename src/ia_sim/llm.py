@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
@@ -73,6 +74,66 @@ OPEN_PROPOSAL_SCHEMA: dict[str, Any] = {
 }
 
 
+BRANCHING_PROPOSAL_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "required": ["proposals", "overall_reason"],
+    "properties": {
+        "proposals": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+                "type": "object",
+                "required": [
+                    "proposal_id",
+                    "title",
+                    "proposed_behavior",
+                    "classification",
+                    "action_sequence",
+                    "control_concern",
+                    "risk_rationale",
+                    "review_evidence",
+                ],
+                "properties": {
+                    "proposal_id": {"type": "string"},
+                    "title": {"type": "string"},
+                    "proposed_behavior": {"type": "string"},
+                    "classification": {
+                        "type": "string",
+                        "enum": [
+                            "compliant",
+                            "gray_area",
+                            "policy_violation",
+                            "misrepresentation",
+                            "system_blocked",
+                            "unsupported",
+                            "out_of_scope",
+                        ],
+                    },
+                    "action_sequence": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "required": ["action_id", "parameters", "reason"],
+                            "properties": {
+                                "action_id": {"type": "string"},
+                                "parameters": {"type": "object"},
+                                "reason": {"type": "string"},
+                            },
+                        },
+                    },
+                    "control_concern": {"type": "string"},
+                    "risk_rationale": {"type": "string"},
+                    "review_evidence": {"type": "array", "items": {"type": "string"}},
+                    "policy_violation_flags": {"type": "array", "items": {"type": "string"}},
+                    "integrity_flags": {"type": "array", "items": {"type": "string"}},
+                },
+            },
+        },
+        "overall_reason": {"type": "string"},
+    },
+}
+
+
 @dataclass(frozen=True)
 class LLMSelectionResult:
     planned_actions: list[PlannedAction]
@@ -87,6 +148,17 @@ class LLMProposalResult:
     proposal_rows: list[dict[str, Any]]
     grounding_rows: list[dict[str, Any]]
     decision_rows: list[dict[str, Any]]
+
+
+@dataclass(frozen=True)
+class LLMBranchingResult:
+    planned_actions: list[PlannedAction]
+    call_rows: list[dict[str, Any]]
+    proposal_rows: list[dict[str, Any]]
+    grounding_rows: list[dict[str, Any]]
+    decision_rows: list[dict[str, Any]]
+    world_rows: list[dict[str, Any]]
+    action_library_candidates: list[dict[str, Any]]
 
 
 class LLMActionSelector:
@@ -690,6 +762,662 @@ class LLMOpenProposalGenerator:
             temperature=self.temperature,
             llm_seed=self.llm_seed,
         )
+
+
+class LLMBranchingProposalGenerator:
+    def __init__(
+        self,
+        *,
+        repo_root: Path,
+        run_id: str,
+        model: str,
+        provider: str,
+        temperature: float,
+        max_retries: int,
+        allowed_actions: list[ActionDefinition],
+        controls: list[ControlCard],
+        scenario: ScenarioCard,
+        agent: AgentProfile,
+        variant_policy: VariantPolicy,
+        proposal_count_per_node: int,
+        include_policy_violating_actions: bool,
+        include_misrepresentation_actions: bool,
+        require_action_classification: bool,
+        execute_system_blocked_actions_as_attempts: bool,
+        risk_guided_selection: bool,
+        pressure_type: str = "delivery_pressure",
+        agent_persona: str = "red_team_requester",
+        control_visibility: str = "control_full_red_team",
+        trial_index: int | None = None,
+        llm_seed: int | None = None,
+    ):
+        self.repo_root = repo_root
+        self.run_id = run_id
+        self.model = model
+        self.provider = provider
+        self.temperature = temperature
+        self.max_retries = max_retries
+        self.allowed_actions = [action for action in allowed_actions if action.mode == "closed_action"]
+        self.controls = controls
+        self.scenario = scenario
+        self.agent = agent
+        self.variant_policy = variant_policy
+        self.proposal_count_per_node = proposal_count_per_node
+        self.include_policy_violating_actions = include_policy_violating_actions
+        self.include_misrepresentation_actions = include_misrepresentation_actions
+        self.require_action_classification = require_action_classification
+        self.execute_system_blocked_actions_as_attempts = execute_system_blocked_actions_as_attempts
+        self.risk_guided_selection = risk_guided_selection
+        self.pressure_type = pressure_type
+        self.agent_persona = agent_persona
+        self.control_visibility = control_visibility
+        self.trial_index = trial_index
+        self.llm_seed = llm_seed
+
+    def propose_for_needs(self, needs: list[PurchaseNeed], max_purchase_needs: int) -> LLMBranchingResult:
+        planned_actions: list[PlannedAction] = []
+        call_rows: list[dict[str, Any]] = []
+        proposal_rows: list[dict[str, Any]] = []
+        grounding_rows: list[dict[str, Any]] = []
+        decision_rows: list[dict[str, Any]] = []
+        world_rows: list[dict[str, Any]] = []
+        action_library_candidates: list[dict[str, Any]] = []
+        sequence = 1
+        world_index = 1
+        for need in needs[:max_purchase_needs]:
+            result = self._propose_for_need(need=need, first_sequence=sequence, first_world_index=world_index)
+            planned_actions.extend(result.planned_actions)
+            call_rows.extend(result.call_rows)
+            proposal_rows.extend(result.proposal_rows)
+            grounding_rows.extend(result.grounding_rows)
+            decision_rows.extend(result.decision_rows)
+            world_rows.extend(result.world_rows)
+            action_library_candidates.extend(result.action_library_candidates)
+            sequence += len(result.planned_actions)
+            world_index += len(result.world_rows)
+        return LLMBranchingResult(
+            planned_actions,
+            call_rows,
+            proposal_rows,
+            grounding_rows,
+            decision_rows,
+            world_rows,
+            action_library_candidates,
+        )
+
+    def _propose_for_need(
+        self,
+        *,
+        need: PurchaseNeed,
+        first_sequence: int,
+        first_world_index: int,
+    ) -> LLMBranchingResult:
+        messages = self._build_messages(need)
+        call_rows: list[dict[str, Any]] = []
+        parsed_payload: dict[str, Any] | None = None
+        validation_errors: list[str] = []
+        retry_count = 0
+
+        for attempt in range(1, self.max_retries + 2):
+            raw_response = ""
+            api_error = None
+            try:
+                raw_response = self._call_model(messages)
+                parsed_payload = _parse_json_object(raw_response)
+                validation_errors = validate_branching_proposal_payload(
+                    parsed_payload,
+                    require_action_classification=self.require_action_classification,
+                )
+            except Exception as exc:  # noqa: BLE001 - logged for auditability, then retried/fallback.
+                parsed_payload = None
+                validation_errors = [f"{type(exc).__name__}: {exc}"]
+                api_error = _safe_error(exc)
+
+            is_valid = parsed_payload is not None and not validation_errors
+            call_rows.append(
+                {
+                    "run_id": self.run_id,
+                    "purchase_need_id": need.purchase_need_id,
+                    "attempt": attempt,
+                    "provider": self.provider,
+                    "model": self.model,
+                    "temperature": self.temperature,
+                    "proposal_mode": "branching_proposal",
+                    "pressure_type": self.pressure_type,
+                    "agent_persona": self.agent_persona,
+                    "control_visibility": self.control_visibility,
+                    "proposal_count_per_node": self.proposal_count_per_node,
+                    "trial_index": self.trial_index,
+                    "request_messages": messages,
+                    "raw_response": raw_response,
+                    "parsed_response": parsed_payload,
+                    "validation_status": "valid" if is_valid else "invalid",
+                    "validation_errors": validation_errors,
+                    "api_error": api_error,
+                    "retry_scheduled": (not is_valid) and attempt <= self.max_retries,
+                    "created_at": now_utc_iso(),
+                }
+            )
+            if is_valid:
+                assert parsed_payload is not None
+                parsed_payload = _limit_branching_payload(parsed_payload, self.proposal_count_per_node)
+                return ground_branching_proposals(
+                    self.run_id,
+                    parsed_payload,
+                    need=need,
+                    first_sequence=first_sequence,
+                    first_world_index=first_world_index,
+                    allowed_actions=[action.action_id for action in self.allowed_actions],
+                    include_policy_violating_actions=self.include_policy_violating_actions,
+                    include_misrepresentation_actions=self.include_misrepresentation_actions,
+                    execute_system_blocked_actions_as_attempts=self.execute_system_blocked_actions_as_attempts,
+                    validation_status="valid",
+                    validation_errors=[],
+                    retry_count=retry_count,
+                    fallback_used=False,
+                    call_rows=call_rows,
+                )
+
+            retry_count += 1
+            messages = self._build_retry_messages(need, validation_errors)
+
+        fallback_payload = _fallback_branching_payload(need, self.proposal_count_per_node)
+        return ground_branching_proposals(
+            self.run_id,
+            fallback_payload,
+            need=need,
+            first_sequence=first_sequence,
+            first_world_index=first_world_index,
+            allowed_actions=[action.action_id for action in self.allowed_actions],
+            include_policy_violating_actions=self.include_policy_violating_actions,
+            include_misrepresentation_actions=self.include_misrepresentation_actions,
+            execute_system_blocked_actions_as_attempts=self.execute_system_blocked_actions_as_attempts,
+            validation_status="fallback",
+            validation_errors=validation_errors,
+            retry_count=retry_count,
+            fallback_used=True,
+            call_rows=call_rows,
+        )
+
+    def _build_messages(self, need: PurchaseNeed) -> list[dict[str, str]]:
+        persona_context = _agent_persona_context(self.agent_persona)
+        system = (
+            "You are a synthetic requester used for internal-control stress testing on synthetic data only. "
+            "Generate multiple plausible behavior branches for a purchase-to-pay scenario. "
+            "The branches are simulation hypotheses for human review, not instructions for real-world misuse. "
+            "Classify each branch as compliant, gray_area, policy_violation, misrepresentation, system_blocked, unsupported, or out_of_scope. "
+            "Return strict JSON only."
+        )
+        if persona_context.get("system_instruction"):
+            system = f"{system} {persona_context['system_instruction']}"
+        user = json.dumps(
+            {
+                "task": "Propose multiple branchable behavior hypotheses for this purchase need.",
+                "proposal_boundaries": [
+                    "Synthetic data and simulation only.",
+                    "Do not propose real-system intrusion, fake invoices, false external evidence, or real-world misuse.",
+                    "Policy-violating or misrepresentation branches may be included only as labeled simulation hypotheses.",
+                    "Unsupported operations should be labeled unsupported so they can become Action Library candidates.",
+                ],
+                "coverage_targets": [
+                    "Include one compliant reference route.",
+                    "Include split or multiple-request threshold-avoidance if it is plausible for the purchase need.",
+                    "Include underreported amount or amount-integrity mismatch if include_misrepresentation_actions is true.",
+                    "Include emergency or exception-route usage if it is plausible under delivery pressure.",
+                    "Include one unsupported off-system behavior candidate when useful, such as informal preapproval chat.",
+                ],
+                "branching_parameters": {
+                    "proposal_count_per_node": self.proposal_count_per_node,
+                    "include_policy_violating_actions": self.include_policy_violating_actions,
+                    "include_misrepresentation_actions": self.include_misrepresentation_actions,
+                    "require_action_classification": self.require_action_classification,
+                    "execute_system_blocked_actions_as_attempts": self.execute_system_blocked_actions_as_attempts,
+                    "risk_guided_selection": self.risk_guided_selection,
+                },
+                "experiment_condition": {
+                    "proposal_mode": "branching_proposal",
+                    "pressure_type": self.pressure_type,
+                    "agent_persona": self.agent_persona,
+                    "control_visibility": self.control_visibility,
+                    "trial_index": self.trial_index,
+                },
+                "scenario": _matrix_scenario_context(self.pressure_type),
+                "agent_profile": {
+                    "agent_id": self.agent.agent_id,
+                    "user_id": self.agent.user_id,
+                    "role": self.agent.role,
+                    "department_id": self.agent.department_id,
+                    "objectives": _matrix_agent_objectives(self.pressure_type),
+                    "constraints": self.agent.constraints,
+                    "persona": persona_context,
+                },
+                "purchase_need": {
+                    "purchase_need_id": need.purchase_need_id,
+                    "request_date": need.request_date.isoformat(),
+                    "requester_user_id": need.requester_user_id,
+                    "department_id": need.department_id,
+                    "vendor_id": need.vendor_id,
+                    "project_id": need.project_id,
+                    "item_description": need.item_description,
+                    "amount_total": need.amount_total,
+                    "needed_by": need.needed_by.isoformat(),
+                    "scenario_id": need.scenario_id,
+                },
+                "control_cards": _control_cards_for_prompt(self.controls, self.control_visibility),
+                "variant_context": {
+                    "variant_id": self.variant_policy.variant_id,
+                    "name": self.variant_policy.name,
+                    "aggregation_enabled": self.variant_policy.aggregation_enabled,
+                    "aggregate_approval_window_days": self.variant_policy.aggregate_approval_window_days,
+                    "aggregate_by_fields": list(self.variant_policy.aggregate_by_fields),
+                },
+                "allowed_actions": [
+                    {
+                        "action_id": action.action_id,
+                        "description": action.description,
+                        "required_fields": action.required_fields,
+                    }
+                    for action in self.allowed_actions
+                ],
+                "json_schema": BRANCHING_PROPOSAL_SCHEMA,
+            },
+            ensure_ascii=False,
+        )
+        return [{"role": "system", "content": system}, {"role": "user", "content": user}]
+
+    def _build_retry_messages(self, need: PurchaseNeed, errors: list[str]) -> list[dict[str, str]]:
+        messages = self._build_messages(need)
+        messages.append(
+            {
+                "role": "user",
+                "content": json.dumps(
+                    {
+                        "previous_output_invalid": True,
+                        "validation_errors": errors,
+                        "instruction": "Return a corrected strict JSON object matching the Branching Proposal schema.",
+                    },
+                    ensure_ascii=False,
+                ),
+            }
+        )
+        return messages
+
+    def _call_model(self, messages: list[dict[str, str]]) -> str:
+        if self.provider == "stub":
+            return _stub_branching_proposal_response(messages)
+        if self.provider != "openai":
+            raise ValueError(f"Unsupported LLM provider: {self.provider}")
+        return _call_openai_chat_json(
+            repo_root=self.repo_root,
+            model=self.model,
+            messages=messages,
+            temperature=self.temperature,
+            llm_seed=self.llm_seed,
+        )
+
+
+def validate_branching_proposal_payload(
+    payload: dict[str, Any],
+    *,
+    require_action_classification: bool,
+) -> list[str]:
+    errors: list[str] = []
+    if not isinstance(payload, dict):
+        return ["response must be a JSON object"]
+    proposals = payload.get("proposals")
+    if not isinstance(proposals, list) or not proposals:
+        return ["proposals must be a non-empty array"]
+    allowed_classifications = {
+        "compliant",
+        "gray_area",
+        "policy_violation",
+        "misrepresentation",
+        "system_blocked",
+        "unsupported",
+        "out_of_scope",
+    }
+    seen_ids: set[str] = set()
+    for index, proposal in enumerate(proposals, start=1):
+        if not isinstance(proposal, dict):
+            errors.append(f"proposal {index} must be an object")
+            continue
+        proposal_id = str(proposal.get("proposal_id", "")).strip()
+        if not proposal_id:
+            errors.append(f"proposal {index} proposal_id is required")
+        elif proposal_id in seen_ids:
+            errors.append(f"proposal_id is duplicated: {proposal_id}")
+        seen_ids.add(proposal_id)
+        for field in ["title", "proposed_behavior", "control_concern", "risk_rationale"]:
+            if not str(proposal.get(field, "")).strip():
+                errors.append(f"{proposal_id or index} {field} must be a non-empty string")
+        classification = str(proposal.get("classification", "")).strip()
+        if require_action_classification and not classification:
+            errors.append(f"{proposal_id or index} classification is required")
+        elif classification and classification not in allowed_classifications:
+            errors.append(f"{proposal_id or index} classification is unknown: {classification}")
+        action_sequence = proposal.get("action_sequence")
+        if not isinstance(action_sequence, list):
+            errors.append(f"{proposal_id or index} action_sequence must be an array")
+        else:
+            for action_index, action in enumerate(action_sequence, start=1):
+                if not isinstance(action, dict):
+                    errors.append(f"{proposal_id or index} action {action_index} must be an object")
+                    continue
+                if not str(action.get("action_id", "")).strip():
+                    errors.append(f"{proposal_id or index} action {action_index} action_id is required")
+                if not isinstance(action.get("parameters", {}), dict):
+                    errors.append(f"{proposal_id or index} action {action_index} parameters must be an object")
+        evidence = proposal.get("review_evidence")
+        if not isinstance(evidence, list) or any(not isinstance(item, str) or not item.strip() for item in evidence):
+            errors.append(f"{proposal_id or index} review_evidence must be an array of non-empty strings")
+    return errors
+
+
+def ground_branching_proposals(
+    run_id: str,
+    payload: dict[str, Any],
+    *,
+    need: PurchaseNeed,
+    first_sequence: int,
+    first_world_index: int,
+    allowed_actions: list[str],
+    include_policy_violating_actions: bool,
+    include_misrepresentation_actions: bool,
+    execute_system_blocked_actions_as_attempts: bool,
+    validation_status: str,
+    validation_errors: list[str],
+    retry_count: int,
+    fallback_used: bool,
+    call_rows: list[dict[str, Any]],
+) -> LLMBranchingResult:
+    planned_actions: list[PlannedAction] = []
+    proposal_rows: list[dict[str, Any]] = []
+    grounding_rows: list[dict[str, Any]] = []
+    decision_rows: list[dict[str, Any]] = []
+    world_rows: list[dict[str, Any]] = []
+    action_library_candidates: list[dict[str, Any]] = []
+    sequence = first_sequence
+    proposals = list(payload.get("proposals", []))
+
+    for offset, proposal in enumerate(proposals):
+        world_id = f"WORLD-{first_world_index + offset:03d}"
+        proposal_id = str(proposal.get("proposal_id") or f"PROP-{first_world_index + offset:06d}")
+        classification = str(proposal.get("classification") or "compliant")
+        policy_flags = [str(item) for item in proposal.get("policy_violation_flags", [])]
+        integrity_flags = [str(item) for item in proposal.get("integrity_flags", [])]
+        action_sequence = proposal.get("action_sequence", [])
+        normalized_action_ids = [_normalize_operation(str(item.get("action_id", ""))) for item in action_sequence]
+        unsupported_operations = [
+            str(action_sequence[index].get("action_id", ""))
+            for index, action_id in enumerate(normalized_action_ids)
+            if action_id not in allowed_actions
+        ]
+        blocked_reasons: list[str] = []
+        if classification == "policy_violation" and not include_policy_violating_actions:
+            blocked_reasons.append("policy_violation_disabled")
+        if classification == "misrepresentation" and not include_misrepresentation_actions:
+            blocked_reasons.append("misrepresentation_disabled")
+        if classification == "system_blocked" and not execute_system_blocked_actions_as_attempts:
+            blocked_reasons.append("system_blocked_attempts_disabled")
+
+        executable = not blocked_reasons and not unsupported_operations and classification not in {"unsupported", "out_of_scope"}
+        risk_score = _branching_risk_score(classification, policy_flags, integrity_flags, proposal)
+        grounded_actions: list[PlannedAction] = []
+        if executable:
+            for action_offset, action_item in enumerate(action_sequence):
+                action_id = _normalize_operation(str(action_item.get("action_id", "")))
+                parameters = _branching_action_parameters(action_id, action_item, need, action_offset, classification)
+                grounded_action = PlannedAction(
+                    sequence=sequence,
+                    purchase_need_id=need.purchase_need_id,
+                    action_id=action_id,
+                    parameters=parameters,
+                    rationale=str(action_item.get("reason") or proposal.get("risk_rationale", "")),
+                    allowed_actions=allowed_actions,
+                    source="branching_proposal_grounded",
+                    classification=classification,
+                    policy_violation_flags=policy_flags,
+                    integrity_flags=integrity_flags,
+                    world_id=world_id,
+                    parent_world_id="",
+                    branch_reason=str(proposal.get("title") or proposal.get("proposed_behavior", "")),
+                    proposal_id=proposal_id,
+                    risk_score=risk_score,
+                )
+                grounded_actions.append(grounded_action)
+                sequence += 1
+        if unsupported_operations or classification == "unsupported":
+            action_library_candidates.append(
+                {
+                    "run_id": run_id,
+                    "world_id": world_id,
+                    "proposal_id": proposal_id,
+                    "purchase_need_id": need.purchase_need_id,
+                    "candidate_action_ids": unsupported_operations
+                    or [_candidate_action_id_from_proposal(proposal)],
+                    "proposed_behavior": proposal.get("proposed_behavior", ""),
+                    "control_concern": proposal.get("control_concern", ""),
+                    "review_evidence": proposal.get("review_evidence", []),
+                }
+            )
+
+        planned_actions.extend(grounded_actions)
+        proposal_row = {
+            "run_id": run_id,
+            "proposal_id": proposal_id,
+            "world_id": world_id,
+            "purchase_need_id": need.purchase_need_id,
+            "proposal_mode": "branching_proposal",
+            "title": proposal.get("title", ""),
+            "proposed_behavior": proposal.get("proposed_behavior", ""),
+            "classification": classification,
+            "control_concern": proposal.get("control_concern", ""),
+            "risk_rationale": proposal.get("risk_rationale", ""),
+            "review_evidence": proposal.get("review_evidence", []),
+            "policy_violation_flags": policy_flags,
+            "integrity_flags": integrity_flags,
+            "action_sequence": action_sequence,
+            "validation_status": validation_status,
+            "validation_errors": validation_errors,
+            "retry_count": retry_count,
+            "fallback_used": fallback_used,
+            "created_at": now_utc_iso(),
+        }
+        proposal_rows.append(proposal_row)
+        grounding_rows.append(
+            {
+                "run_id": run_id,
+                "proposal_id": proposal_id,
+                "world_id": world_id,
+                "purchase_need_id": need.purchase_need_id,
+                "classification": classification,
+                "normalized_action_ids": normalized_action_ids,
+                "unsupported_operations": unsupported_operations,
+                "blocked_reasons": blocked_reasons,
+                "mapped_action_ids": [action.action_id for action in grounded_actions],
+                "mapped_to_action": bool(grounded_actions),
+                "fully_mapped_to_allowed_actions": bool(grounded_actions) and not unsupported_operations,
+                "executed_in_simulation": executable and bool(grounded_actions),
+                "risk_score": risk_score,
+                "policy_violation_flags": policy_flags,
+                "integrity_flags": integrity_flags,
+            }
+        )
+        world_rows.append(
+            {
+                "run_id": run_id,
+                "world_id": world_id,
+                "parent_world_id": "",
+                "proposal_id": proposal_id,
+                "purchase_need_id": need.purchase_need_id,
+                "status": _initial_world_status(classification, executable, grounded_actions, unsupported_operations, blocked_reasons),
+                "branch_reason": proposal.get("title", ""),
+                "classification": classification,
+                "risk_score": risk_score,
+                "planned_action_ids": [action.action_id for action in grounded_actions],
+                "unsupported_operations": unsupported_operations,
+                "blocked_reasons": blocked_reasons,
+                "policy_violation_flags": policy_flags,
+                "integrity_flags": integrity_flags,
+                "review_evidence": proposal.get("review_evidence", []),
+            }
+        )
+        decision_rows.extend(
+            _planned_actions_to_decision_rows(
+                run_id,
+                grounded_actions,
+                _branching_actions_payload(proposal, grounded_actions),
+                validation_status="grounded" if grounded_actions else "not_executable",
+                validation_errors=blocked_reasons + unsupported_operations,
+                retry_count=retry_count,
+                fallback_used=fallback_used,
+            )
+        )
+
+    return LLMBranchingResult(
+        planned_actions,
+        call_rows,
+        proposal_rows,
+        grounding_rows,
+        decision_rows,
+        world_rows,
+        action_library_candidates,
+    )
+
+
+def _branching_action_parameters(
+    action_id: str,
+    action_item: dict[str, Any],
+    need: PurchaseNeed,
+    action_offset: int,
+    classification: str,
+) -> dict[str, Any]:
+    raw_parameters = dict(action_item.get("parameters", {}))
+    raw_parameters.setdefault("purchase_need_id", need.purchase_need_id)
+    if action_id == "create_purchase_request":
+        amount = int(
+            raw_parameters.get(
+                "amount",
+                raw_parameters.get("reported_amount", need.amount_total),
+            )
+        )
+        classification_hint = classification.lower()
+        reason_hint = str(action_item.get("reason", "")).lower()
+        route_hint = str(raw_parameters.get("route_type", "")).lower()
+        if "emergency" in route_hint:
+            route_type = "emergency"
+        else:
+            route_type = "normal"
+        raw_parameters["amount"] = amount
+        raw_parameters.setdefault("reported_amount", amount)
+        if (
+            "economic_amount" not in raw_parameters
+            and amount < need.amount_total
+            and (
+                classification_hint == "misrepresentation"
+                or "misrepresent" in reason_hint
+                or "understate" in reason_hint
+                or "underreport" in reason_hint
+                or "amount" in reason_hint
+            )
+        ):
+            raw_parameters["economic_amount"] = need.amount_total
+        raw_parameters.setdefault("economic_amount", raw_parameters.get("amount", need.amount_total))
+        raw_parameters.setdefault("request_date", (need.request_date + timedelta(days=action_offset)).isoformat())
+        raw_parameters.setdefault("vendor_id", need.vendor_id)
+        raw_parameters.setdefault("project_id", need.project_id)
+        raw_parameters["route_type"] = route_type
+    elif action_id in {"consult_manager", "consult_purchasing"}:
+        raw_parameters.setdefault("question", str(action_item.get("reason", "Please advise on the control implications.")))
+    elif action_id == "postpone_request":
+        raw_parameters.setdefault("reason", str(action_item.get("reason", "More information is required before requesting.")))
+    return raw_parameters
+
+
+def _branching_risk_score(
+    classification: str,
+    policy_flags: list[str],
+    integrity_flags: list[str],
+    proposal: dict[str, Any],
+) -> int:
+    base_scores = {
+        "compliant": 10,
+        "gray_area": 45,
+        "policy_violation": 80,
+        "misrepresentation": 90,
+        "system_blocked": 70,
+        "unsupported": 55,
+        "out_of_scope": 0,
+    }
+    text = _proposal_text(
+        {
+            "proposed_behavior": proposal.get("proposed_behavior", ""),
+            "business_rationale": proposal.get("risk_rationale", ""),
+            "expected_effect": proposal.get("control_concern", ""),
+            "required_system_operations": [item.get("action_id", "") for item in proposal.get("action_sequence", [])],
+            "review_evidence": proposal.get("review_evidence", []),
+        }
+    )
+    keyword_bonus = 0
+    if _contains_any(text, ["split", "separate", "under", "threshold", "emergency", "informal", "chat"]):
+        keyword_bonus = 10
+    return min(100, base_scores.get(classification, 10) + (5 * len(policy_flags)) + (5 * len(integrity_flags)) + keyword_bonus)
+
+
+def _initial_world_status(
+    classification: str,
+    executable: bool,
+    grounded_actions: list[PlannedAction],
+    unsupported_operations: list[str],
+    blocked_reasons: list[str],
+) -> str:
+    if classification == "out_of_scope":
+        return "out_of_scope"
+    if unsupported_operations or classification == "unsupported":
+        return "unsupported"
+    if blocked_reasons or classification == "system_blocked":
+        return "blocked"
+    if executable and grounded_actions:
+        return "planned"
+    return "empty"
+
+
+def _branching_actions_payload(proposal: dict[str, Any], actions: list[PlannedAction]) -> dict[str, Any]:
+    return {
+        "overall_reason": proposal.get("risk_rationale", ""),
+        "actions": [
+            {
+                "action_id": action.action_id,
+                "parameters": action.parameters,
+                "reason": action.rationale,
+                "control_awareness": proposal.get("control_concern", ""),
+                "expected_control_effect": proposal.get("risk_rationale", ""),
+            }
+            for action in actions
+        ],
+    }
+
+
+def _candidate_action_id_from_proposal(proposal: dict[str, Any]) -> str:
+    text = f"{proposal.get('title', '')} {proposal.get('proposed_behavior', '')}".lower()
+    if "informal" in text and ("chat" in text or "preapproval" in text or "pre-approval" in text):
+        return "informal_preapproval_chat"
+    if "off-system" in text or "outside system" in text:
+        return "off_system_control_communication"
+    title = str(proposal.get("title", "unsupported_action_candidate")).lower()
+    normalized = re.sub(r"[^a-z0-9]+", "_", title).strip("_")
+    return normalized[:80] or "unsupported_action_candidate"
+
+
+def _fallback_branching_payload(need: PurchaseNeed, proposal_count: int) -> dict[str, Any]:
+    payload = json.loads(_stub_branching_proposal_response_for_need(need))
+    return _limit_branching_payload(payload, proposal_count)
+
+
+def _limit_branching_payload(payload: dict[str, Any], proposal_count: int) -> dict[str, Any]:
+    limited = dict(payload)
+    limited["proposals"] = list(payload.get("proposals", []))[:proposal_count]
+    return limited
 
 
 def validate_open_proposal_payload(payload: dict[str, Any]) -> list[str]:
@@ -1754,6 +2482,173 @@ def _stub_open_proposal_response(messages: list[dict[str, str]]) -> str:
             "required_system_operations": ["create_purchase_request"],
             "review_evidence": ["purchase request amount", "approval level", "delivery deadline"],
         }
+    return json.dumps(payload, ensure_ascii=False)
+
+
+def _stub_branching_proposal_response(messages: list[dict[str, str]]) -> str:
+    user_payload = json.loads(messages[1]["content"])
+    need = user_payload["purchase_need"]
+    proposal_count = int(user_payload.get("branching_parameters", {}).get("proposal_count_per_node", 5))
+    return _stub_branching_proposal_response_for_mapping(need, proposal_count)
+
+
+def _stub_branching_proposal_response_for_need(need: PurchaseNeed) -> str:
+    need_mapping = {
+        "purchase_need_id": need.purchase_need_id,
+        "amount_total": need.amount_total,
+        "request_date": need.request_date.isoformat(),
+        "vendor_id": need.vendor_id,
+        "project_id": need.project_id,
+    }
+    return _stub_branching_proposal_response_for_mapping(need_mapping, 5)
+
+
+def _stub_branching_proposal_response_for_mapping(need: dict[str, Any], proposal_count: int) -> str:
+    request_date = date.fromisoformat(str(need["request_date"]))
+    amount_total = int(need["amount_total"])
+    split_amount = amount_total // 2
+    split_remainder = amount_total - split_amount
+    underreported_amount = min(999_999, amount_total)
+    payload = {
+        "overall_reason": "Stubbed branching proposals cover normal, split, underreported, emergency, and unsupported routes.",
+        "proposals": [
+            {
+                "proposal_id": "PROP-BR-001",
+                "title": "single_standard_request",
+                "proposed_behavior": "Submit the full purchase need as one normal purchase request.",
+                "classification": "compliant",
+                "action_sequence": [
+                    {
+                        "action_id": "create_purchase_request",
+                        "parameters": {
+                            "purchase_need_id": need["purchase_need_id"],
+                            "amount": amount_total,
+                            "request_date": request_date.isoformat(),
+                            "vendor_id": need["vendor_id"],
+                            "project_id": need["project_id"],
+                            "route_type": "normal",
+                        },
+                        "reason": "Use the ordinary approval route for the observed need.",
+                    }
+                ],
+                "control_concern": "No bypass hypothesis; amount-based approval should apply to the full amount.",
+                "risk_rationale": "Low-risk reference branch.",
+                "review_evidence": ["purchase request amount", "required approver level"],
+                "policy_violation_flags": [],
+                "integrity_flags": [],
+            },
+            {
+                "proposal_id": "PROP-BR-002",
+                "title": "split_two_requests",
+                "proposed_behavior": "Submit two related purchase requests below the approval threshold.",
+                "classification": "policy_violation",
+                "action_sequence": [
+                    {
+                        "action_id": "create_purchase_request",
+                        "parameters": {
+                            "purchase_need_id": need["purchase_need_id"],
+                            "amount": split_amount,
+                            "request_date": request_date.isoformat(),
+                            "vendor_id": need["vendor_id"],
+                            "project_id": need["project_id"],
+                            "route_type": "normal",
+                        },
+                        "reason": "First operational slice of the same purchase need.",
+                    },
+                    {
+                        "action_id": "create_purchase_request",
+                        "parameters": {
+                            "purchase_need_id": need["purchase_need_id"],
+                            "amount": split_remainder,
+                            "request_date": (request_date + timedelta(days=1)).isoformat(),
+                            "vendor_id": need["vendor_id"],
+                            "project_id": need["project_id"],
+                            "route_type": "normal",
+                        },
+                        "reason": "Second operational slice of the same purchase need.",
+                    },
+                ],
+                "control_concern": "Related requests may be approved independently if aggregation is absent.",
+                "risk_rationale": "High-risk branch for approval-threshold avoidance.",
+                "review_evidence": ["same requester", "same vendor", "same project", "near request dates"],
+                "policy_violation_flags": ["approval_threshold_avoidance", "split_purchase_request"],
+                "integrity_flags": [],
+            },
+            {
+                "proposal_id": "PROP-BR-003",
+                "title": "underreported_amount_request",
+                "proposed_behavior": "Report an amount below the threshold while the economic purchase need remains higher.",
+                "classification": "misrepresentation",
+                "action_sequence": [
+                    {
+                        "action_id": "create_purchase_request",
+                        "parameters": {
+                            "purchase_need_id": need["purchase_need_id"],
+                            "amount": underreported_amount,
+                            "reported_amount": underreported_amount,
+                            "economic_amount": amount_total,
+                            "request_date": request_date.isoformat(),
+                            "vendor_id": need["vendor_id"],
+                            "project_id": need["project_id"],
+                            "route_type": "normal",
+                        },
+                        "reason": "Synthetic stress branch to test whether amount inconsistencies are logged and detected.",
+                    }
+                ],
+                "control_concern": "Approval may be evaluated on reported_amount while economic_amount exceeds the threshold.",
+                "risk_rationale": "High-risk branch for amount integrity controls.",
+                "review_evidence": ["reported amount", "economic amount", "approval threshold"],
+                "policy_violation_flags": ["approval_threshold_avoidance", "underreported_amount"],
+                "integrity_flags": ["amount_mismatch"],
+            },
+            {
+                "proposal_id": "PROP-BR-004",
+                "title": "emergency_route_request",
+                "proposed_behavior": "Use an emergency route for the full purchase need under delivery pressure.",
+                "classification": "gray_area",
+                "action_sequence": [
+                    {
+                        "action_id": "create_purchase_request",
+                        "parameters": {
+                            "purchase_need_id": need["purchase_need_id"],
+                            "amount": amount_total,
+                            "request_date": request_date.isoformat(),
+                            "vendor_id": need["vendor_id"],
+                            "project_id": need["project_id"],
+                            "route_type": "emergency",
+                        },
+                        "reason": "Synthetic stress branch to test emergency-route evidence and post-approval controls.",
+                    }
+                ],
+                "control_concern": "Emergency route may weaken pre-PO approval if reason evidence is thin.",
+                "risk_rationale": "Medium-risk branch for exception-route controls.",
+                "review_evidence": ["route type", "emergency reason", "post approval timestamp"],
+                "policy_violation_flags": ["emergency_route_exception"],
+                "integrity_flags": [],
+            },
+            {
+                "proposal_id": "PROP-BR-005",
+                "title": "informal_preapproval_chat",
+                "proposed_behavior": "Seek informal preapproval in chat before creating a formal request.",
+                "classification": "unsupported",
+                "action_sequence": [
+                    {
+                        "action_id": "informal_preapproval_chat",
+                        "parameters": {
+                            "purchase_need_id": need["purchase_need_id"],
+                            "channel": "chat",
+                        },
+                        "reason": "Synthetic stress branch to record a system-outside behavior candidate.",
+                    }
+                ],
+                "control_concern": "Informal agreement may not be visible in workflow logs.",
+                "risk_rationale": "Action Library candidate; current event model cannot execute it.",
+                "review_evidence": ["approval comments", "chat evidence", "interview procedure"],
+                "policy_violation_flags": ["informal_preapproval"],
+                "integrity_flags": ["off_system_communication"],
+            },
+        ][:proposal_count],
+    }
     return json.dumps(payload, ensure_ascii=False)
 
 

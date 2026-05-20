@@ -9,6 +9,7 @@ from ia_sim.orchestrator import (
     compare_runs,
     run_agent_stress_experiment,
     run_balanced_planning_hint_experiment,
+    run_branching_simulation,
     run_first_slice,
     run_hint_pressure_matrix_experiment,
     run_llm_action_slice,
@@ -102,6 +103,15 @@ def build_parser() -> argparse.ArgumentParser:
     stress.add_argument("--provider", default="openai")
     stress.add_argument("--model", default="gpt-4.1-mini")
     stress.add_argument("--temperature", type=float, default=0.7)
+
+    branching = subparsers.add_parser(
+        "run-branching-simulation",
+        help="Run Branching Proposal stress-test mode for S-002",
+    )
+    branching.add_argument("--output-root")
+    branching.add_argument("--provider", default="openai")
+    branching.add_argument("--model", default="gpt-4.1-mini")
+    branching.add_argument("--temperature", type=float, default=0.7)
     return parser
 
 
@@ -284,6 +294,28 @@ def main(argv: list[str] | None = None) -> int:
                     "experiment_id": result["experiment_id"],
                     "experiment_dir": str(result["experiment_dir"]),
                     "summary": result["summary"],
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+        return 0
+
+    if args.command == "run-branching-simulation":
+        output_root = Path(args.output_root) if args.output_root else None
+        result = run_branching_simulation(
+            repo_root,
+            output_root_override=output_root,
+            provider=args.provider,
+            model=args.model,
+            temperature=args.temperature,
+        )
+        print(
+            json.dumps(
+                {
+                    "run_id": result["run"].run_id,
+                    "run_dir": str(result["run"].run_dir),
+                    "config_path": str(result["config_path"]),
                 },
                 ensure_ascii=False,
                 indent=2,
