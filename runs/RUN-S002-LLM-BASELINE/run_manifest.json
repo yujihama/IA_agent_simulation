@@ -1,16 +1,16 @@
 {
-  "run_id": "RUN-S002-BASELINE",
-  "name": "baseline_s002_budget_pressure",
-  "created_at": "2026-05-20T01:23:11Z",
+  "run_id": "RUN-S002-LLM-BASELINE",
+  "name": "llm_baseline_s002_budget_pressure",
+  "created_at": "2026-05-20T01:23:16Z",
   "process": "p2p",
   "scenario_id": "S-002",
   "variant_id": "baseline",
   "seed": 20260519,
-  "behavior_mode": "closed_action",
-  "comparison_mode": "frozen_behavior",
+  "behavior_mode": "adaptive_agent",
+  "comparison_mode": "adaptive_agent",
   "code_version": "git:6d8fee09645cd0b669e470d1dc86569b6dd6b54c",
   "config_hashes": {
-    "run_config": "sha256:29bc348c022ca1611adc25bfecc08548273dffb72777ae7b70a2e15397e17e89",
+    "run_config": "sha256:e37941fccfb10c01ffd08ae63756db8c19d8ccf36c559706a6684bc7e0a5a3ba",
     "actions": "sha256:c8519b6806fcfb44eb8fe3cff0419c4e7cd00e4ea121317d52ace976f98bc7ec",
     "controls": "sha256:116173e13dec5f3e1d54a5d8a49349eff6dd4b9763fa484e38882ec4087bcf12",
     "agents": "sha256:4cdc2f0985ace0e87cbf9bfd3bd83f9aae9f89d4ed791e0309cb1b8200614442",
@@ -36,7 +36,7 @@
     "postponed": "Requester chose postpone_request."
   },
   "inputs": {
-    "run_config": "configs/run_configs/baseline.yaml",
+    "run_config": "configs/run_configs/llm_baseline.yaml",
     "purchase_needs": "data/synthetic/purchase_needs.csv",
     "ground_truth_labels": "data/synthetic/ground_truth_labels.yaml"
   },
@@ -47,11 +47,21 @@
     "evaluation_results": "evaluation_results.json",
     "metrics": "metrics.json",
     "behavior_replay_log": "behavior_replay_log.jsonl",
-    "finding_report": "finding_report.md"
+    "finding_report": "finding_report.md",
+    "llm_calls": "llm_calls.jsonl",
+    "llm_action_decisions": "llm_action_decisions.jsonl",
+    "action_selection_metrics": "action_selection_metrics.json",
+    "llm_action_review_report": "llm_action_review_report.md"
   },
   "summary": {
-    "event_count": 808,
+    "event_count": 16,
     "finding_count": 1,
     "split_order_bypass_success_count": 1
+  },
+  "llm": {
+    "provider": "openai",
+    "model": "gpt-4.1-mini",
+    "temperature": 0.0,
+    "max_retries": 2
   }
 }

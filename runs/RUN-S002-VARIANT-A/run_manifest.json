@@ -1,23 +1,25 @@
 {
   "run_id": "RUN-S002-VARIANT-A",
   "name": "variant_a_s002_budget_pressure_7d_aggregation",
-  "created_at": "2026-05-20T00:54:13Z",
+  "created_at": "2026-05-20T01:23:11Z",
   "process": "p2p",
   "scenario_id": "S-002",
   "variant_id": "variant_a_7d_aggregation",
   "seed": 20260519,
   "behavior_mode": "closed_action",
   "comparison_mode": "frozen_behavior",
-  "code_version": "git:0867a2d6547cb438176dbb9238542060659e36e5",
+  "code_version": "git:6d8fee09645cd0b669e470d1dc86569b6dd6b54c",
   "config_hashes": {
-    "run_config": "sha256:a0fdcd4bfad8b5bdd754784d06638c87de3e0808e42b483220b0cba9e6a83e3b",
-    "actions": "sha256:20235230bff1363a047d62f6f8dfbf413246209da9ca2a75cff52f6f1288b65b",
-    "controls": "sha256:c2e4baf252b0cbe6825f7a6de879eab985e8a4beac09365c78c5ffef756dc1d3",
-    "variants": "sha256:262f08a8ec83667a8822ab08cbd47d9ce89355e4b59850a2e10d17a1c9765a62"
+    "run_config": "sha256:76a1df88ba14fa1aa441fe41429edbea4bfe60fcc36ffdb8c87a0c0d9b3fe0d7",
+    "actions": "sha256:c8519b6806fcfb44eb8fe3cff0419c4e7cd00e4ea121317d52ace976f98bc7ec",
+    "controls": "sha256:116173e13dec5f3e1d54a5d8a49349eff6dd4b9763fa484e38882ec4087bcf12",
+    "agents": "sha256:4cdc2f0985ace0e87cbf9bfd3bd83f9aae9f89d4ed791e0309cb1b8200614442",
+    "scenarios": "sha256:13105d67bc508ec9e439f60bcfb8ff3bc3ab1c18bd2f3e00901f861455301e8b",
+    "variants": "sha256:5e5965b86daa571267b1bdd5a47b7903069da88d1a5b2a4f992d855d60c78a0a"
   },
   "data_hashes": {
     "purchase_needs": "sha256:f0702c1db1deb5fe9371a8991ed0488231e5c31f5500fcf95c873bd935eef9f6",
-    "ground_truth_labels": "sha256:72d138053a354480f953654836ae4febbc257654166887fc6618c063e5eccc8b"
+    "ground_truth_labels": "sha256:acf3e5e6733e8e59dda826e375b18867f0f658db7ead4b3811bb5a02b5d134dc"
   },
   "action_library": [
     "create_purchase_request",
