@@ -32,6 +32,7 @@ from ia_sim.synthetic import generate_synthetic_data, read_purchase_needs_csv
 
 
 PROMPT_TREATMENTS = ["full_context", "scenario_only", "objective_only", "planning_hint_only"]
+SUPPORTED_PROMPT_TREATMENTS = [*PROMPT_TREATMENTS, "balanced_planning_hint"]
 
 
 def load_variant_policy(repo_root: Path, variant_id: str) -> VariantPolicy:
@@ -409,13 +410,14 @@ def run_prompt_ablation_experiment(
     model: str = "gpt-4.1-mini",
     temperature: float = 0.7,
     prompt_treatments: list[str] | None = None,
+    experiment_id_override: str | None = None,
 ) -> dict[str, Any]:
     treatments = prompt_treatments or list(PROMPT_TREATMENTS)
-    unknown = sorted(set(treatments) - set(PROMPT_TREATMENTS))
+    unknown = sorted(set(treatments) - set(SUPPORTED_PROMPT_TREATMENTS))
     if unknown:
         raise ValueError(f"Unknown prompt treatments: {', '.join(unknown)}")
 
-    experiment_id = f"EXP-S002-PROMPT-ABLATION-{trials}X"
+    experiment_id = experiment_id_override or f"EXP-S002-PROMPT-ABLATION-{trials}X"
     experiment_dir = (output_root_override or repo_root / "runs/experiments") / experiment_id
     configs_dir = experiment_dir / "configs"
     runs_root = experiment_dir / "runs"
@@ -472,6 +474,27 @@ def run_prompt_ablation_experiment(
     }
 
 
+def run_balanced_planning_hint_experiment(
+    repo_root: Path,
+    *,
+    trials: int = 10,
+    output_root_override: Path | None = None,
+    provider: str = "openai",
+    model: str = "gpt-4.1-mini",
+    temperature: float = 0.7,
+) -> dict[str, Any]:
+    return run_prompt_ablation_experiment(
+        repo_root,
+        trials=trials,
+        output_root_override=output_root_override,
+        provider=provider,
+        model=model,
+        temperature=temperature,
+        prompt_treatments=["balanced_planning_hint"],
+        experiment_id_override=f"EXP-S002-BALANCED-PLANNING-HINT-{trials}X",
+    )
+
+
 def _resolve_run_dir(repo_root: Path, template: str, run_id: str, output_root_override: Path | None) -> Path:
     if output_root_override is not None:
         return output_root_override / run_id
@@ -493,7 +516,11 @@ def _pressure_trial_config(
     config = copy.deepcopy(base_config)
     condition_slug = "PRESSURE" if condition == "pressure" else "NO-PRESSURE"
     seed_offset = 0 if condition == "pressure" else 1000
-    treatment_offset = PROMPT_TREATMENTS.index(prompt_treatment) * 10_000 if prompt_treatment in PROMPT_TREATMENTS else 0
+    treatment_offset = (
+        SUPPORTED_PROMPT_TREATMENTS.index(prompt_treatment) * 10_000
+        if prompt_treatment in SUPPORTED_PROMPT_TREATMENTS
+        else 0
+    )
     llm_seed = int(base_config["seed"]) + treatment_offset + seed_offset + trial_index
     treatment_slug = prompt_treatment.upper().replace("_", "-")
     run_id_middle = f"{treatment_slug}-{condition_slug}" if include_treatment_slug else condition_slug
@@ -780,6 +807,7 @@ def _prompt_treatment_report_description(prompt_treatment: str) -> str:
         "scenario_only": "圧力シナリオ文言だけを切り替え、選択肢、統制情報、目的、運用コンテキスト、選択ルールは同一にする。",
         "objective_only": "申請者目的だけを切り替え、シナリオ、運用コンテキスト、選択ルールは同一にする。",
         "planning_hint_only": "候補ワークパッケージやリードタイム評価ヒントだけを切り替え、シナリオと目的は同一にする。",
+        "balanced_planning_hint": "同一の候補ワークパッケージ、リードタイム評価ヒント、選択ルールを両条件に与え、圧力シナリオと申請者目的だけを切り替える。",
     }.get(prompt_treatment, prompt_treatment)
 
 
@@ -789,6 +817,7 @@ def _prompt_treatment_input_delta(prompt_treatment: str) -> str:
         "scenario_only": "シナリオ文言のみ",
         "objective_only": "申請者目的のみ",
         "planning_hint_only": "計画ヒントのみ",
+        "balanced_planning_hint": "同一計画ヒント + 圧力シナリオ/目的",
     }.get(prompt_treatment, prompt_treatment)
 
 

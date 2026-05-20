@@ -4,6 +4,7 @@ from ia_sim.config import read_yaml, write_yaml
 from ia_sim.llm import validate_action_selection_payload
 from ia_sim.orchestrator import (
     compare_runs,
+    run_balanced_planning_hint_experiment,
     run_prompt_ablation_experiment,
     run_pressure_condition_experiment,
     run_simulation,
@@ -136,6 +137,24 @@ def test_prompt_ablation_experiment_stub_summarizes_treatments(tmp_path):
     assert summary["treatments"]["scenario_only"]["conditions"]["no_pressure"]["trial_count"] == 1
     assert summary["treatments"]["planning_hint_only"]["effect"]["split_like_selection_rate_delta"] == 1.0
     assert (result["experiment_dir"] / "summary.json").exists()
+    assert (result["experiment_dir"] / "prompt_ablation_report.md").exists()
+
+
+def test_balanced_planning_hint_experiment_stub_records_balanced_treatment(tmp_path):
+    result = run_balanced_planning_hint_experiment(
+        REPO_ROOT,
+        trials=1,
+        output_root_override=tmp_path / "experiments",
+        provider="stub",
+        model="stub-model",
+        temperature=0.0,
+    )
+    summary = result["summary"]
+
+    assert summary["experiment_id"] == "EXP-S002-BALANCED-PLANNING-HINT-1X"
+    assert summary["prompt_treatments"] == ["balanced_planning_hint"]
+    assert summary["treatments"]["balanced_planning_hint"]["conditions"]["pressure"]["trial_count"] == 1
+    assert summary["treatments"]["balanced_planning_hint"]["conditions"]["no_pressure"]["trial_count"] == 1
     assert (result["experiment_dir"] / "prompt_ablation_report.md").exists()
 
 
