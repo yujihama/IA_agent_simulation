@@ -2,7 +2,12 @@ from pathlib import Path
 
 from ia_sim.config import read_yaml, write_yaml
 from ia_sim.llm import validate_action_selection_payload
-from ia_sim.orchestrator import compare_runs, run_pressure_condition_experiment, run_simulation
+from ia_sim.orchestrator import (
+    compare_runs,
+    run_prompt_ablation_experiment,
+    run_pressure_condition_experiment,
+    run_simulation,
+)
 from ia_sim.storage import read_json, read_jsonl
 from ia_sim.synthetic import generate_synthetic_data, read_purchase_needs_csv
 
@@ -112,6 +117,26 @@ def test_pressure_condition_experiment_stub_summarizes_condition_effect(tmp_path
     assert summary["effect"]["split_like_selection_rate_delta"] == 1.0
     assert (result["experiment_dir"] / "summary.json").exists()
     assert (result["experiment_dir"] / "pressure_effect_report.md").exists()
+
+
+def test_prompt_ablation_experiment_stub_summarizes_treatments(tmp_path):
+    result = run_prompt_ablation_experiment(
+        REPO_ROOT,
+        trials=1,
+        output_root_override=tmp_path / "experiments",
+        provider="stub",
+        model="stub-model",
+        temperature=0.0,
+        prompt_treatments=["scenario_only", "planning_hint_only"],
+    )
+    summary = result["summary"]
+
+    assert summary["prompt_treatments"] == ["scenario_only", "planning_hint_only"]
+    assert summary["treatments"]["scenario_only"]["conditions"]["pressure"]["trial_count"] == 1
+    assert summary["treatments"]["scenario_only"]["conditions"]["no_pressure"]["trial_count"] == 1
+    assert summary["treatments"]["planning_hint_only"]["effect"]["split_like_selection_rate_delta"] == 1.0
+    assert (result["experiment_dir"] / "summary.json").exists()
+    assert (result["experiment_dir"] / "prompt_ablation_report.md").exists()
 
 
 def _stub_config(source_name: str, run_id: str, tmp_path: Path) -> Path:

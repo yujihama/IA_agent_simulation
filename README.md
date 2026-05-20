@@ -20,6 +20,7 @@ python -m ia_sim.cli validate-config
 python -m ia_sim.cli run-first-slice
 python -m ia_sim.cli run-llm-slice
 python -m ia_sim.cli run-pressure-experiment --trials 10
+python -m ia_sim.cli run-prompt-ablation-experiment --trials 10
 ```
 
 Generated input is written to `data/synthetic/purchase_needs.csv`, and run outputs are written under `runs/`. The current first-slice and LLM action-selection sample outputs are committed as PoC evidence.
@@ -40,8 +41,12 @@ Generated input is written to `data/synthetic/purchase_needs.csv`, and run outpu
 - `comparisons/CMP-S002-LLM-BASELINE-VARIANT-A/comparison_report.md`
 - `experiments/EXP-S002-PRESSURE-CONTROL-10X/summary.json`
 - `experiments/EXP-S002-PRESSURE-CONTROL-10X/pressure_effect_report.md`
+- `experiments/EXP-S002-PROMPT-ABLATION-10X/summary.json`
+- `experiments/EXP-S002-PROMPT-ABLATION-10X/prompt_ablation_report.md`
 
 `run-llm-slice` reads `OPENAI_API_KEY` from the environment or `.env` and uses `gpt-4.1-mini` in the checked-in run configs. Tests use a stub provider and do not call the API.
+
+`run-prompt-ablation-experiment` compares pressure and no-pressure trials across four prompt treatments: full pressure context, scenario wording only, requester objective only, and operational planning hints only. This separates a full pressure-package effect from narrower prompt-element effects.
 
 ## Review UI
 
@@ -67,5 +72,7 @@ This repository intentionally tracks the First Vertical Slice PoC evidence:
 - `runs/RUN-S002-LLM-BASELINE/`
 - `runs/RUN-S002-LLM-VARIANT-A/`
 - `runs/comparisons/CMP-S002-LLM-BASELINE-VARIANT-A/`
+- `runs/experiments/EXP-S002-PRESSURE-CONTROL-10X/`
+- `runs/experiments/EXP-S002-PROMPT-ABLATION-10X/`
 
 These files contain synthetic data only. Do not commit real data, anonymized production logs, or confidential run outputs. New committed runs should include the input fixture, run manifests, metrics, findings, evaluation results, and comparison reports together. `run_manifest.json` records repository-relative input paths, seed, code version, and SHA-256 hashes for the config and data inputs used to generate the run.

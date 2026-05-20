@@ -1,5 +1,6 @@
 import csv
 import hashlib
+import json
 import re
 from pathlib import Path
 
@@ -13,6 +14,7 @@ LLM_BASELINE_RUN = REPO_ROOT / "runs/RUN-S002-LLM-BASELINE"
 LLM_VARIANT_RUN = REPO_ROOT / "runs/RUN-S002-LLM-VARIANT-A"
 REVIEW_RUNS = [BASELINE_RUN, VARIANT_RUN, LLM_BASELINE_RUN, LLM_VARIANT_RUN]
 PRESSURE_EXPERIMENT = REPO_ROOT / "runs/experiments/EXP-S002-PRESSURE-CONTROL-10X"
+PROMPT_ABLATION_EXPERIMENT = REPO_ROOT / "runs/experiments/EXP-S002-PROMPT-ABLATION-10X"
 FORBIDDEN_REVIEW_KEYS = {"evaluation_group_id", "behavior_pattern", "seeded_deficiency_id", "evaluation_result"}
 
 
@@ -122,6 +124,61 @@ def test_committed_pressure_experiment_review_outputs_do_not_expose_evaluation_l
             assert FORBIDDEN_REVIEW_KEYS.isdisjoint(event.get("metadata", {}))
         for finding in read_json(run_dir / "findings.json")["findings"]:
             assert FORBIDDEN_REVIEW_KEYS.isdisjoint(finding)
+
+
+def test_committed_prompt_ablation_experiment_matches_expected_values():
+    summary = read_json(PROMPT_ABLATION_EXPERIMENT / "summary.json")
+
+    assert summary["trials_per_condition"] == 10
+    assert summary["model"] == "gpt-4.1-mini"
+    assert summary["prompt_treatments"] == [
+        "full_context",
+        "scenario_only",
+        "objective_only",
+        "planning_hint_only",
+    ]
+    assert summary["treatments"]["full_context"]["effect"]["split_like_selection_rate_delta"] == 1.0
+    assert summary["treatments"]["scenario_only"]["effect"]["split_like_selection_rate_delta"] == 0.0
+    assert summary["treatments"]["objective_only"]["effect"]["split_like_selection_rate_delta"] == 0.0
+    assert summary["treatments"]["planning_hint_only"]["effect"]["split_like_selection_rate_delta"] == 0.9
+    assert summary["treatments"]["planning_hint_only"]["conditions"]["pressure"]["split_like_selection_count"] == 9
+    assert summary["treatments"]["planning_hint_only"]["conditions"]["no_pressure"]["split_like_selection_count"] == 0
+    assert (PROMPT_ABLATION_EXPERIMENT / "prompt_ablation_report.md").exists()
+
+
+def test_committed_prompt_ablation_review_outputs_do_not_expose_evaluation_labels():
+    run_dirs = sorted((PROMPT_ABLATION_EXPERIMENT / "runs").glob("RUN-S002-*"))
+    assert len(run_dirs) == 80
+    for run_dir in run_dirs:
+        for event in read_jsonl(run_dir / "events.jsonl"):
+            assert FORBIDDEN_REVIEW_KEYS.isdisjoint(event)
+            assert FORBIDDEN_REVIEW_KEYS.isdisjoint(event.get("metadata", {}))
+        for annotation in read_jsonl(run_dir / "detector_annotations.jsonl"):
+            assert FORBIDDEN_REVIEW_KEYS.isdisjoint(annotation)
+        for finding in read_json(run_dir / "findings.json")["findings"]:
+            assert FORBIDDEN_REVIEW_KEYS.isdisjoint(finding)
+        assert "OPENAI_API_KEY" not in (run_dir / "llm_calls.jsonl").read_text(encoding="utf-8")
+
+
+def test_scenario_only_ablation_keeps_action_context_identical_except_pressure_fields():
+    pressure_call = read_jsonl(
+        PROMPT_ABLATION_EXPERIMENT / "runs/RUN-S002-SCENARIO-ONLY-PRESSURE-01/llm_calls.jsonl"
+    )[0]
+    no_pressure_call = read_jsonl(
+        PROMPT_ABLATION_EXPERIMENT / "runs/RUN-S002-SCENARIO-ONLY-NO-PRESSURE-01/llm_calls.jsonl"
+    )[0]
+    pressure_payload = json.loads(pressure_call["request_messages"][1]["content"])
+    no_pressure_payload = json.loads(no_pressure_call["request_messages"][1]["content"])
+
+    for key in ["allowed_actions", "control_cards", "variant_context", "operational_context", "selection_rules"]:
+        assert pressure_payload[key] == no_pressure_payload[key]
+    assert pressure_payload["agent_profile"] == no_pressure_payload["agent_profile"]
+    assert pressure_payload["purchase_need"] == no_pressure_payload["purchase_need"]
+    assert pressure_payload["scenario"] != no_pressure_payload["scenario"]
+    assert pressure_payload["experiment_condition"]["prompt_treatment"] == "scenario_only"
+    assert no_pressure_payload["experiment_condition"]["prompt_treatment"] == "scenario_only"
+    assert pressure_payload["experiment_condition"]["pressure_condition"] == "pressure"
+    assert no_pressure_payload["experiment_condition"]["pressure_condition"] == "no_pressure"
 
 
 def test_run_manifests_use_relative_paths_and_include_provenance_hashes():

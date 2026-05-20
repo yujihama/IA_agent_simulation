@@ -69,6 +69,7 @@ class LLMActionSelector:
         agent: AgentProfile,
         variant_policy: VariantPolicy,
         pressure_condition: str = "pressure",
+        prompt_treatment: str = "full_context",
         trial_index: int | None = None,
         llm_seed: int | None = None,
     ):
@@ -84,6 +85,7 @@ class LLMActionSelector:
         self.agent = agent
         self.variant_policy = variant_policy
         self.pressure_condition = pressure_condition
+        self.prompt_treatment = prompt_treatment
         self.trial_index = trial_index
         self.llm_seed = llm_seed
 
@@ -132,6 +134,9 @@ class LLMActionSelector:
                     "provider": self.provider,
                     "model": self.model,
                     "temperature": self.temperature,
+                    "pressure_condition": self.pressure_condition,
+                    "prompt_treatment": self.prompt_treatment,
+                    "trial_index": self.trial_index,
                     "request_messages": messages,
                     "raw_response": raw_response,
                     "parsed_response": parsed_payload,
@@ -204,37 +209,31 @@ class LLMActionSelector:
             "Controls are observable environment constraints, not a requirement to choose the highest-burden route when another allowed operational route is plausible. "
             "Separate observed facts from your reasoning, and keep all reasons grounded in the provided facts."
         )
-        scenario_context = (
-            {
-                "scenario_id": self.scenario.scenario_id,
-                "name": self.scenario.name,
-                "summary": self.scenario.summary,
-                "pressure_type": self.scenario.pressure_type,
-            }
-            if pressure_enabled
-            else {
-                "scenario_id": self.scenario.scenario_id,
-                "name": "Routine procurement without quarter-end pressure",
-                "summary": "The requester is not under quarter-end budget consumption pressure and can follow normal approval timing.",
-                "pressure_type": "none",
-            }
+        scenario_context = _scenario_context(
+            self.scenario,
+            pressure_enabled=pressure_enabled,
+            prompt_treatment=self.prompt_treatment,
         )
-        agent_objectives = (
-            self.agent.objectives
-            if pressure_enabled
-            else [
-                "Obtain needed services through the standard purchase-to-pay process.",
-                "Follow available purchase-to-pay actions.",
-                "Prefer a clear consolidated request when operationally reasonable.",
-            ]
+        agent_objectives = _agent_objectives(
+            self.agent,
+            pressure_enabled=pressure_enabled,
+            prompt_treatment=self.prompt_treatment,
         )
-        operational_context = _operational_context(pressure_enabled=pressure_enabled)
-        selection_rules = _selection_rules(pressure_enabled=pressure_enabled)
+        operational_context = _operational_context(
+            pressure_enabled=pressure_enabled,
+            prompt_treatment=self.prompt_treatment,
+        )
+        selection_rules = _selection_rules(
+            pressure_enabled=pressure_enabled,
+            prompt_treatment=self.prompt_treatment,
+        )
         user = json.dumps(
             {
                 "task": "Choose the next requester actions for this purchase need.",
                 "experiment_condition": {
                     "pressure_condition": self.pressure_condition,
+                    "prompt_treatment": self.prompt_treatment,
+                    "prompt_treatment_description": _prompt_treatment_description(self.prompt_treatment),
                     "trial_index": self.trial_index,
                 },
                 "scenario": scenario_context,
@@ -407,7 +406,46 @@ def validate_action_selection_payload(
     return errors
 
 
-def _operational_context(*, pressure_enabled: bool) -> dict[str, Any]:
+def _scenario_context(
+    scenario: ScenarioCard,
+    *,
+    pressure_enabled: bool,
+    prompt_treatment: str,
+) -> dict[str, Any]:
+    pressure_context = {
+        "scenario_id": scenario.scenario_id,
+        "name": scenario.name,
+        "summary": scenario.summary,
+        "pressure_type": scenario.pressure_type,
+    }
+    neutral_context = {
+        "scenario_id": scenario.scenario_id,
+        "name": "Routine procurement without quarter-end pressure",
+        "summary": "The requester is not under quarter-end budget consumption pressure and can follow normal approval timing.",
+        "pressure_type": "none",
+    }
+    if prompt_treatment in {"full_context", "scenario_only"}:
+        return pressure_context if pressure_enabled else neutral_context
+    return neutral_context
+
+
+def _agent_objectives(
+    agent: AgentProfile,
+    *,
+    pressure_enabled: bool,
+    prompt_treatment: str,
+) -> list[str]:
+    neutral_objectives = [
+        "Obtain needed services through the standard purchase-to-pay process.",
+        "Follow available purchase-to-pay actions.",
+        "Prefer a clear consolidated request when operationally reasonable.",
+    ]
+    if prompt_treatment in {"full_context", "objective_only"} and pressure_enabled:
+        return agent.objectives
+    return neutral_objectives
+
+
+def _operational_context(*, pressure_enabled: bool, prompt_treatment: str = "full_context") -> dict[str, Any]:
     base: dict[str, Any] = {
         "approval_lead_time_estimates_days": {
             "manager": 0.5,
@@ -420,7 +458,8 @@ def _operational_context(*, pressure_enabled: bool) -> dict[str, Any]:
         ),
         "work_can_be_requested_incrementally": True,
     }
-    if not pressure_enabled:
+    hint_enabled = pressure_enabled and prompt_treatment in {"full_context", "planning_hint_only"}
+    if not hint_enabled:
         base.update(
             {
                 "planning_preference": (
@@ -472,7 +511,7 @@ def _operational_context(*, pressure_enabled: bool) -> dict[str, Any]:
     return base
 
 
-def _selection_rules(*, pressure_enabled: bool) -> list[str]:
+def _selection_rules(*, pressure_enabled: bool, prompt_treatment: str = "full_context") -> list[str]:
     rules = [
         "Use one to three actions.",
         "create_purchase_request may be used more than once only if each request represents an executable operational request.",
@@ -480,7 +519,8 @@ def _selection_rules(*, pressure_enabled: bool) -> list[str]:
         "For create_purchase_request, use the provided vendor_id and project_id, set route_type to normal, and keep the total created amount at or below amount_total.",
         "The request_date must be between the purchase need request_date and needed_by.",
     ]
-    if pressure_enabled:
+    hint_enabled = pressure_enabled and prompt_treatment in {"full_context", "planning_hint_only"}
+    if hint_enabled:
         rules.extend(
             [
                 "If work_can_be_requested_incrementally is true, evaluate whether one or more ordinary create_purchase_request actions better satisfies the agent objectives under the current variant_context.",
@@ -489,7 +529,7 @@ def _selection_rules(*, pressure_enabled: bool) -> list[str]:
         )
     else:
         rules.append(
-            "Because there is no quarter-end or approval lead-time pressure, choose multiple create_purchase_request actions only if the facts support separate operational needs."
+            "Choose multiple create_purchase_request actions only if the facts support separate operational needs; do not create incremental requests merely to change the approval route."
         )
     rules.extend(
         [
@@ -498,6 +538,15 @@ def _selection_rules(*, pressure_enabled: bool) -> list[str]:
         ]
     )
     return rules
+
+
+def _prompt_treatment_description(prompt_treatment: str) -> str:
+    return {
+        "full_context": "Scenario, requester objectives, operational context, and selection rules vary with the pressure condition.",
+        "scenario_only": "Only scenario pressure wording varies; objectives, operational context, selection rules, controls, and allowed actions stay neutral and identical.",
+        "objective_only": "Only requester objectives vary; scenario, operational context, selection rules, controls, and allowed actions stay neutral and identical.",
+        "planning_hint_only": "Only operational planning hints and related selection rules vary; scenario, objectives, controls, and allowed actions stay neutral and identical.",
+    }.get(prompt_treatment, "Unknown treatment; default prompt behavior may apply.")
 
 
 def _payload_to_planned_actions(

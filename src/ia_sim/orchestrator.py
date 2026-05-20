@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import copy
 import subprocess
+from collections import Counter
 from pathlib import Path
 from typing import Any
 
@@ -28,6 +29,9 @@ from ia_sim.rule_engine import RuleEngine, VariantPolicy
 from ia_sim.simulation import SimulationEngine, behavior_replay_rows, build_behavior_plan
 from ia_sim.storage import read_json, read_jsonl, write_json, write_jsonl
 from ia_sim.synthetic import generate_synthetic_data, read_purchase_needs_csv
+
+
+PROMPT_TREATMENTS = ["full_context", "scenario_only", "objective_only", "planning_hint_only"]
 
 
 def load_variant_policy(repo_root: Path, variant_id: str) -> VariantPolicy:
@@ -97,6 +101,7 @@ def run_simulation(
             agent=agent,
             variant_policy=variant_policy,
             pressure_condition=str(run_config.llm.get("pressure_condition", "pressure")),
+            prompt_treatment=str(run_config.llm.get("prompt_treatment", "full_context")),
             trial_index=run_config.llm.get("trial_index"),
             llm_seed=run_config.llm.get("seed"),
         )
@@ -193,6 +198,7 @@ def run_simulation(
             "temperature": run_config.llm.get("temperature", 0.2),
             "max_retries": run_config.llm.get("max_retries", 2),
             "pressure_condition": run_config.llm.get("pressure_condition", "pressure"),
+            "prompt_treatment": run_config.llm.get("prompt_treatment", "full_context"),
             "trial_index": run_config.llm.get("trial_index"),
             "seed": run_config.llm.get("seed"),
         }
@@ -364,6 +370,7 @@ def run_pressure_condition_experiment(
                 provider=provider,
                 model=model,
                 temperature=temperature,
+                prompt_treatment="full_context",
             )
             config_path = configs_dir / f"{config['run_id']}.yaml"
             write_yaml(config_path, config)
@@ -373,7 +380,7 @@ def run_pressure_condition_experiment(
                 output_root_override=runs_root,
                 purchase_needs_path_override=purchase_needs_path,
             )
-            trial_results.append(_pressure_trial_result(condition, trial_index, result.run_dir))
+            trial_results.append(_pressure_trial_result("full_context", condition, trial_index, result.run_dir))
 
     summary = _summarize_pressure_trials(
         experiment_id=experiment_id,
@@ -381,10 +388,83 @@ def run_pressure_condition_experiment(
         provider=provider,
         model=model,
         temperature=temperature,
+        prompt_treatment="full_context",
         trial_results=trial_results,
     )
     write_json(experiment_dir / "summary.json", summary)
     _write_pressure_effect_report(experiment_dir / "pressure_effect_report.md", summary)
+    return {
+        "experiment_id": experiment_id,
+        "experiment_dir": experiment_dir,
+        "summary": summary,
+    }
+
+
+def run_prompt_ablation_experiment(
+    repo_root: Path,
+    *,
+    trials: int = 10,
+    output_root_override: Path | None = None,
+    provider: str = "openai",
+    model: str = "gpt-4.1-mini",
+    temperature: float = 0.7,
+    prompt_treatments: list[str] | None = None,
+) -> dict[str, Any]:
+    treatments = prompt_treatments or list(PROMPT_TREATMENTS)
+    unknown = sorted(set(treatments) - set(PROMPT_TREATMENTS))
+    if unknown:
+        raise ValueError(f"Unknown prompt treatments: {', '.join(unknown)}")
+
+    experiment_id = f"EXP-S002-PROMPT-ABLATION-{trials}X"
+    experiment_dir = (output_root_override or repo_root / "runs/experiments") / experiment_id
+    configs_dir = experiment_dir / "configs"
+    runs_root = experiment_dir / "runs"
+
+    base_config = read_yaml(repo_root / "configs/run_configs/llm_baseline.yaml")
+    purchase_needs_path = repo_root / base_config["inputs"]["purchase_needs"]
+    if not purchase_needs_path.exists():
+        purchase_needs_path = generate_synthetic_data(
+            purchase_needs_path.parent,
+            count=int(base_config.get("llm", {}).get("input_fixture_count", 100)),
+            seed=int(base_config["seed"]),
+        )
+
+    trial_results: list[dict[str, Any]] = []
+    for prompt_treatment in treatments:
+        for condition in ["pressure", "no_pressure"]:
+            for trial_index in range(1, trials + 1):
+                config = _pressure_trial_config(
+                    base_config,
+                    condition=condition,
+                    trial_index=trial_index,
+                    provider=provider,
+                    model=model,
+                    temperature=temperature,
+                    prompt_treatment=prompt_treatment,
+                    comparison_mode="prompt_ablation_experiment",
+                    include_treatment_slug=True,
+                )
+                config_path = configs_dir / f"{config['run_id']}.yaml"
+                write_yaml(config_path, config)
+                result = run_simulation(
+                    repo_root,
+                    config_path,
+                    output_root_override=runs_root,
+                    purchase_needs_path_override=purchase_needs_path,
+                )
+                trial_results.append(_pressure_trial_result(prompt_treatment, condition, trial_index, result.run_dir))
+
+    summary = _summarize_prompt_ablation_trials(
+        experiment_id=experiment_id,
+        trials=trials,
+        provider=provider,
+        model=model,
+        temperature=temperature,
+        prompt_treatments=treatments,
+        trial_results=trial_results,
+    )
+    write_json(experiment_dir / "summary.json", summary)
+    _write_prompt_ablation_report(experiment_dir / "prompt_ablation_report.md", summary)
     return {
         "experiment_id": experiment_id,
         "experiment_dir": experiment_dir,
@@ -406,16 +486,23 @@ def _pressure_trial_config(
     provider: str,
     model: str,
     temperature: float,
+    prompt_treatment: str = "full_context",
+    comparison_mode: str = "pressure_condition_experiment",
+    include_treatment_slug: bool = False,
 ) -> dict[str, Any]:
     config = copy.deepcopy(base_config)
     condition_slug = "PRESSURE" if condition == "pressure" else "NO-PRESSURE"
     seed_offset = 0 if condition == "pressure" else 1000
-    llm_seed = int(base_config["seed"]) + seed_offset + trial_index
-    config["run_id"] = f"RUN-S002-{condition_slug}-{trial_index:02d}"
-    config["name"] = f"s002_{condition}_trial_{trial_index:02d}"
+    treatment_offset = PROMPT_TREATMENTS.index(prompt_treatment) * 10_000 if prompt_treatment in PROMPT_TREATMENTS else 0
+    llm_seed = int(base_config["seed"]) + treatment_offset + seed_offset + trial_index
+    treatment_slug = prompt_treatment.upper().replace("_", "-")
+    run_id_middle = f"{treatment_slug}-{condition_slug}" if include_treatment_slug else condition_slug
+    name_middle = f"{prompt_treatment}_{condition}" if include_treatment_slug else condition
+    config["run_id"] = f"RUN-S002-{run_id_middle}-{trial_index:02d}"
+    config["name"] = f"s002_{name_middle}_trial_{trial_index:02d}"
     config["seed"] = llm_seed
     config["behavior_mode"] = "adaptive_agent"
-    config["comparison_mode"] = "pressure_condition_experiment"
+    config["comparison_mode"] = comparison_mode
     config["simulation"]["max_purchase_needs"] = 1
     config.setdefault("llm", {})
     config["llm"].update(
@@ -425,6 +512,7 @@ def _pressure_trial_config(
             "temperature": temperature,
             "max_retries": 2,
             "pressure_condition": condition,
+            "prompt_treatment": prompt_treatment,
             "trial_index": trial_index,
             "seed": llm_seed,
             "input_fixture_count": 100,
@@ -433,7 +521,7 @@ def _pressure_trial_config(
     return config
 
 
-def _pressure_trial_result(condition: str, trial_index: int, run_dir: Path) -> dict[str, Any]:
+def _pressure_trial_result(prompt_treatment: str, condition: str, trial_index: int, run_dir: Path) -> dict[str, Any]:
     action_metrics = read_json(run_dir / "action_selection_metrics.json")
     metrics = read_json(run_dir / "metrics.json")
     decisions = read_jsonl(run_dir / "llm_action_decisions.jsonl")
@@ -441,6 +529,7 @@ def _pressure_trial_result(condition: str, trial_index: int, run_dir: Path) -> d
     create_amounts = [int(row["parameters"]["amount"]) for row in create_decisions]
     split_like = len(create_amounts) >= 2 and all(0 < amount < 1_000_000 for amount in create_amounts)
     return {
+        "prompt_treatment": prompt_treatment,
         "condition": condition,
         "trial_index": trial_index,
         "run_id": run_dir.name,
@@ -465,6 +554,7 @@ def _summarize_pressure_trials(
     provider: str,
     model: str,
     temperature: float,
+    prompt_treatment: str,
     trial_results: list[dict[str, Any]],
 ) -> dict[str, Any]:
     by_condition = {
@@ -475,10 +565,51 @@ def _summarize_pressure_trials(
         condition: _condition_summary(rows, trials)
         for condition, rows in by_condition.items()
     }
-    pressure_split_rate = condition_summary["pressure"]["split_like_selection_rate"]
-    no_pressure_split_rate = condition_summary["no_pressure"]["split_like_selection_rate"]
-    pressure_candidate_rate = condition_summary["pressure"]["split_order_candidate_rate"]
-    no_pressure_candidate_rate = condition_summary["no_pressure"]["split_order_candidate_rate"]
+    effect = _pressure_effect(condition_summary)
+    return {
+        "experiment_id": experiment_id,
+        "created_at": now_utc_iso(),
+        "scenario_id": "S-002",
+        "variant_id": "baseline",
+        "prompt_treatment": prompt_treatment,
+        "prompt_treatment_description": _prompt_treatment_report_description(prompt_treatment),
+        "trials_per_condition": trials,
+        "provider": provider,
+        "model": model,
+        "temperature": temperature,
+        "conditions": condition_summary,
+        "effect": effect,
+        "trial_results": trial_results,
+    }
+
+
+def _summarize_prompt_ablation_trials(
+    *,
+    experiment_id: str,
+    trials: int,
+    provider: str,
+    model: str,
+    temperature: float,
+    prompt_treatments: list[str],
+    trial_results: list[dict[str, Any]],
+) -> dict[str, Any]:
+    treatments: dict[str, Any] = {}
+    for prompt_treatment in prompt_treatments:
+        treatment_rows = [row for row in trial_results if row["prompt_treatment"] == prompt_treatment]
+        by_condition = {
+            condition: [row for row in treatment_rows if row["condition"] == condition]
+            for condition in ["pressure", "no_pressure"]
+        }
+        condition_summary = {
+            condition: _condition_summary(rows, trials)
+            for condition, rows in by_condition.items()
+        }
+        treatments[prompt_treatment] = {
+            "description": _prompt_treatment_report_description(prompt_treatment),
+            "input_delta": _prompt_treatment_input_delta(prompt_treatment),
+            "conditions": condition_summary,
+            "effect": _pressure_effect(condition_summary),
+        }
     return {
         "experiment_id": experiment_id,
         "created_at": now_utc_iso(),
@@ -488,17 +619,28 @@ def _summarize_pressure_trials(
         "provider": provider,
         "model": model,
         "temperature": temperature,
-        "conditions": condition_summary,
-        "effect": {
-            "split_like_selection_rate_delta": round(pressure_split_rate - no_pressure_split_rate, 4),
-            "split_order_candidate_rate_delta": round(pressure_candidate_rate - no_pressure_candidate_rate, 4),
-            "bypass_success_rate_delta": round(
-                condition_summary["pressure"]["bypass_success_rate"]
-                - condition_summary["no_pressure"]["bypass_success_rate"],
-                4,
-            ),
-        },
+        "prompt_treatments": prompt_treatments,
+        "treatments": treatments,
         "trial_results": trial_results,
+    }
+
+
+def _pressure_effect(condition_summary: dict[str, dict[str, Any]]) -> dict[str, float]:
+    pressure = condition_summary["pressure"]
+    no_pressure = condition_summary["no_pressure"]
+    return {
+        "split_like_selection_rate_delta": round(
+            pressure["split_like_selection_rate"] - no_pressure["split_like_selection_rate"],
+            4,
+        ),
+        "split_order_candidate_rate_delta": round(
+            pressure["split_order_candidate_rate"] - no_pressure["split_order_candidate_rate"],
+            4,
+        ),
+        "bypass_success_rate_delta": round(
+            pressure["bypass_success_rate"] - no_pressure["bypass_success_rate"],
+            4,
+        ),
     }
 
 
@@ -506,6 +648,8 @@ def _condition_summary(rows: list[dict[str, Any]], trials: int) -> dict[str, Any
     split_like_count = sum(1 for row in rows if row["split_like_selection"])
     candidate_count = sum(1 for row in rows if row["split_order_candidate_count"] > 0)
     bypass_count = sum(1 for row in rows if row["bypass_success_count"] > 0)
+    action_sequences = Counter(" + ".join(row["selected_actions"]) for row in rows)
+    amount_patterns = Counter(" + ".join(str(amount) for amount in row["create_amounts"]) for row in rows)
     return {
         "trial_count": len(rows),
         "split_like_selection_count": split_like_count,
@@ -523,6 +667,8 @@ def _condition_summary(rows: list[dict[str, Any]], trials: int) -> dict[str, Any
         "fallback_run_count": sum(1 for row in rows if row["fallback_rate"] > 0),
         "retry_run_count": sum(1 for row in rows if row["retry_rate"] > 0),
         "fact_error_run_count": sum(1 for row in rows if row["fact_in_reason_error_rate"] > 0),
+        "selected_action_sequence_distribution": dict(sorted(action_sequences.items())),
+        "create_amount_pattern_distribution": dict(sorted(amount_patterns.items())),
     }
 
 
@@ -567,6 +713,83 @@ def _write_pressure_effect_report(path: Path, summary: dict[str, Any]) -> None:
         lines.append("今回の10回ずつの試行では、圧力条件の有無による分割的選択率の差は観察されなかった。")
     lines.append("ただし試行数は各10回であり、統計的な確定ではなく、次の検証仮説を得るための小規模比較として扱う。")
     path.write_text("\n".join(lines), encoding="utf-8")
+
+
+def _write_prompt_ablation_report(path: Path, summary: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lines = [
+        f"# LLM行動選択プロンプト処置別比較: {summary['experiment_id']}",
+        "",
+        f"- モデル: {summary['model']}",
+        f"- temperature: {summary['temperature']}",
+        f"- 各条件の試行数: {summary['trials_per_condition']}",
+        "- 統制Variant: baseline",
+        "- allowed_actions: create_purchase_request / consult_manager / consult_purchasing / postpone_request",
+        "",
+        "この比較は、圧力条件の有無だけでなく、どのプロンプト要素がLLMの行動選択に影響したかを切り分けるための小規模アブレーションである。",
+        "",
+        "## 処置別サマリ",
+        "",
+        "| 処置 | 入力差分 | 圧力あり 分割的選択率 | 圧力なし 分割的選択率 | 差分 | 圧力あり Detector候補率 | 圧力なし Detector候補率 | 差分 |",
+        "|---|---|---:|---:|---:|---:|---:|---:|",
+    ]
+    for treatment in summary["prompt_treatments"]:
+        treatment_summary = summary["treatments"][treatment]
+        pressure = treatment_summary["conditions"]["pressure"]
+        no_pressure = treatment_summary["conditions"]["no_pressure"]
+        effect = treatment_summary["effect"]
+        lines.append(
+            f"| {treatment} | {treatment_summary['input_delta']} | "
+            f"{pressure['split_like_selection_rate']} | {no_pressure['split_like_selection_rate']} | "
+            f"{effect['split_like_selection_rate_delta']} | "
+            f"{pressure['split_order_candidate_rate']} | {no_pressure['split_order_candidate_rate']} | "
+            f"{effect['split_order_candidate_rate_delta']} |"
+        )
+
+    lines.extend(["", "## Action列分布", ""])
+    for treatment in summary["prompt_treatments"]:
+        treatment_summary = summary["treatments"][treatment]
+        lines.extend([f"### {treatment}", "", f"- 処置説明: {treatment_summary['description']}"])
+        for condition, label in [("pressure", "圧力あり"), ("no_pressure", "圧力なし")]:
+            condition_summary = treatment_summary["conditions"][condition]
+            lines.append(f"- {label} Action列: {condition_summary['selected_action_sequence_distribution']}")
+            lines.append(f"- {label} 金額パターン: {condition_summary['create_amount_pattern_distribution']}")
+        lines.append("")
+
+    lines.extend(["## 解釈", ""])
+    scenario_delta = summary["treatments"].get("scenario_only", {}).get("effect", {}).get("split_like_selection_rate_delta")
+    objective_delta = summary["treatments"].get("objective_only", {}).get("effect", {}).get("split_like_selection_rate_delta")
+    hint_delta = summary["treatments"].get("planning_hint_only", {}).get("effect", {}).get("split_like_selection_rate_delta")
+    full_delta = summary["treatments"].get("full_context", {}).get("effect", {}).get("split_like_selection_rate_delta")
+    lines.extend(
+        [
+            f"- full_contextの差分は、圧力シナリオ、申請者目的、運用コンテキスト、選択ルールをまとめて変えた場合の効果を示す。今回の差分: {full_delta}",
+            f"- scenario_onlyの差分は、選択肢や統制情報を同一に保ったうえで、圧力シナリオ文言だけを変えた場合の効果に近い。今回の差分: {scenario_delta}",
+            f"- objective_onlyの差分は、期末対応やリードタイム短縮を目的として与えることの効果を示す。今回の差分: {objective_delta}",
+            f"- planning_hint_onlyの差分は、候補ワークパッケージやリードタイム評価ヒントが行動選択を誘導した可能性を示す。今回の差分: {hint_delta}",
+            "",
+            "この結果は監査判断ではなく、LLM申請者エージェントの行動選択がどの入力要素に反応したかを追加調査するための証跡である。",
+        ]
+    )
+    path.write_text("\n".join(lines), encoding="utf-8")
+
+
+def _prompt_treatment_report_description(prompt_treatment: str) -> str:
+    return {
+        "full_context": "圧力シナリオ、申請者目的、運用コンテキスト、選択ルールを圧力条件に応じて切り替える。",
+        "scenario_only": "圧力シナリオ文言だけを切り替え、選択肢、統制情報、目的、運用コンテキスト、選択ルールは同一にする。",
+        "objective_only": "申請者目的だけを切り替え、シナリオ、運用コンテキスト、選択ルールは同一にする。",
+        "planning_hint_only": "候補ワークパッケージやリードタイム評価ヒントだけを切り替え、シナリオと目的は同一にする。",
+    }.get(prompt_treatment, prompt_treatment)
+
+
+def _prompt_treatment_input_delta(prompt_treatment: str) -> str:
+    return {
+        "full_context": "圧力パッケージ全体",
+        "scenario_only": "シナリオ文言のみ",
+        "objective_only": "申請者目的のみ",
+        "planning_hint_only": "計画ヒントのみ",
+    }.get(prompt_treatment, prompt_treatment)
 
 
 def _max_purchase_needs(simulation_config: dict[str, Any]) -> int:
