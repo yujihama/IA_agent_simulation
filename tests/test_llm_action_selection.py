@@ -6,6 +6,7 @@ from ia_sim.orchestrator import (
     compare_runs,
     run_agent_stress_experiment,
     run_balanced_planning_hint_experiment,
+    run_branching_simulation,
     run_hint_pressure_matrix_experiment,
     run_prompt_ablation_experiment,
     run_pressure_condition_experiment,
@@ -226,6 +227,40 @@ def test_agent_stress_experiment_stub_writes_closed_and_open_outputs(tmp_path):
     run_dir = result["experiment_dir"] / "runs/RUN-S002-OPEN-RED-TEAM-CONTROL-FULL-WITH-FAILURE-MODES-01"
     assert (run_dir / "open_proposals.jsonl").exists()
     assert (run_dir / "action_grounding.jsonl").exists()
+
+
+def test_branching_proposal_stub_writes_world_outputs(tmp_path):
+    result = run_branching_simulation(
+        REPO_ROOT,
+        output_root_override=tmp_path / "runs",
+        provider="stub",
+        model="stub-model",
+        temperature=0.0,
+    )
+    run_dir = result["run"].run_dir
+    summary = read_json(run_dir / "branching_summary.json")
+    worlds = read_json(run_dir / "world_summaries.json")["worlds"]
+    events = read_jsonl(run_dir / "events.jsonl")
+    findings = read_json(run_dir / "findings.json")["findings"]
+    candidates = read_json(run_dir / "action_library_candidates.json")["candidates"]
+
+    assert summary["generated_world_count"] == 5
+    assert summary["completed_world_count"] == 4
+    assert summary["unsupported_action_candidate_count"] == 1
+    assert summary["misrepresentation_action_count"] == 1
+    assert summary["detector_detection_rate"] == 0.75
+    assert {world["world_id"] for world in worlds} == {
+        "WORLD-001",
+        "WORLD-002",
+        "WORLD-003",
+        "WORLD-004",
+        "WORLD-005",
+    }
+    assert all(event["world_id"] for event in events)
+    assert {finding["defect_id"] for finding in findings} >= {"D-001", "D-002", "D-003"}
+    assert candidates[0]["candidate_action_ids"] == ["informal_preapproval_chat"]
+    assert (run_dir / "branching_report.md").exists()
+    assert (run_dir / "residual_risk_report.md").exists()
 
 
 def _stub_config(source_name: str, run_id: str, tmp_path: Path) -> Path:

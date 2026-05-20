@@ -7,6 +7,12 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
+from ia_sim.branching import (
+    build_branching_artifacts,
+    execute_branching_worlds,
+    write_branching_report,
+    write_residual_risk_report,
+)
 from ia_sim.config import (
     load_agent_profiles,
     load_action_definitions,
@@ -18,9 +24,16 @@ from ia_sim.config import (
     validate_config_tree,
     write_yaml,
 )
-from ia_sim.detectors import build_findings, detect_split_orders
+from ia_sim.detectors import build_findings, detect_control_findings
 from ia_sim.evaluation import evaluate_findings
-from ia_sim.llm import LLMActionSelector, LLMOpenProposalGenerator, LLMProposalResult, LLMSelectionResult
+from ia_sim.llm import (
+    LLMActionSelector,
+    LLMBranchingProposalGenerator,
+    LLMBranchingResult,
+    LLMOpenProposalGenerator,
+    LLMProposalResult,
+    LLMSelectionResult,
+)
 from ia_sim.llm_metrics import compare_action_selection_metric_sets, compute_action_selection_metrics
 from ia_sim.metrics import compare_metric_sets, compute_metrics
 from ia_sim.models import RunResult, now_utc_iso
@@ -103,6 +116,8 @@ def run_simulation(
 
     max_purchase_needs = _max_purchase_needs(run_config.simulation)
     llm_selection: LLMSelectionResult | None = None
+    branching_result: LLMBranchingResult | None = None
+    branching_artifacts: dict[str, Any] | None = None
     if run_config.behavior_mode == "adaptive_agent":
         scenario = _select_scenario(scenarios, run_config.scenario_id)
         agent = _select_requester_agent(agents)
@@ -129,13 +144,53 @@ def run_simulation(
         )
         llm_selection = selector.select_actions_for_needs(needs, max_purchase_needs=max_purchase_needs)
         plan = llm_selection.planned_actions
+        engine = SimulationEngine(run_config.run_id, rule_engine)
+        events = engine.run(needs, plan)
+    elif run_config.behavior_mode == "branching_proposal":
+        scenario = _select_scenario(scenarios, run_config.scenario_id)
+        agent = _select_requester_agent(agents)
+        branching_config = _branching_config(run_config.branching)
+        generator = LLMBranchingProposalGenerator(
+            repo_root=repo_root,
+            run_id=run_config.run_id,
+            model=str(run_config.llm.get("model", "gpt-4.1-mini")),
+            provider=str(run_config.llm.get("provider", "openai")),
+            temperature=float(run_config.llm.get("temperature", 0.7)),
+            max_retries=int(run_config.llm.get("max_retries", 2)),
+            allowed_actions=actions,
+            controls=controls,
+            scenario=scenario,
+            agent=agent,
+            variant_policy=variant_policy,
+            proposal_count_per_node=int(branching_config["proposal_count_per_node"]),
+            include_policy_violating_actions=bool(branching_config["include_policy_violating_actions"]),
+            include_misrepresentation_actions=bool(branching_config["include_misrepresentation_actions"]),
+            require_action_classification=bool(branching_config["require_action_classification"]),
+            execute_system_blocked_actions_as_attempts=bool(
+                branching_config["execute_system_blocked_actions_as_attempts"]
+            ),
+            risk_guided_selection=bool(branching_config["risk_guided_selection"]),
+            pressure_type=str(run_config.llm.get("pressure_type", "delivery_pressure")),
+            agent_persona=str(run_config.llm.get("agent_persona", "red_team_requester")),
+            control_visibility=str(run_config.llm.get("control_visibility", "control_full_red_team")),
+            trial_index=run_config.llm.get("trial_index"),
+            llm_seed=run_config.llm.get("seed"),
+        )
+        branching_result = generator.propose_for_needs(needs, max_purchase_needs=max_purchase_needs)
+        plan = _select_branching_actions(branching_result.planned_actions, branching_config)
+        events = execute_branching_worlds(
+            run_id=run_config.run_id,
+            needs=needs,
+            planned_actions=plan,
+            rule_engine=rule_engine,
+        )
     else:
         plan = build_behavior_plan(needs, max_purchase_needs=max_purchase_needs)
-    engine = SimulationEngine(run_config.run_id, rule_engine)
-    events = engine.run(needs, plan)
+        engine = SimulationEngine(run_config.run_id, rule_engine)
+        events = engine.run(needs, plan)
 
     ground_truth = read_yaml(repo_root / run_config.evaluation_inputs["ground_truth_labels"])
-    annotations = detect_split_orders(events)
+    annotations = detect_control_findings(events)
     findings = build_findings(annotations, events)
     evaluation_results = evaluate_findings(findings=findings, events=events, ground_truth=ground_truth)
     metrics = compute_metrics(
@@ -153,6 +208,18 @@ def run_simulation(
             events=events,
             findings=findings,
         )
+    if branching_result is not None:
+        branching_artifacts = build_branching_artifacts(
+            run_id=run_config.run_id,
+            branching_config=_branching_config(run_config.branching),
+            world_rows=branching_result.world_rows,
+            planned_actions=plan,
+            events=events,
+            annotations=annotations,
+            findings=findings,
+            action_library_candidates=branching_result.action_library_candidates,
+        )
+        metrics.update(branching_artifacts["branching_summary"])
 
     run_dir = _resolve_run_dir(repo_root, run_config.outputs["dir"], run_config.run_id, output_root_override)
     run_config_rel = _repo_relative_or_str(config_path, repo_root)
@@ -236,6 +303,40 @@ def run_simulation(
                 "llm_action_review_report": "llm_action_review_report.md",
             }
         )
+    if branching_result is not None and branching_artifacts is not None:
+        manifest["branching"] = _branching_config(run_config.branching)
+        manifest["llm"] = {
+            "provider": run_config.llm.get("provider", "openai"),
+            "model": run_config.llm.get("model", "gpt-4.1-mini"),
+            "temperature": run_config.llm.get("temperature", 0.7),
+            "max_retries": run_config.llm.get("max_retries", 2),
+            "pressure_type": run_config.llm.get("pressure_type"),
+            "agent_persona": run_config.llm.get("agent_persona"),
+            "control_visibility": run_config.llm.get("control_visibility"),
+            "trial_index": run_config.llm.get("trial_index"),
+            "seed": run_config.llm.get("seed"),
+        }
+        manifest["outputs"].update(
+            {
+                "branching_calls": "branching_calls.jsonl",
+                "branching_proposals": "branching_proposals.jsonl",
+                "branching_grounding": "branching_grounding.jsonl",
+                "llm_action_decisions": "llm_action_decisions.jsonl",
+                "branching_summary": "branching_summary.json",
+                "world_summaries": "world_summaries.json",
+                "world_tree": "world_tree.json",
+                "action_library_candidates": "action_library_candidates.json",
+                "branching_report": "branching_report.md",
+                "residual_risk_report": "residual_risk_report.md",
+            }
+        )
+        manifest["summary"].update(
+            {
+                "generated_world_count": branching_artifacts["branching_summary"]["generated_world_count"],
+                "residual_risk_world_count": branching_artifacts["branching_summary"]["residual_risk_world_count"],
+                "detector_detection_rate": branching_artifacts["branching_summary"]["detector_detection_rate"],
+            }
+        )
 
     write_json(run_dir / "run_manifest.json", manifest)
     write_jsonl(run_dir / "events.jsonl", events)
@@ -263,6 +364,25 @@ def run_simulation(
             action_selection_metrics=action_selection_metrics,
             decisions=llm_selection.decision_rows,
             llm_calls=llm_selection.call_rows,
+        )
+    if branching_result is not None and branching_artifacts is not None:
+        write_jsonl(run_dir / "branching_calls.jsonl", branching_result.call_rows)
+        write_jsonl(run_dir / "branching_proposals.jsonl", branching_result.proposal_rows)
+        write_jsonl(run_dir / "branching_grounding.jsonl", branching_result.grounding_rows)
+        write_jsonl(run_dir / "llm_action_decisions.jsonl", branching_result.decision_rows)
+        write_json(run_dir / "branching_summary.json", branching_artifacts["branching_summary"])
+        write_json(run_dir / "world_summaries.json", {"worlds": branching_artifacts["world_summaries"]})
+        write_json(run_dir / "world_tree.json", branching_artifacts["world_tree"])
+        write_json(run_dir / "action_library_candidates.json", {"candidates": branching_result.action_library_candidates})
+        write_branching_report(
+            run_dir / "branching_report.md",
+            run_id=run_config.run_id,
+            summary=branching_artifacts["branching_summary"],
+            world_summaries=branching_artifacts["world_summaries"],
+        )
+        write_residual_risk_report(
+            run_dir / "residual_risk_report.md",
+            residual_risks=branching_artifacts["residual_risks"],
         )
 
     return RunResult(
@@ -361,6 +481,40 @@ def run_llm_action_slice(repo_root: Path, *, output_root_override: Path | None =
         "comparison_dir": comparison_dir,
         "comparison": comparison,
     }
+
+
+def run_branching_simulation(
+    repo_root: Path,
+    *,
+    output_root_override: Path | None = None,
+    provider: str = "openai",
+    model: str = "gpt-4.1-mini",
+    temperature: float = 0.7,
+) -> dict[str, Any]:
+    base_config_path = repo_root / "configs/run_configs/branching_baseline.yaml"
+    base_config = read_yaml(base_config_path)
+    purchase_needs_path = repo_root / base_config["inputs"]["purchase_needs"]
+    if not purchase_needs_path.exists():
+        purchase_needs_path = generate_synthetic_data(
+            purchase_needs_path.parent,
+            count=int(base_config.get("llm", {}).get("input_fixture_count", 100)),
+            seed=int(base_config["seed"]),
+        )
+
+    config = copy.deepcopy(base_config)
+    config["llm"]["provider"] = provider
+    config["llm"]["model"] = model
+    config["llm"]["temperature"] = temperature
+    config_root = output_root_override or repo_root / "runs"
+    config_path = config_root / "configs" / f"{config['run_id']}.yaml"
+    write_yaml(config_path, config)
+    result = run_simulation(
+        repo_root,
+        config_path,
+        output_root_override=output_root_override,
+        purchase_needs_path_override=purchase_needs_path,
+    )
+    return {"run": result, "config_path": config_path}
 
 
 def run_pressure_condition_experiment(
@@ -745,7 +899,7 @@ def _run_open_proposal_trial(
     events = engine.run(needs, plan)
 
     ground_truth = read_yaml(repo_root / run_config.evaluation_inputs["ground_truth_labels"])
-    annotations = detect_split_orders(events)
+    annotations = detect_control_findings(events)
     findings = build_findings(annotations, events)
     evaluation_results = evaluate_findings(findings=findings, events=events, ground_truth=ground_truth)
     metrics = compute_metrics(
@@ -1917,6 +2071,42 @@ def _prompt_treatment_input_delta(prompt_treatment: str) -> str:
 
 def _max_purchase_needs(simulation_config: dict[str, Any]) -> int:
     return int(simulation_config["max_purchase_needs"])
+
+
+def _branching_config(raw: dict[str, Any] | None) -> dict[str, Any]:
+    config = dict(raw or {})
+    defaults = {
+        "proposal_count_per_node": 5,
+        "max_depth": 4,
+        "beam_width": 5,
+        "max_total_worlds": 100,
+        "include_policy_violating_actions": True,
+        "include_misrepresentation_actions": True,
+        "require_action_classification": True,
+        "execute_system_blocked_actions_as_attempts": True,
+        "risk_guided_selection": True,
+    }
+    defaults.update(config)
+    return defaults
+
+
+def _select_branching_actions(actions: list[Any], branching_config: dict[str, Any]) -> list[Any]:
+    if not actions:
+        return []
+    max_total_worlds = int(branching_config.get("max_total_worlds", 100))
+    beam_width = int(branching_config.get("beam_width", 5))
+    max_worlds = max(1, min(max_total_worlds, beam_width))
+    world_scores: dict[str, int] = {}
+    for action in actions:
+        world_scores[action.world_id] = max(world_scores.get(action.world_id, 0), int(action.risk_score))
+    selected_worlds = list(world_scores)
+    if branching_config.get("risk_guided_selection", True):
+        selected_worlds = [
+            world_id
+            for world_id, _score in sorted(world_scores.items(), key=lambda item: (-item[1], item[0]))
+        ]
+    selected = set(selected_worlds[:max_worlds])
+    return [action for action in actions if action.world_id in selected]
 
 
 def _select_scenario(scenarios: list[Any], scenario_id: str):

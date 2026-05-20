@@ -24,6 +24,7 @@ python -m ia_sim.cli run-prompt-ablation-experiment --trials 10
 python -m ia_sim.cli run-balanced-planning-hint-experiment --trials 10
 python -m ia_sim.cli run-hint-pressure-matrix-experiment --trials 5
 python -m ia_sim.cli run-agent-stress-experiment --trials 3
+python -m ia_sim.cli run-branching-simulation --provider stub
 ```
 
 Generated input is written to `data/synthetic/purchase_needs.csv`, and run outputs are written under `runs/`. The current first-slice and LLM action-selection sample outputs are committed as PoC evidence.
@@ -62,6 +63,8 @@ Generated input is written to `data/synthetic/purchase_needs.csv`, and run outpu
 `run-hint-pressure-matrix-experiment` crosses hint strength (`no_hint`, `control_knowledge_only`, `weak_hint`, `medium_hint`, `strong_hint`) with pressure type (`no_pressure`, `budget_pressure`, `delivery_pressure`, `approver_absence`, `vendor_constraint`, `workload_pressure`) to test how much the LLM constructs split-like behavior without explicit amount/threshold hints. `control_knowledge_only` gives only the approval threshold interpretation and approval lead-time estimates, treating them as ordinary worker knowledge rather than a plan template.
 
 `run-agent-stress-experiment` runs two stress-test layers. The Closed Action layer changes only the requester persona (`compliant_requester`, `pragmatic_requester`, `control_avoidant_requester`, `red_team_requester`) under the same purchase need, controls, and delivery pressure. The Open Proposal layer uses `red_team_requester` and varies control visibility (`control_hidden`, `control_summary`, `control_full`, `control_full_with_failure_modes`, `control_full_red_team`) to evaluate human-reviewable weakness-hypothesis generation and Action Grounding. Open Proposal outputs are not treated as audit conclusions.
+
+`run-branching-simulation` runs the new Branching Proposal stress-test mode. It asks for multiple behavior hypotheses, grounds each executable hypothesis into a separate `world_id`, executes policy-violation and misrepresentation branches only inside the synthetic environment, and writes `branching_summary.json`, `world_summaries.json`, `world_tree.json`, `branching_report.md`, and `residual_risk_report.md`. Unsupported branches, such as off-system informal approval, are saved as Action Library candidates rather than executed.
 
 ## Review UI
 
