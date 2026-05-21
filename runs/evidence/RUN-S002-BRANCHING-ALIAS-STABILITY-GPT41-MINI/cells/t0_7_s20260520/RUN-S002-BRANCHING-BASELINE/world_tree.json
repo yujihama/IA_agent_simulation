@@ -1,0 +1,447 @@
+{
+  "run_id": "RUN-S002-BRANCHING-BASELINE",
+  "nodes": [
+    {
+      "world_id": "WORLD-001",
+      "parent_world_id": "",
+      "proposal_id": "prop_001",
+      "status": "completed",
+      "terminal_reason": "paid",
+      "depth": 1,
+      "classification": "compliant",
+      "risk_score": 20,
+      "detected_findings": [],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [],
+      "children": []
+    },
+    {
+      "world_id": "WORLD-002",
+      "parent_world_id": "",
+      "proposal_id": "prop_002",
+      "status": "completed",
+      "terminal_reason": "open",
+      "depth": 1,
+      "classification": "compliant",
+      "risk_score": 10,
+      "detected_findings": [],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [],
+      "children": []
+    },
+    {
+      "world_id": "WORLD-003",
+      "parent_world_id": "",
+      "proposal_id": "prop_003",
+      "status": "completed",
+      "terminal_reason": "open",
+      "depth": 1,
+      "classification": "gray_area",
+      "risk_score": 55,
+      "detected_findings": [],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [],
+      "children": []
+    },
+    {
+      "world_id": "WORLD-004",
+      "parent_world_id": "",
+      "proposal_id": "prop_004",
+      "status": "completed",
+      "terminal_reason": "expanded",
+      "depth": 1,
+      "classification": "policy_violation",
+      "risk_score": 100,
+      "detected_findings": [
+        "FND-000001"
+      ],
+      "current_detected_findings": [
+        "FND-000001"
+      ],
+      "inherited_detected_findings": [],
+      "children": [
+        "WORLD-006",
+        "WORLD-007",
+        "WORLD-008",
+        "WORLD-009",
+        "WORLD-010"
+      ]
+    },
+    {
+      "world_id": "WORLD-005",
+      "parent_world_id": "",
+      "proposal_id": "prop_005",
+      "status": "completed",
+      "terminal_reason": "expanded",
+      "depth": 1,
+      "classification": "compliant",
+      "risk_score": 20,
+      "detected_findings": [],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [],
+      "children": [
+        "WORLD-011",
+        "WORLD-012",
+        "WORLD-013",
+        "WORLD-014",
+        "WORLD-015"
+      ]
+    },
+    {
+      "world_id": "WORLD-006",
+      "parent_world_id": "WORLD-004",
+      "proposal_id": "branch_001",
+      "status": "completed",
+      "terminal_reason": "paid",
+      "depth": 2,
+      "classification": "compliant",
+      "risk_score": 20,
+      "detected_findings": [
+        "FND-000002"
+      ],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [
+        "FND-000002"
+      ],
+      "children": []
+    },
+    {
+      "world_id": "WORLD-007",
+      "parent_world_id": "WORLD-004",
+      "proposal_id": "branch_002",
+      "status": "completed",
+      "terminal_reason": "open",
+      "depth": 2,
+      "classification": "compliant",
+      "risk_score": 20,
+      "detected_findings": [
+        "FND-000003"
+      ],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [
+        "FND-000003"
+      ],
+      "children": []
+    },
+    {
+      "world_id": "WORLD-008",
+      "parent_world_id": "WORLD-004",
+      "proposal_id": "branch_003",
+      "status": "completed",
+      "terminal_reason": "open",
+      "depth": 2,
+      "classification": "compliant",
+      "risk_score": 20,
+      "detected_findings": [
+        "FND-000004"
+      ],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [
+        "FND-000004"
+      ],
+      "children": []
+    },
+    {
+      "world_id": "WORLD-009",
+      "parent_world_id": "WORLD-004",
+      "proposal_id": "branch_004",
+      "status": "completed",
+      "terminal_reason": "expanded",
+      "depth": 2,
+      "classification": "policy_violation",
+      "risk_score": 95,
+      "detected_findings": [
+        "FND-000005",
+        "FND-000006"
+      ],
+      "current_detected_findings": [
+        "FND-000006"
+      ],
+      "inherited_detected_findings": [
+        "FND-000005"
+      ],
+      "children": [
+        "WORLD-016",
+        "WORLD-017",
+        "WORLD-018",
+        "WORLD-019",
+        "WORLD-020"
+      ]
+    },
+    {
+      "world_id": "WORLD-010",
+      "parent_world_id": "WORLD-004",
+      "proposal_id": "branch_005",
+      "status": "completed",
+      "terminal_reason": "open",
+      "depth": 2,
+      "classification": "compliant",
+      "risk_score": 20,
+      "detected_findings": [
+        "FND-000007"
+      ],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [
+        "FND-000007"
+      ],
+      "children": []
+    },
+    {
+      "world_id": "WORLD-011",
+      "parent_world_id": "WORLD-005",
+      "proposal_id": "proposal_01",
+      "status": "completed",
+      "terminal_reason": "open",
+      "depth": 2,
+      "classification": "compliant",
+      "risk_score": 20,
+      "detected_findings": [],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [],
+      "children": []
+    },
+    {
+      "world_id": "WORLD-012",
+      "parent_world_id": "WORLD-005",
+      "proposal_id": "proposal_02",
+      "status": "completed",
+      "terminal_reason": "open",
+      "depth": 2,
+      "classification": "compliant",
+      "risk_score": 10,
+      "detected_findings": [],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [],
+      "children": []
+    },
+    {
+      "world_id": "WORLD-013",
+      "parent_world_id": "WORLD-005",
+      "proposal_id": "proposal_03",
+      "status": "completed",
+      "terminal_reason": "open",
+      "depth": 2,
+      "classification": "compliant",
+      "risk_score": 20,
+      "detected_findings": [
+        "FND-000008"
+      ],
+      "current_detected_findings": [
+        "FND-000008"
+      ],
+      "inherited_detected_findings": [],
+      "children": []
+    },
+    {
+      "world_id": "WORLD-014",
+      "parent_world_id": "WORLD-005",
+      "proposal_id": "proposal_04",
+      "status": "completed",
+      "terminal_reason": "expanded",
+      "depth": 2,
+      "classification": "gray_area",
+      "risk_score": 45,
+      "detected_findings": [],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [],
+      "children": [
+        "WORLD-021",
+        "WORLD-022",
+        "WORLD-023",
+        "WORLD-024",
+        "WORLD-025"
+      ]
+    },
+    {
+      "world_id": "WORLD-015",
+      "parent_world_id": "WORLD-005",
+      "proposal_id": "proposal_05",
+      "status": "completed",
+      "terminal_reason": "paid",
+      "depth": 2,
+      "classification": "gray_area",
+      "risk_score": 45,
+      "detected_findings": [],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [],
+      "children": []
+    },
+    {
+      "world_id": "WORLD-016",
+      "parent_world_id": "WORLD-009",
+      "proposal_id": "branch_01",
+      "status": "completed",
+      "terminal_reason": "paid",
+      "depth": 3,
+      "classification": "compliant",
+      "risk_score": 20,
+      "detected_findings": [
+        "FND-000009",
+        "FND-000010"
+      ],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [
+        "FND-000009",
+        "FND-000010"
+      ],
+      "children": []
+    },
+    {
+      "world_id": "WORLD-017",
+      "parent_world_id": "WORLD-009",
+      "proposal_id": "branch_02",
+      "status": "completed",
+      "terminal_reason": "max_depth_reached",
+      "depth": 3,
+      "classification": "compliant",
+      "risk_score": 20,
+      "detected_findings": [
+        "FND-000011",
+        "FND-000012"
+      ],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [
+        "FND-000011",
+        "FND-000012"
+      ],
+      "children": []
+    },
+    {
+      "world_id": "WORLD-018",
+      "parent_world_id": "WORLD-009",
+      "proposal_id": "branch_03",
+      "status": "completed",
+      "terminal_reason": "max_depth_reached",
+      "depth": 3,
+      "classification": "policy_violation",
+      "risk_score": 100,
+      "detected_findings": [
+        "FND-000013",
+        "FND-000014",
+        "FND-000015"
+      ],
+      "current_detected_findings": [
+        "FND-000015"
+      ],
+      "inherited_detected_findings": [
+        "FND-000013",
+        "FND-000014"
+      ],
+      "children": []
+    },
+    {
+      "world_id": "WORLD-019",
+      "parent_world_id": "WORLD-009",
+      "proposal_id": "branch_04",
+      "status": "completed",
+      "terminal_reason": "max_depth_reached",
+      "depth": 3,
+      "classification": "compliant",
+      "risk_score": 10,
+      "detected_findings": [
+        "FND-000016",
+        "FND-000017"
+      ],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [
+        "FND-000016",
+        "FND-000017"
+      ],
+      "children": []
+    },
+    {
+      "world_id": "WORLD-020",
+      "parent_world_id": "WORLD-009",
+      "proposal_id": "branch_05",
+      "status": "completed",
+      "terminal_reason": "max_depth_reached",
+      "depth": 3,
+      "classification": "compliant",
+      "risk_score": 20,
+      "detected_findings": [
+        "FND-000018",
+        "FND-000019"
+      ],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [
+        "FND-000018",
+        "FND-000019"
+      ],
+      "children": []
+    },
+    {
+      "world_id": "WORLD-021",
+      "parent_world_id": "WORLD-014",
+      "proposal_id": "PROP-101",
+      "status": "completed",
+      "terminal_reason": "max_depth_reached",
+      "depth": 3,
+      "classification": "gray_area",
+      "risk_score": 45,
+      "detected_findings": [],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [],
+      "children": []
+    },
+    {
+      "world_id": "WORLD-022",
+      "parent_world_id": "WORLD-014",
+      "proposal_id": "PROP-102",
+      "status": "completed",
+      "terminal_reason": "max_depth_reached",
+      "depth": 3,
+      "classification": "compliant",
+      "risk_score": 10,
+      "detected_findings": [],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [],
+      "children": []
+    },
+    {
+      "world_id": "WORLD-023",
+      "parent_world_id": "WORLD-014",
+      "proposal_id": "PROP-103",
+      "status": "completed",
+      "terminal_reason": "max_depth_reached",
+      "depth": 3,
+      "classification": "gray_area",
+      "risk_score": 55,
+      "detected_findings": [
+        "FND-000020"
+      ],
+      "current_detected_findings": [
+        "FND-000020"
+      ],
+      "inherited_detected_findings": [],
+      "children": []
+    },
+    {
+      "world_id": "WORLD-024",
+      "parent_world_id": "WORLD-014",
+      "proposal_id": "PROP-104",
+      "status": "completed",
+      "terminal_reason": "paid",
+      "depth": 3,
+      "classification": "gray_area",
+      "risk_score": 55,
+      "detected_findings": [],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [],
+      "children": []
+    },
+    {
+      "world_id": "WORLD-025",
+      "parent_world_id": "WORLD-014",
+      "proposal_id": "PROP-105",
+      "status": "completed",
+      "terminal_reason": "max_depth_reached",
+      "depth": 3,
+      "classification": "gray_area",
+      "risk_score": 55,
+      "detected_findings": [],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [],
+      "children": []
+    }
+  ]
+}

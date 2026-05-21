@@ -1,0 +1,51 @@
+{
+  "source_root": "<redacted-local-source-root>",
+  "source_experiment_id": "EXP-S002-BRANCHING-ALIAS-STABILITY",
+  "coverage_target_mode": "process_state_only_alias_actions",
+  "model": "gpt-4.1-mini",
+  "provider": "openai",
+  "temperatures": [
+    0.3,
+    0.7
+  ],
+  "seeds": [
+    20260519,
+    20260520
+  ],
+  "copied_top_files": [
+    "summary.json",
+    "alias_stability_report.md"
+  ],
+  "cells": [
+    {
+      "cell_id": "t0_3_s20260519",
+      "cell_evidence_manifest": "cells\\t0_3_s20260519\\evidence_manifest.json",
+      "cell_missing_files": [],
+      "alias_residual_review": "cells\\t0_3_s20260519\\alias_residual_review.json",
+      "alias_residual_review_report": "cells\\t0_3_s20260519\\alias_residual_review_report.md"
+    },
+    {
+      "cell_id": "t0_3_s20260520",
+      "cell_evidence_manifest": "cells\\t0_3_s20260520\\evidence_manifest.json",
+      "cell_missing_files": [],
+      "alias_residual_review": "cells\\t0_3_s20260520\\alias_residual_review.json",
+      "alias_residual_review_report": "cells\\t0_3_s20260520\\alias_residual_review_report.md"
+    },
+    {
+      "cell_id": "t0_7_s20260519",
+      "cell_evidence_manifest": "cells\\t0_7_s20260519\\evidence_manifest.json",
+      "cell_missing_files": [],
+      "alias_residual_review": "cells\\t0_7_s20260519\\alias_residual_review.json",
+      "alias_residual_review_report": "cells\\t0_7_s20260519\\alias_residual_review_report.md"
+    },
+    {
+      "cell_id": "t0_7_s20260520",
+      "cell_evidence_manifest": "cells\\t0_7_s20260520\\evidence_manifest.json",
+      "cell_missing_files": [],
+      "alias_residual_review": "cells\\t0_7_s20260520\\alias_residual_review.json",
+      "alias_residual_review_report": "cells\\t0_7_s20260520\\alias_residual_review_report.md"
+    }
+  ],
+  "redaction_policy": "cell-level redaction_policy.json files apply to run/comparison artifacts; top-level files use the same token/path regex redaction.",
+  "review_note": "Alias-action stability evidence across 2 temperatures x 2 seeds."
+}

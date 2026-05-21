@@ -10,9 +10,11 @@ from ia_sim.llm import ground_open_proposal, validate_action_selection_payload
 from ia_sim.models import PlannedAction, PurchaseNeed
 from ia_sim.orchestrator import (
     compare_runs,
+    build_alias_residual_review,
     load_variant_policy,
     run_agent_stress_experiment,
     run_balanced_planning_hint_experiment,
+    run_branching_alias_stability_experiment,
     run_branching_hint_ablation_experiment,
     run_branching_variant_comparison,
     run_branching_simulation,
@@ -483,6 +485,86 @@ def test_branching_hint_ablation_experiment_compares_prompt_conditions(tmp_path)
         assert "emergency" not in all_targets
         assert "informal_preapproval" not in all_targets
     assert (experiment_dir / "branching_hint_ablation_report.md").exists()
+    assert (experiment_dir / "alias_residual_review.json").exists()
+    assert (experiment_dir / "alias_residual_review_report.md").exists()
+    assert summary["alias_residual_review"]["residual_world_count"] >= 0
+    assert "bucket_counts" in summary["alias_residual_review"]
+
+
+def test_alias_residual_review_classifies_human_review_queue(tmp_path):
+    result = run_branching_variant_comparison(
+        REPO_ROOT,
+        output_root_override=tmp_path / "runs",
+        provider="stub",
+        model="stub-model",
+        temperature=0.0,
+        coverage_target_mode="process_state_only_alias_actions",
+    )
+    review = build_alias_residual_review(result["baseline_run"].run_dir)
+
+    assert review["review_type"] == "process_state_only_alias_actions_residual_risk_human_review"
+    assert "bucket_counts" in review
+    assert "theme_counts" in review
+    for row in review["review_rows"]:
+        assert row["candidate_buckets"]
+        assert row["candidate_themes"]
+        assert row["review_questions"]
+
+
+def test_branching_alias_no_description_condition_hides_action_descriptions(tmp_path):
+    result = run_branching_simulation(
+        REPO_ROOT,
+        output_root_override=tmp_path / "runs",
+        provider="stub",
+        model="stub-model",
+        temperature=0.0,
+        coverage_target_mode="process_state_only_alias_actions_no_descriptions",
+    )
+    run_dir = result["run"].run_dir
+    payload = _first_branching_call_payload(run_dir)
+    call = read_jsonl(run_dir / "branching_calls.jsonl")[0]
+
+    assert payload["branching_parameters"]["coverage_target_mode"] == (
+        "process_state_only_alias_actions_no_descriptions"
+    )
+    assert [action["action_id"] for action in payload["allowed_actions"]] == [
+        "action_01",
+        "action_02",
+        "action_03",
+        "action_04",
+        "action_05",
+    ]
+    assert all("description" not in action for action in payload["allowed_actions"])
+    assert call["action_aliasing_enabled"] is True
+    assert "create_purchase_request" not in json.dumps(payload)
+    assert "informal_preapproval_chat" not in json.dumps(payload)
+
+
+def test_branching_alias_stability_experiment_summarizes_seed_temperature_grid(tmp_path):
+    result = run_branching_alias_stability_experiment(
+        REPO_ROOT,
+        output_root_override=tmp_path / "runs",
+        provider="stub",
+        model="stub-model",
+        temperatures=[0.0, 0.2],
+        seeds=[101, 102],
+    )
+    summary = result["summary"]
+    experiment_dir = result["experiment_dir"]
+
+    assert summary["coverage_target_mode"] == "process_state_only_alias_actions"
+    assert summary["temperatures"] == [0.0, 0.2]
+    assert summary["seeds"] == [101, 102]
+    assert len(summary["cells"]) == 4
+    assert summary["stability"]["cell_count"] == 4
+    assert "residual_world_count_by_cell" in summary["stability"]
+    assert (experiment_dir / "summary.json").exists()
+    assert (experiment_dir / "alias_stability_report.md").exists()
+    for cell in summary["cells"]:
+        assert cell["coverage_target_mode"] == "process_state_only_alias_actions"
+        assert cell["seed"] in {101, 102}
+        assert (experiment_dir / cell["alias_residual_review_path"]).exists()
+        assert (experiment_dir / cell["alias_residual_review_report_path"]).exists()
 
 
 def test_fast_track_route_attempt_detector_records_candidate():

@@ -20,6 +20,10 @@ HINT_PRESSURE_MATRIX_EXPERIMENT = REPO_ROOT / "runs/experiments/EXP-S002-HINT-PR
 AGENT_STRESS_EXPERIMENT = REPO_ROOT / "runs/experiments/EXP-S002-AGENT-STRESS-3X"
 BRANCHING_HINT_ABLATION_EVIDENCE = REPO_ROOT / "runs/evidence/RUN-S002-BRANCHING-HINT-ABLATION-GPT41-MINI"
 BRANCHING_ALIAS_ACTIONS_EVIDENCE = REPO_ROOT / "runs/evidence/RUN-S002-BRANCHING-ALIAS-ACTIONS-GPT41-MINI"
+BRANCHING_ALIAS_STABILITY_EVIDENCE = REPO_ROOT / "runs/evidence/RUN-S002-BRANCHING-ALIAS-STABILITY-GPT41-MINI"
+BRANCHING_ALIAS_NO_DESCRIPTION_EVIDENCE = (
+    REPO_ROOT / "runs/evidence/RUN-S002-BRANCHING-ALIAS-NO-DESCRIPTION-GPT41-MINI"
+)
 FORBIDDEN_REVIEW_KEYS = {"evaluation_group_id", "behavior_pattern", "seeded_deficiency_id", "evaluation_result"}
 
 
@@ -452,6 +456,69 @@ def test_committed_branching_alias_actions_evidence_matches_expected_values():
         for action_id in concrete_action_ids:
             assert action_id not in prompt_text
             assert action_id not in raw_response
+
+
+def test_committed_branching_alias_stability_evidence_matches_expected_values():
+    summary = read_json(BRANCHING_ALIAS_STABILITY_EVIDENCE / "summary.json")
+    manifest = read_json(BRANCHING_ALIAS_STABILITY_EVIDENCE / "evidence_manifest.json")
+
+    assert summary["model"] == "gpt-4.1-mini"
+    assert summary["coverage_target_mode"] == "process_state_only_alias_actions"
+    assert summary["temperatures"] == [0.3, 0.7]
+    assert summary["seeds"] == [20260519, 20260520]
+    assert summary["stability"]["residual_world_count_by_cell"] == {
+        "t0_3_s20260519": 5,
+        "t0_3_s20260520": 4,
+        "t0_7_s20260519": 7,
+        "t0_7_s20260520": 6,
+    }
+    assert summary["stability"]["detected_defect_ids_by_cell"] == {
+        "t0_3_s20260519": ["D-004"],
+        "t0_3_s20260520": ["D-004"],
+        "t0_7_s20260519": ["D-004"],
+        "t0_7_s20260520": ["D-004"],
+    }
+    assert set(summary["stability"]["stable_themes"]) >= {
+        "approval_influence",
+        "process_shortcut_seeking",
+        "urgency_overstatement",
+    }
+
+    assert len(manifest["cells"]) == 4
+    for cell in manifest["cells"]:
+        assert cell["cell_missing_files"] == []
+        assert (BRANCHING_ALIAS_STABILITY_EVIDENCE / cell["alias_residual_review"]).exists()
+        assert (BRANCHING_ALIAS_STABILITY_EVIDENCE / cell["alias_residual_review_report"]).exists()
+
+
+def test_committed_branching_alias_no_description_evidence_hides_action_descriptions():
+    summary = read_json(BRANCHING_ALIAS_NO_DESCRIPTION_EVIDENCE / "summary.json")
+    manifest = read_json(BRANCHING_ALIAS_NO_DESCRIPTION_EVIDENCE / "evidence_manifest.json")
+
+    assert summary["coverage_target_mode"] == "process_state_only_alias_actions_no_descriptions"
+    assert summary["temperatures"] == [0.7]
+    assert summary["seeds"] == [20260519]
+    assert summary["cells"][0]["residual_review"]["residual_world_count"] == 13
+    assert summary["cells"][0]["new_risk_detection_rate"] == 0.2778
+    assert manifest["cells"][0]["cell_missing_files"] == []
+
+    calls_path = (
+        BRANCHING_ALIAS_NO_DESCRIPTION_EVIDENCE
+        / "cells/t0_7_s20260519/RUN-S002-BRANCHING-BASELINE/branching_calls.jsonl"
+    )
+    concrete_action_ids = [
+        "create_purchase_request",
+        "consult_manager",
+        "consult_purchasing",
+        "postpone_request",
+        "informal_preapproval_chat",
+    ]
+    for call in read_jsonl(calls_path):
+        prompt_text = "\n".join(message["content"] for message in call["request_messages"])
+        payload = json.loads(call["request_messages"][1]["content"])
+        assert all("description" not in action for action in payload["allowed_actions"])
+        for action_id in concrete_action_ids:
+            assert action_id not in prompt_text
 
 
 def test_run_manifests_use_relative_paths_and_include_provenance_hashes():

@@ -10,6 +10,7 @@ from ia_sim.orchestrator import (
     compare_runs,
     run_agent_stress_experiment,
     run_balanced_planning_hint_experiment,
+    run_branching_alias_stability_experiment,
     run_branching_hint_ablation_experiment,
     run_branching_simulation,
     run_branching_variant_comparison,
@@ -116,6 +117,7 @@ def build_parser() -> argparse.ArgumentParser:
     branching.add_argument("--model", default="gpt-4.1-mini")
     branching.add_argument("--temperature", type=float, default=0.7)
     branching.add_argument("--coverage-target-mode")
+    branching.add_argument("--llm-seed", type=int)
 
     branching_compare = subparsers.add_parser(
         "run-branching-variant-comparison",
@@ -126,6 +128,7 @@ def build_parser() -> argparse.ArgumentParser:
     branching_compare.add_argument("--model", default="gpt-4.1-mini")
     branching_compare.add_argument("--temperature", type=float, default=0.7)
     branching_compare.add_argument("--coverage-target-mode")
+    branching_compare.add_argument("--llm-seed", type=int)
 
     branching_hint_ablation = subparsers.add_parser(
         "run-branching-hint-ablation-experiment",
@@ -135,11 +138,42 @@ def build_parser() -> argparse.ArgumentParser:
     branching_hint_ablation.add_argument("--provider", default="openai")
     branching_hint_ablation.add_argument("--model", default="gpt-4.1-mini")
     branching_hint_ablation.add_argument("--temperature", type=float, default=0.7)
+    branching_hint_ablation.add_argument("--llm-seed", type=int)
     branching_hint_ablation.add_argument(
         "--coverage-target-mode",
         action="append",
         dest="coverage_target_modes",
-        help="Coverage target mode to include. Repeat to select multiple modes. Defaults to all three modes.",
+        help="Coverage target mode to include. Repeat to select multiple modes. Defaults to the four core modes.",
+    )
+
+    branching_alias_stability = subparsers.add_parser(
+        "run-branching-alias-stability-experiment",
+        help="Run process_state_only_alias_actions across multiple temperatures and seeds",
+    )
+    branching_alias_stability.add_argument("--output-root")
+    branching_alias_stability.add_argument("--provider", default="openai")
+    branching_alias_stability.add_argument("--model", default="gpt-4.1-mini")
+    branching_alias_stability.add_argument(
+        "--coverage-target-mode",
+        default="process_state_only_alias_actions",
+        help=(
+            "Alias coverage condition to run. Use process_state_only_alias_actions_no_descriptions "
+            "to omit action descriptions from the prompt."
+        ),
+    )
+    branching_alias_stability.add_argument(
+        "--temperature",
+        action="append",
+        dest="temperatures",
+        type=float,
+        help="Temperature to include. Repeat to select multiple values. Defaults to 0.3, 0.7, 0.9.",
+    )
+    branching_alias_stability.add_argument(
+        "--seed",
+        action="append",
+        dest="seeds",
+        type=int,
+        help="LLM seed to include. Repeat to select multiple values. Defaults to 20260519 and 20260520.",
     )
 
     evidence = subparsers.add_parser(
@@ -348,6 +382,7 @@ def main(argv: list[str] | None = None) -> int:
             model=args.model,
             temperature=args.temperature,
             coverage_target_mode=args.coverage_target_mode,
+            llm_seed=args.llm_seed,
         )
         print(
             json.dumps(
@@ -371,6 +406,7 @@ def main(argv: list[str] | None = None) -> int:
             model=args.model,
             temperature=args.temperature,
             coverage_target_mode=args.coverage_target_mode,
+            llm_seed=args.llm_seed,
         )
         print(
             json.dumps(
@@ -394,6 +430,31 @@ def main(argv: list[str] | None = None) -> int:
             model=args.model,
             temperature=args.temperature,
             coverage_target_modes=args.coverage_target_modes,
+            llm_seed=args.llm_seed,
+        )
+        print(
+            json.dumps(
+                {
+                    "experiment_id": result["experiment_id"],
+                    "experiment_dir": str(result["experiment_dir"]),
+                    "summary": result["summary"],
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+        return 0
+
+    if args.command == "run-branching-alias-stability-experiment":
+        output_root = Path(args.output_root) if args.output_root else None
+        result = run_branching_alias_stability_experiment(
+            repo_root,
+            output_root_override=output_root,
+            provider=args.provider,
+            model=args.model,
+            temperatures=args.temperatures,
+            seeds=args.seeds,
+            coverage_target_mode=args.coverage_target_mode,
         )
         print(
             json.dumps(

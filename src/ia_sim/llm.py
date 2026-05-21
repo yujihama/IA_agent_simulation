@@ -1125,7 +1125,11 @@ class LLMBranchingProposalGenerator:
                     self.variant_policy,
                     coverage_target_mode=self.coverage_target_mode,
                 ),
-                "allowed_actions": _branching_allowed_actions_for_prompt(self.allowed_actions, action_alias_map),
+                "allowed_actions": _branching_allowed_actions_for_prompt(
+                    self.allowed_actions,
+                    action_alias_map,
+                    coverage_target_mode=self.coverage_target_mode,
+                ),
                 "json_schema": BRANCHING_PROPOSAL_SCHEMA,
             },
             ensure_ascii=False,
@@ -1939,7 +1943,11 @@ def _branching_coverage_targets(coverage_target_mode: str, *, has_parent_context
             "Vary request structure, entered amounts, timing, route choice, and communication channel when those variations are plausible from the facts.",
             "Do not name or target predefined defect categories; describe the operational behavior and review evidence instead.",
         ]
-    elif coverage_target_mode in {"process_state_only", "process_state_only_alias_actions"}:
+    elif coverage_target_mode in {
+        "process_state_only",
+        "process_state_only_alias_actions",
+        "process_state_only_alias_actions_no_descriptions",
+    }:
         targets = [
             "Use only the current purchase need state, event history, requester goal, constraints, and allowed actions.",
             "Generate plausible next behavior branches without naming predefined risk categories or control weakness labels.",
@@ -1978,7 +1986,10 @@ def _branching_action_alias_map(
     actions: list[ActionDefinition],
     coverage_target_mode: str,
 ) -> dict[str, str]:
-    if coverage_target_mode != "process_state_only_alias_actions":
+    if coverage_target_mode not in {
+        "process_state_only_alias_actions",
+        "process_state_only_alias_actions_no_descriptions",
+    }:
         return {}
     return {f"action_{index:02d}": action.action_id for index, action in enumerate(actions, start=1)}
 
@@ -1986,6 +1997,8 @@ def _branching_action_alias_map(
 def _branching_allowed_actions_for_prompt(
     actions: list[ActionDefinition],
     action_alias_map: dict[str, str],
+    *,
+    coverage_target_mode: str = "current_coverage_target",
 ) -> list[dict[str, Any]]:
     if not action_alias_map:
         return [
@@ -2007,15 +2020,17 @@ def _branching_allowed_actions_for_prompt(
     rows: list[dict[str, Any]] = []
     for index, action in enumerate(actions):
         alias_id = actual_to_alias[action.action_id]
-        rows.append(
-            {
-                "action_id": alias_id,
-                "description": abstract_descriptions[index]
+        row = {
+            "action_id": alias_id,
+            "required_fields": ["purchase_need_id"],
+        }
+        if coverage_target_mode != "process_state_only_alias_actions_no_descriptions":
+            row["description"] = (
+                abstract_descriptions[index]
                 if index < len(abstract_descriptions)
-                else "Perform an available abstract process operation.",
-                "required_fields": ["purchase_need_id"],
-            }
-        )
+                else "Perform an available abstract process operation."
+            )
+        rows.append(row)
     return rows
 
 
@@ -2027,7 +2042,10 @@ def _branching_parent_context_for_prompt(
 ) -> dict[str, Any] | None:
     if parent_context is None:
         return None
-    if coverage_target_mode != "process_state_only_alias_actions" or not action_alias_map:
+    if coverage_target_mode not in {
+        "process_state_only_alias_actions",
+        "process_state_only_alias_actions_no_descriptions",
+    } or not action_alias_map:
         return parent_context
     actual_to_alias = {actual_id: alias_id for alias_id, actual_id in action_alias_map.items()}
     context = json.loads(json.dumps(parent_context, ensure_ascii=False))
@@ -2091,7 +2109,11 @@ def _branching_control_cards_for_prompt(
     control_visibility: str,
     coverage_target_mode: str,
 ) -> list[dict[str, Any]]:
-    if coverage_target_mode in {"process_state_only", "process_state_only_alias_actions"}:
+    if coverage_target_mode in {
+        "process_state_only",
+        "process_state_only_alias_actions",
+        "process_state_only_alias_actions_no_descriptions",
+    }:
         return []
     if coverage_target_mode == "risk_category_hidden":
         return _control_cards_for_prompt(controls, "control_full")
@@ -2099,7 +2121,11 @@ def _branching_control_cards_for_prompt(
 
 
 def _branching_variant_context(variant_policy: VariantPolicy, *, coverage_target_mode: str) -> dict[str, Any]:
-    if coverage_target_mode in {"process_state_only", "process_state_only_alias_actions"}:
+    if coverage_target_mode in {
+        "process_state_only",
+        "process_state_only_alias_actions",
+        "process_state_only_alias_actions_no_descriptions",
+    }:
         return {"visibility": "hidden_by_process_state_only_condition"}
     return {
         "variant_id": variant_policy.variant_id,

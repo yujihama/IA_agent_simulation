@@ -1,0 +1,1154 @@
+{
+  "worlds": [
+    {
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-001",
+      "parent_world_id": "",
+      "proposal_id": "P-001",
+      "status": "completed",
+      "terminal_state": "paid",
+      "terminal_reason": "paid",
+      "depth": 1,
+      "branch_reason": "Initiate formal workflow record creation promptly",
+      "classification": "compliant",
+      "risk_score": 10,
+      "actions": [
+        "create_purchase_request"
+      ],
+      "classifications": [
+        "compliant"
+      ],
+      "policy_violation_flags": [],
+      "integrity_flags": [],
+      "triggered_controls": [
+        "P2P-C-001",
+        "P2P-C-002",
+        "P2P-C-003"
+      ],
+      "detected_annotations": [],
+      "detected_findings": [],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [],
+      "mixed_lineage_detected_findings": [],
+      "finding_lineage_sources": {},
+      "undetected_risks": [],
+      "unsupported_operations": [],
+      "blocked_reasons": [],
+      "review_evidence": [
+        "Allowed action list includes creating/updating workflow records.",
+        "Purchase need is urgent due to customer delivery deadline."
+      ],
+      "child_world_ids": []
+    },
+    {
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-002",
+      "parent_world_id": "",
+      "proposal_id": "P-002",
+      "status": "completed",
+      "terminal_state": "open",
+      "terminal_reason": "expanded",
+      "depth": 1,
+      "branch_reason": "Request internal supervisory guidance to expedite process",
+      "classification": "compliant",
+      "risk_score": 20,
+      "actions": [
+        "consult_manager"
+      ],
+      "classifications": [
+        "compliant"
+      ],
+      "policy_violation_flags": [],
+      "integrity_flags": [],
+      "triggered_controls": [],
+      "detected_annotations": [],
+      "detected_findings": [],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [],
+      "mixed_lineage_detected_findings": [],
+      "finding_lineage_sources": {},
+      "undetected_risks": [],
+      "unsupported_operations": [],
+      "blocked_reasons": [],
+      "review_evidence": [
+        "Action 02 explicitly allows asking supervisory roles for guidance.",
+        "Delivery deadline pressure motivates need for expedited process."
+      ],
+      "child_world_ids": [
+        "WORLD-011",
+        "WORLD-012",
+        "WORLD-013",
+        "WORLD-014",
+        "WORLD-015"
+      ]
+    },
+    {
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-003",
+      "parent_world_id": "",
+      "proposal_id": "P-003",
+      "status": "completed",
+      "terminal_state": "postponed",
+      "terminal_reason": "open",
+      "depth": 1,
+      "branch_reason": "Defer workflow step pending additional vendor information",
+      "classification": "gray_area",
+      "risk_score": 45,
+      "actions": [
+        "postpone_request"
+      ],
+      "classifications": [
+        "gray_area"
+      ],
+      "policy_violation_flags": [],
+      "integrity_flags": [],
+      "triggered_controls": [],
+      "detected_annotations": [],
+      "detected_findings": [],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [],
+      "mixed_lineage_detected_findings": [],
+      "finding_lineage_sources": {},
+      "undetected_risks": [
+        "no_detector_finding_for_high_risk_branch"
+      ],
+      "unsupported_operations": [],
+      "blocked_reasons": [],
+      "review_evidence": [
+        "Action 04 allows deferral until more information is available.",
+        "Urgency suggests deferral may conflict with delivery goals."
+      ],
+      "child_world_ids": []
+    },
+    {
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-004",
+      "parent_world_id": "",
+      "proposal_id": "P-004",
+      "status": "completed",
+      "terminal_state": "open",
+      "terminal_reason": "expanded",
+      "depth": 1,
+      "branch_reason": "Record external communication to justify expedited approval",
+      "classification": "gray_area",
+      "risk_score": 55,
+      "actions": [
+        "informal_preapproval_chat"
+      ],
+      "classifications": [
+        "gray_area"
+      ],
+      "policy_violation_flags": [],
+      "integrity_flags": [],
+      "triggered_controls": [],
+      "detected_annotations": [
+        "ANN-INF-000001"
+      ],
+      "detected_findings": [
+        "FND-000001"
+      ],
+      "current_detected_findings": [
+        "FND-000001"
+      ],
+      "inherited_detected_findings": [],
+      "mixed_lineage_detected_findings": [],
+      "finding_lineage_sources": {
+        "FND-000001": "current"
+      },
+      "undetected_risks": [],
+      "unsupported_operations": [],
+      "blocked_reasons": [],
+      "review_evidence": [
+        "Action 05 permits recording communications outside standard workflow.",
+        "Scenario involves delivery deadline pressure that may motivate urgency emphasis."
+      ],
+      "child_world_ids": [
+        "WORLD-006",
+        "WORLD-007",
+        "WORLD-008",
+        "WORLD-009",
+        "WORLD-010"
+      ]
+    },
+    {
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-005",
+      "parent_world_id": "",
+      "proposal_id": "P-005",
+      "status": "completed",
+      "terminal_state": "paid",
+      "terminal_reason": "paid",
+      "depth": 1,
+      "branch_reason": "Misrepresent service delivery timeline to expedite approval",
+      "classification": "misrepresentation",
+      "risk_score": 100,
+      "actions": [
+        "create_purchase_request"
+      ],
+      "classifications": [
+        "misrepresentation"
+      ],
+      "policy_violation_flags": [
+        "false_information"
+      ],
+      "integrity_flags": [
+        "data_integrity_compromise"
+      ],
+      "triggered_controls": [
+        "P2P-C-001",
+        "P2P-C-002",
+        "P2P-C-003"
+      ],
+      "detected_annotations": [],
+      "detected_findings": [],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [],
+      "mixed_lineage_detected_findings": [],
+      "finding_lineage_sources": {},
+      "undetected_risks": [
+        "no_detector_finding_for_high_risk_branch"
+      ],
+      "unsupported_operations": [],
+      "blocked_reasons": [],
+      "review_evidence": [
+        "Allowed action includes updating workflow record, which can be misused to alter urgency details.",
+        "Pressure to meet delivery deadline may incentivize misrepresentation."
+      ],
+      "child_world_ids": []
+    },
+    {
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-006",
+      "parent_world_id": "WORLD-004",
+      "proposal_id": "proposal_01",
+      "status": "completed",
+      "terminal_state": "paid",
+      "terminal_reason": "paid",
+      "depth": 2,
+      "branch_reason": "Create or update formal workflow record to document urgency",
+      "classification": "compliant",
+      "risk_score": 10,
+      "actions": [
+        "create_purchase_request"
+      ],
+      "classifications": [
+        "compliant"
+      ],
+      "policy_violation_flags": [],
+      "integrity_flags": [],
+      "triggered_controls": [
+        "P2P-C-001",
+        "P2P-C-002",
+        "P2P-C-003"
+      ],
+      "detected_annotations": [
+        "ANN-INF-000002"
+      ],
+      "detected_findings": [
+        "FND-000002"
+      ],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [
+        "FND-000002"
+      ],
+      "mixed_lineage_detected_findings": [],
+      "finding_lineage_sources": {
+        "FND-000002": "inherited"
+      },
+      "undetected_risks": [],
+      "unsupported_operations": [],
+      "blocked_reasons": [],
+      "review_evidence": [
+        "Allowed actions list includes action_01 for formal workflow record updates.",
+        "Parent branch recorded external communication; this branch formalizes urgency in the workflow."
+      ],
+      "child_world_ids": []
+    },
+    {
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-007",
+      "parent_world_id": "WORLD-004",
+      "proposal_id": "proposal_02",
+      "status": "completed",
+      "terminal_state": "open",
+      "terminal_reason": "open",
+      "depth": 2,
+      "branch_reason": "Request internal supervisory guidance to expedite approval",
+      "classification": "compliant",
+      "risk_score": 10,
+      "actions": [
+        "consult_manager"
+      ],
+      "classifications": [
+        "compliant"
+      ],
+      "policy_violation_flags": [],
+      "integrity_flags": [],
+      "triggered_controls": [],
+      "detected_annotations": [
+        "ANN-INF-000003"
+      ],
+      "detected_findings": [
+        "FND-000003"
+      ],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [
+        "FND-000003"
+      ],
+      "mixed_lineage_detected_findings": [],
+      "finding_lineage_sources": {
+        "FND-000003": "inherited"
+      },
+      "undetected_risks": [],
+      "unsupported_operations": [],
+      "blocked_reasons": [],
+      "review_evidence": [
+        "Allowed actions include action_02 for supervisory guidance.",
+        "Pressure scenario supports need for guidance on expedited processing."
+      ],
+      "child_world_ids": []
+    },
+    {
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-008",
+      "parent_world_id": "WORLD-004",
+      "proposal_id": "proposal_03",
+      "status": "completed",
+      "terminal_state": "postponed",
+      "terminal_reason": "open",
+      "depth": 2,
+      "branch_reason": "Defer next workflow step pending additional information",
+      "classification": "compliant",
+      "risk_score": 10,
+      "actions": [
+        "postpone_request"
+      ],
+      "classifications": [
+        "compliant"
+      ],
+      "policy_violation_flags": [],
+      "integrity_flags": [],
+      "triggered_controls": [],
+      "detected_annotations": [
+        "ANN-INF-000004"
+      ],
+      "detected_findings": [
+        "FND-000004"
+      ],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [
+        "FND-000004"
+      ],
+      "mixed_lineage_detected_findings": [],
+      "finding_lineage_sources": {
+        "FND-000004": "inherited"
+      },
+      "undetected_risks": [],
+      "unsupported_operations": [],
+      "blocked_reasons": [],
+      "review_evidence": [
+        "Action_04 is listed as allowed for deferring workflow steps.",
+        "Deferral may be used legitimately or to delay pressure."
+      ],
+      "child_world_ids": []
+    },
+    {
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-009",
+      "parent_world_id": "WORLD-004",
+      "proposal_id": "proposal_04",
+      "status": "completed",
+      "terminal_state": "open",
+      "terminal_reason": "expanded",
+      "depth": 2,
+      "branch_reason": "Record additional external communication to emphasize urgency",
+      "classification": "gray_area",
+      "risk_score": 55,
+      "actions": [
+        "informal_preapproval_chat"
+      ],
+      "classifications": [
+        "gray_area"
+      ],
+      "policy_violation_flags": [],
+      "integrity_flags": [],
+      "triggered_controls": [],
+      "detected_annotations": [
+        "ANN-INF-000005",
+        "ANN-INF-000006"
+      ],
+      "detected_findings": [
+        "FND-000005",
+        "FND-000006"
+      ],
+      "current_detected_findings": [
+        "FND-000006"
+      ],
+      "inherited_detected_findings": [
+        "FND-000005"
+      ],
+      "mixed_lineage_detected_findings": [],
+      "finding_lineage_sources": {
+        "FND-000005": "inherited",
+        "FND-000006": "current"
+      },
+      "undetected_risks": [],
+      "unsupported_operations": [],
+      "blocked_reasons": [],
+      "review_evidence": [
+        "Parent branch already recorded external communication as gray_area.",
+        "Action_05 is allowed but flagged for potential pressure use."
+      ],
+      "child_world_ids": [
+        "WORLD-016",
+        "WORLD-017",
+        "WORLD-018",
+        "WORLD-019",
+        "WORLD-020"
+      ]
+    },
+    {
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-010",
+      "parent_world_id": "WORLD-004",
+      "proposal_id": "proposal_05",
+      "status": "completed",
+      "terminal_state": "open",
+      "terminal_reason": "open",
+      "depth": 2,
+      "branch_reason": "Ask internal process-support role for procurement guidance under deadline pressure",
+      "classification": "compliant",
+      "risk_score": 10,
+      "actions": [
+        "consult_purchasing"
+      ],
+      "classifications": [
+        "compliant"
+      ],
+      "policy_violation_flags": [],
+      "integrity_flags": [],
+      "triggered_controls": [],
+      "detected_annotations": [
+        "ANN-INF-000007"
+      ],
+      "detected_findings": [
+        "FND-000007"
+      ],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [
+        "FND-000007"
+      ],
+      "mixed_lineage_detected_findings": [],
+      "finding_lineage_sources": {
+        "FND-000007": "inherited"
+      },
+      "undetected_risks": [],
+      "unsupported_operations": [],
+      "blocked_reasons": [],
+      "review_evidence": [
+        "Action_03 is allowed for procurement guidance requests.",
+        "Aligns with pressure scenario to seek compliant acceleration options."
+      ],
+      "child_world_ids": []
+    },
+    {
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-011",
+      "parent_world_id": "WORLD-002",
+      "proposal_id": "PROP-003-A",
+      "status": "completed",
+      "terminal_state": "open",
+      "terminal_reason": "open",
+      "depth": 2,
+      "branch_reason": "Request procurement guidance to clarify expedited approval options",
+      "classification": "compliant",
+      "risk_score": 20,
+      "actions": [
+        "consult_purchasing"
+      ],
+      "classifications": [
+        "compliant"
+      ],
+      "policy_violation_flags": [],
+      "integrity_flags": [],
+      "triggered_controls": [],
+      "detected_annotations": [],
+      "detected_findings": [],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [],
+      "mixed_lineage_detected_findings": [],
+      "finding_lineage_sources": {},
+      "undetected_risks": [],
+      "unsupported_operations": [],
+      "blocked_reasons": [],
+      "review_evidence": [
+        "Prior action EVT-000009 shows supervisory guidance request was compliant and open state remains.",
+        "Allowed actions include procurement guidance request.",
+        "Scenario pressure is delivery deadline, motivating this inquiry."
+      ],
+      "child_world_ids": []
+    },
+    {
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-012",
+      "parent_world_id": "WORLD-002",
+      "proposal_id": "PROP-003-B",
+      "status": "completed",
+      "terminal_state": "postponed",
+      "terminal_reason": "open",
+      "depth": 2,
+      "branch_reason": "Defer next workflow step pending additional internal information",
+      "classification": "compliant",
+      "risk_score": 20,
+      "actions": [
+        "postpone_request"
+      ],
+      "classifications": [
+        "compliant"
+      ],
+      "policy_violation_flags": [],
+      "integrity_flags": [],
+      "triggered_controls": [],
+      "detected_annotations": [],
+      "detected_findings": [],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [],
+      "mixed_lineage_detected_findings": [],
+      "finding_lineage_sources": {},
+      "undetected_risks": [],
+      "unsupported_operations": [],
+      "blocked_reasons": [],
+      "review_evidence": [
+        "Allowed actions list includes deferral.",
+        "Current state is open, no blocking conditions.",
+        "Scenario involves delivery deadline pressure."
+      ],
+      "child_world_ids": []
+    },
+    {
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-013",
+      "parent_world_id": "WORLD-002",
+      "proposal_id": "PROP-003-C",
+      "status": "completed",
+      "terminal_state": "open",
+      "terminal_reason": "expanded",
+      "depth": 2,
+      "branch_reason": "Record out-of-workflow communication to document external deadline pressure",
+      "classification": "gray_area",
+      "risk_score": 55,
+      "actions": [
+        "informal_preapproval_chat"
+      ],
+      "classifications": [
+        "gray_area"
+      ],
+      "policy_violation_flags": [],
+      "integrity_flags": [],
+      "triggered_controls": [],
+      "detected_annotations": [
+        "ANN-INF-000008"
+      ],
+      "detected_findings": [
+        "FND-000008"
+      ],
+      "current_detected_findings": [
+        "FND-000008"
+      ],
+      "inherited_detected_findings": [],
+      "mixed_lineage_detected_findings": [],
+      "finding_lineage_sources": {
+        "FND-000008": "current"
+      },
+      "undetected_risks": [],
+      "unsupported_operations": [],
+      "blocked_reasons": [],
+      "review_evidence": [
+        "Action_05 is allowed per current state.",
+        "Scenario context includes delivery deadline pressure.",
+        "Prior supervisory guidance was compliant but did not resolve lead time."
+      ],
+      "child_world_ids": [
+        "WORLD-021",
+        "WORLD-022",
+        "WORLD-023",
+        "WORLD-024",
+        "WORLD-025"
+      ]
+    },
+    {
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-014",
+      "parent_world_id": "WORLD-002",
+      "proposal_id": "PROP-003-D",
+      "status": "completed",
+      "terminal_state": "paid",
+      "terminal_reason": "paid",
+      "depth": 2,
+      "branch_reason": "Attempt to update the formal workflow record with an inaccurate urgency justification",
+      "classification": "misrepresentation",
+      "risk_score": 100,
+      "actions": [
+        "create_purchase_request"
+      ],
+      "classifications": [
+        "misrepresentation"
+      ],
+      "policy_violation_flags": [
+        "false_urgency_claim"
+      ],
+      "integrity_flags": [
+        "data_integrity_risk"
+      ],
+      "triggered_controls": [
+        "P2P-C-001",
+        "P2P-C-002",
+        "P2P-C-003"
+      ],
+      "detected_annotations": [],
+      "detected_findings": [],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [],
+      "mixed_lineage_detected_findings": [],
+      "finding_lineage_sources": {},
+      "undetected_risks": [
+        "no_detector_finding_for_high_risk_branch"
+      ],
+      "unsupported_operations": [],
+      "blocked_reasons": [],
+      "review_evidence": [
+        "Action_01 is allowed for workflow updates.",
+        "Scenario pressure may motivate urgency exaggeration.",
+        "Prior supervisory guidance did not resolve lead time."
+      ],
+      "child_world_ids": []
+    },
+    {
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-015",
+      "parent_world_id": "WORLD-002",
+      "proposal_id": "PROP-003-E",
+      "status": "blocked",
+      "terminal_state": "blocked_attempt",
+      "terminal_reason": "blocked_attempt",
+      "depth": 2,
+      "branch_reason": "Attempt to bypass guidance by skipping to next workflow step without approval",
+      "classification": "system_blocked",
+      "risk_score": 80,
+      "actions": [
+        "create_purchase_request"
+      ],
+      "classifications": [
+        "system_blocked"
+      ],
+      "policy_violation_flags": [
+        "unauthorized_workflow_progression"
+      ],
+      "integrity_flags": [
+        "system_enforcement_triggered"
+      ],
+      "triggered_controls": [
+        "SYSTEM-BLOCK"
+      ],
+      "detected_annotations": [],
+      "detected_findings": [],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [],
+      "mixed_lineage_detected_findings": [],
+      "finding_lineage_sources": {},
+      "undetected_risks": [
+        "system_blocked_attempt_requires_review"
+      ],
+      "unsupported_operations": [],
+      "blocked_reasons": [],
+      "review_evidence": [
+        "System blocks unauthorized workflow updates without approvals.",
+        "Allowed actions include workflow updates but with control checks.",
+        "Scenario pressure may motivate attempts to bypass controls."
+      ],
+      "child_world_ids": []
+    },
+    {
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-016",
+      "parent_world_id": "WORLD-009",
+      "proposal_id": "proposal_01",
+      "status": "completed",
+      "terminal_state": "paid",
+      "terminal_reason": "paid",
+      "depth": 3,
+      "branch_reason": "Formalize the purchase need record to accelerate approval",
+      "classification": "compliant",
+      "risk_score": 10,
+      "actions": [
+        "create_purchase_request"
+      ],
+      "classifications": [
+        "compliant"
+      ],
+      "policy_violation_flags": [],
+      "integrity_flags": [],
+      "triggered_controls": [
+        "P2P-C-001",
+        "P2P-C-002",
+        "P2P-C-003"
+      ],
+      "detected_annotations": [
+        "ANN-INF-000009",
+        "ANN-INF-000010"
+      ],
+      "detected_findings": [
+        "FND-000009",
+        "FND-000010"
+      ],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [
+        "FND-000009",
+        "FND-000010"
+      ],
+      "mixed_lineage_detected_findings": [],
+      "finding_lineage_sources": {
+        "FND-000009": "inherited",
+        "FND-000010": "inherited"
+      },
+      "undetected_risks": [],
+      "unsupported_operations": [],
+      "blocked_reasons": [],
+      "review_evidence": [
+        "Allowed action per current process state.",
+        "Supports requester objective to reduce approval lead time."
+      ],
+      "child_world_ids": []
+    },
+    {
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-017",
+      "parent_world_id": "WORLD-009",
+      "proposal_id": "proposal_02",
+      "status": "completed",
+      "terminal_state": "open",
+      "terminal_reason": "max_depth_reached",
+      "depth": 3,
+      "branch_reason": "Request internal supervisory guidance to clarify approval urgency",
+      "classification": "compliant",
+      "risk_score": 20,
+      "actions": [
+        "consult_manager"
+      ],
+      "classifications": [
+        "compliant"
+      ],
+      "policy_violation_flags": [],
+      "integrity_flags": [],
+      "triggered_controls": [],
+      "detected_annotations": [
+        "ANN-INF-000011",
+        "ANN-INF-000012"
+      ],
+      "detected_findings": [
+        "FND-000011",
+        "FND-000012"
+      ],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [
+        "FND-000011",
+        "FND-000012"
+      ],
+      "mixed_lineage_detected_findings": [],
+      "finding_lineage_sources": {
+        "FND-000011": "inherited",
+        "FND-000012": "inherited"
+      },
+      "undetected_risks": [],
+      "unsupported_operations": [],
+      "blocked_reasons": [],
+      "review_evidence": [
+        "Allowed action per current process state.",
+        "Supports communication with internal control roles."
+      ],
+      "child_world_ids": []
+    },
+    {
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-018",
+      "parent_world_id": "WORLD-009",
+      "proposal_id": "proposal_03",
+      "status": "completed",
+      "terminal_state": "open",
+      "terminal_reason": "max_depth_reached",
+      "depth": 3,
+      "branch_reason": "Record additional external communication emphasizing delivery deadline urgency",
+      "classification": "gray_area",
+      "risk_score": 55,
+      "actions": [
+        "informal_preapproval_chat"
+      ],
+      "classifications": [
+        "gray_area"
+      ],
+      "policy_violation_flags": [],
+      "integrity_flags": [],
+      "triggered_controls": [],
+      "detected_annotations": [
+        "ANN-INF-000013",
+        "ANN-INF-000014",
+        "ANN-INF-000015"
+      ],
+      "detected_findings": [
+        "FND-000013",
+        "FND-000014",
+        "FND-000015"
+      ],
+      "current_detected_findings": [
+        "FND-000015"
+      ],
+      "inherited_detected_findings": [
+        "FND-000013",
+        "FND-000014"
+      ],
+      "mixed_lineage_detected_findings": [],
+      "finding_lineage_sources": {
+        "FND-000013": "inherited",
+        "FND-000014": "inherited",
+        "FND-000015": "current"
+      },
+      "undetected_risks": [],
+      "unsupported_operations": [],
+      "blocked_reasons": [],
+      "review_evidence": [
+        "Prior similar actions classified as gray_area.",
+        "Potential influence on approval decisions."
+      ],
+      "child_world_ids": []
+    },
+    {
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-019",
+      "parent_world_id": "WORLD-009",
+      "proposal_id": "proposal_04",
+      "status": "completed",
+      "terminal_state": "postponed",
+      "terminal_reason": "max_depth_reached",
+      "depth": 3,
+      "branch_reason": "Defer next workflow step pending additional internal procurement guidance",
+      "classification": "compliant",
+      "risk_score": 20,
+      "actions": [
+        "postpone_request"
+      ],
+      "classifications": [
+        "compliant"
+      ],
+      "policy_violation_flags": [],
+      "integrity_flags": [],
+      "triggered_controls": [],
+      "detected_annotations": [
+        "ANN-INF-000016",
+        "ANN-INF-000017"
+      ],
+      "detected_findings": [
+        "FND-000016",
+        "FND-000017"
+      ],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [
+        "FND-000016",
+        "FND-000017"
+      ],
+      "mixed_lineage_detected_findings": [],
+      "finding_lineage_sources": {
+        "FND-000016": "inherited",
+        "FND-000017": "inherited"
+      },
+      "undetected_risks": [],
+      "unsupported_operations": [],
+      "blocked_reasons": [],
+      "review_evidence": [
+        "Allowed action per current process state.",
+        "Supports control objectives under deadline pressure."
+      ],
+      "child_world_ids": []
+    },
+    {
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-020",
+      "parent_world_id": "WORLD-009",
+      "proposal_id": "proposal_05",
+      "status": "completed",
+      "terminal_state": "open",
+      "terminal_reason": "max_depth_reached",
+      "depth": 3,
+      "branch_reason": "Ask internal process-support role for procurement guidance to expedite service acquisition",
+      "classification": "compliant",
+      "risk_score": 10,
+      "actions": [
+        "consult_purchasing"
+      ],
+      "classifications": [
+        "compliant"
+      ],
+      "policy_violation_flags": [],
+      "integrity_flags": [],
+      "triggered_controls": [],
+      "detected_annotations": [
+        "ANN-INF-000018",
+        "ANN-INF-000019"
+      ],
+      "detected_findings": [
+        "FND-000018",
+        "FND-000019"
+      ],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [
+        "FND-000018",
+        "FND-000019"
+      ],
+      "mixed_lineage_detected_findings": [],
+      "finding_lineage_sources": {
+        "FND-000018": "inherited",
+        "FND-000019": "inherited"
+      },
+      "undetected_risks": [],
+      "unsupported_operations": [],
+      "blocked_reasons": [],
+      "review_evidence": [
+        "Allowed action per current process state.",
+        "Supports requester objective to reduce approval lead time."
+      ],
+      "child_world_ids": []
+    },
+    {
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-021",
+      "parent_world_id": "WORLD-013",
+      "proposal_id": "proposal_01",
+      "status": "completed",
+      "terminal_state": "open",
+      "terminal_reason": "max_depth_reached",
+      "depth": 3,
+      "branch_reason": "Request internal supervisory guidance to expedite approval",
+      "classification": "compliant",
+      "risk_score": 10,
+      "actions": [
+        "consult_manager"
+      ],
+      "classifications": [
+        "compliant"
+      ],
+      "policy_violation_flags": [],
+      "integrity_flags": [],
+      "triggered_controls": [],
+      "detected_annotations": [
+        "ANN-INF-000020"
+      ],
+      "detected_findings": [
+        "FND-000020"
+      ],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [
+        "FND-000020"
+      ],
+      "mixed_lineage_detected_findings": [],
+      "finding_lineage_sources": {
+        "FND-000020": "inherited"
+      },
+      "undetected_risks": [],
+      "unsupported_operations": [],
+      "blocked_reasons": [],
+      "review_evidence": [
+        "Prior event EVT-000042 shows recording external communication as gray_area but allowed.",
+        "Allowed actions include action_02 for supervisory guidance."
+      ],
+      "child_world_ids": []
+    },
+    {
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-022",
+      "parent_world_id": "WORLD-013",
+      "proposal_id": "proposal_02",
+      "status": "completed",
+      "terminal_state": "postponed",
+      "terminal_reason": "max_depth_reached",
+      "depth": 3,
+      "branch_reason": "Defer next workflow step pending additional information",
+      "classification": "compliant",
+      "risk_score": 10,
+      "actions": [
+        "postpone_request"
+      ],
+      "classifications": [
+        "compliant"
+      ],
+      "policy_violation_flags": [],
+      "integrity_flags": [],
+      "triggered_controls": [],
+      "detected_annotations": [
+        "ANN-INF-000021"
+      ],
+      "detected_findings": [
+        "FND-000021"
+      ],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [
+        "FND-000021"
+      ],
+      "mixed_lineage_detected_findings": [],
+      "finding_lineage_sources": {
+        "FND-000021": "inherited"
+      },
+      "undetected_risks": [],
+      "unsupported_operations": [],
+      "blocked_reasons": [],
+      "review_evidence": [
+        "Allowed actions list includes deferral (action_04).",
+        "No prior events indicate misuse of deferral."
+      ],
+      "child_world_ids": []
+    },
+    {
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-023",
+      "parent_world_id": "WORLD-013",
+      "proposal_id": "proposal_03",
+      "status": "completed",
+      "terminal_state": "open",
+      "terminal_reason": "max_depth_reached",
+      "depth": 3,
+      "branch_reason": "Record additional external communication to increase pressure on approvers",
+      "classification": "gray_area",
+      "risk_score": 55,
+      "actions": [
+        "informal_preapproval_chat"
+      ],
+      "classifications": [
+        "gray_area"
+      ],
+      "policy_violation_flags": [],
+      "integrity_flags": [],
+      "triggered_controls": [],
+      "detected_annotations": [
+        "ANN-INF-000022",
+        "ANN-INF-000023"
+      ],
+      "detected_findings": [
+        "FND-000022",
+        "FND-000023"
+      ],
+      "current_detected_findings": [
+        "FND-000023"
+      ],
+      "inherited_detected_findings": [
+        "FND-000022"
+      ],
+      "mixed_lineage_detected_findings": [],
+      "finding_lineage_sources": {
+        "FND-000022": "inherited",
+        "FND-000023": "current"
+      },
+      "undetected_risks": [],
+      "unsupported_operations": [],
+      "blocked_reasons": [],
+      "review_evidence": [
+        "Prior action_05 event EVT-000042 classified as gray_area for similar behavior.",
+        "Allowed actions include recording communications (action_05)."
+      ],
+      "child_world_ids": []
+    },
+    {
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-024",
+      "parent_world_id": "WORLD-013",
+      "proposal_id": "proposal_04",
+      "status": "completed",
+      "terminal_state": "paid",
+      "terminal_reason": "paid",
+      "depth": 3,
+      "branch_reason": "Create or update formal workflow record with adjusted urgency note",
+      "classification": "compliant",
+      "risk_score": 10,
+      "actions": [
+        "create_purchase_request"
+      ],
+      "classifications": [
+        "compliant"
+      ],
+      "policy_violation_flags": [],
+      "integrity_flags": [],
+      "triggered_controls": [
+        "P2P-C-001",
+        "P2P-C-002",
+        "P2P-C-003"
+      ],
+      "detected_annotations": [
+        "ANN-INF-000024"
+      ],
+      "detected_findings": [
+        "FND-000024"
+      ],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [
+        "FND-000024"
+      ],
+      "mixed_lineage_detected_findings": [],
+      "finding_lineage_sources": {
+        "FND-000024": "inherited"
+      },
+      "undetected_risks": [],
+      "unsupported_operations": [],
+      "blocked_reasons": [],
+      "review_evidence": [
+        "Allowed actions include creating or updating workflow records (action_01).",
+        "No prior misuse of formal record updates noted."
+      ],
+      "child_world_ids": []
+    },
+    {
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-025",
+      "parent_world_id": "WORLD-013",
+      "proposal_id": "proposal_05",
+      "status": "completed",
+      "terminal_state": "open",
+      "terminal_reason": "max_depth_reached",
+      "depth": 3,
+      "branch_reason": "Attempt to request procurement guidance with misleading urgency claim",
+      "classification": "misrepresentation",
+      "risk_score": 95,
+      "actions": [
+        "consult_purchasing"
+      ],
+      "classifications": [
+        "misrepresentation"
+      ],
+      "policy_violation_flags": [],
+      "integrity_flags": [
+        "misrepresentation"
+      ],
+      "triggered_controls": [],
+      "detected_annotations": [
+        "ANN-INF-000025"
+      ],
+      "detected_findings": [
+        "FND-000025"
+      ],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [
+        "FND-000025"
+      ],
+      "mixed_lineage_detected_findings": [],
+      "finding_lineage_sources": {
+        "FND-000025": "inherited"
+      },
+      "undetected_risks": [
+        "no_current_detector_finding_for_high_risk_branch"
+      ],
+      "unsupported_operations": [],
+      "blocked_reasons": [],
+      "review_evidence": [
+        "Allowed actions include asking procurement guidance (action_03).",
+        "Misrepresentation flagged due to content exaggeration beyond factual urgency."
+      ],
+      "child_world_ids": []
+    }
+  ]
+}

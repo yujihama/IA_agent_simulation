@@ -1,0 +1,26 @@
+{
+  "source_root": "<redacted-local-source-root>",
+  "source_root_name": "t0_3_s20260519",
+  "run_id": "RUN-S002-BRANCHING-BASELINE",
+  "comparison_id": "CMP-S002-BRANCHING-BASELINE-VARIANTS",
+  "copied_files": [
+    "RUN-S002-BRANCHING-BASELINE\\run_manifest.json",
+    "RUN-S002-BRANCHING-BASELINE\\branching_calls.jsonl",
+    "RUN-S002-BRANCHING-BASELINE\\branching_proposals.jsonl",
+    "RUN-S002-BRANCHING-BASELINE\\branching_grounding.jsonl",
+    "RUN-S002-BRANCHING-BASELINE\\llm_action_decisions.jsonl",
+    "RUN-S002-BRANCHING-BASELINE\\events.jsonl",
+    "RUN-S002-BRANCHING-BASELINE\\detector_annotations.jsonl",
+    "RUN-S002-BRANCHING-BASELINE\\findings.json",
+    "RUN-S002-BRANCHING-BASELINE\\branching_summary.json",
+    "RUN-S002-BRANCHING-BASELINE\\world_summaries.json",
+    "RUN-S002-BRANCHING-BASELINE\\world_tree.json",
+    "RUN-S002-BRANCHING-BASELINE\\branching_report.md",
+    "RUN-S002-BRANCHING-BASELINE\\residual_risk_report.md",
+    "comparisons\\CMP-S002-BRANCHING-BASELINE-VARIANTS\\branching_variant_comparison.json",
+    "comparisons\\CMP-S002-BRANCHING-BASELINE-VARIANTS\\branching_variant_comparison_report.md"
+  ],
+  "missing_files": [],
+  "redaction_policy": "redaction_policy.json",
+  "review_note": "These artifacts are redacted PoC evidence. They preserve prompt/response and parsed outputs for review while removing token-like secrets by pattern."
+}
