@@ -69,6 +69,7 @@ class RunConfig:
     evaluation_inputs: dict[str, str]
     outputs: dict[str, str]
     llm: dict[str, Any] = field(default_factory=dict)
+    branching: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -112,6 +113,15 @@ class PlannedAction:
     rationale: str
     allowed_actions: list[str]
     source: str = "deterministic_policy"
+    classification: str = "compliant"
+    policy_violation_flags: list[str] = field(default_factory=list)
+    integrity_flags: list[str] = field(default_factory=list)
+    world_id: str = ""
+    parent_world_id: str = ""
+    branch_reason: str = ""
+    proposal_id: str = ""
+    risk_score: int = 0
+    depth: int = 1
 
 
 @dataclass

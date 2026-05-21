@@ -1,0 +1,45 @@
+run_id: RUN-S002-BRANCHING-BASELINE
+name: branching_baseline_s002_delivery_pressure
+process: p2p
+scenario_id: S-002
+variant_id: baseline
+seed: 20260519
+behavior_mode: branching_proposal
+comparison_mode: branching_stress_test
+simulation:
+  max_purchase_needs: 1
+  max_steps_per_case: 30
+  start_date: 2026-04-01
+  end_date: 2026-06-30
+inputs:
+  actions: configs/actions/p2p_action_definitions.yaml
+  controls: configs/controls/p2p_controls.yaml
+  org_masters: configs/org/
+  agents: configs/agents/p2p_agents.yaml
+  scenarios: configs/scenarios/p2p_scenarios.yaml
+  variants: configs/variants/p2p_control_variants.yaml
+  purchase_needs: data/synthetic/purchase_needs.csv
+evaluation_inputs:
+  ground_truth_labels: data/synthetic/ground_truth_labels.yaml
+outputs:
+  dir: runs/{run_id}
+llm:
+  provider: openai
+  model: gpt-4.1-mini
+  temperature: 0.7
+  max_retries: 2
+  pressure_type: delivery_pressure
+  agent_persona: red_team_requester
+  control_visibility: control_full_red_team
+  input_fixture_count: 100
+branching:
+  proposal_count_per_node: 5
+  max_depth: 3
+  beam_width: 2
+  max_total_worlds: 25
+  include_policy_violating_actions: true
+  include_misrepresentation_actions: true
+  require_action_classification: true
+  execute_system_blocked_actions_as_attempts: true
+  risk_guided_selection: true
+  coverage_target_mode: current_coverage_target

@@ -1,0 +1,710 @@
+{
+  "comparison_mode": "branching_variant_replay",
+  "world_group_source_run_id": "RUN-S002-BRANCHING-BASELINE",
+  "same_world_group_replayed": true,
+  "provider": "openai",
+  "model": "gpt-4.1-mini",
+  "temperature": 0.7,
+  "variants": {
+    "baseline": {
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "variant_name": "Baseline",
+      "generated_world_count": 20,
+      "detector_detection_rate": 1.0,
+      "detector_detection_rate_numerator": 17,
+      "detector_detection_rate_denominator": 17,
+      "lineage_detection_rate": 1.0,
+      "new_risk_detection_rate": 0.9412,
+      "current_world_detection_rate": 0.8,
+      "inherited_risk_count": 20,
+      "inherited_risk_world_count": 15,
+      "unmitigated_finding_count": 36,
+      "mitigated_finding_count": 0,
+      "residual_risk_world_count": 1
+    },
+    "variant_a_7d_aggregation": {
+      "run_id": "RUN-S002-BRANCHING-VARIANT-A",
+      "variant_name": "Variant A - 7-day aggregation",
+      "generated_world_count": 20,
+      "detector_detection_rate": 1.0,
+      "detector_detection_rate_numerator": 17,
+      "detector_detection_rate_denominator": 17,
+      "lineage_detection_rate": 1.0,
+      "new_risk_detection_rate": 0.9412,
+      "current_world_detection_rate": 0.8,
+      "inherited_risk_count": 20,
+      "inherited_risk_world_count": 15,
+      "unmitigated_finding_count": 32,
+      "mitigated_finding_count": 4,
+      "residual_risk_world_count": 1
+    },
+    "variant_b_emergency_post_approval": {
+      "run_id": "RUN-S002-BRANCHING-VARIANT-B",
+      "variant_name": "Variant B - emergency route evidence",
+      "generated_world_count": 20,
+      "detector_detection_rate": 1.0,
+      "detector_detection_rate_numerator": 17,
+      "detector_detection_rate_denominator": 17,
+      "lineage_detection_rate": 1.0,
+      "new_risk_detection_rate": 0.9412,
+      "current_world_detection_rate": 0.8,
+      "inherited_risk_count": 20,
+      "inherited_risk_world_count": 15,
+      "unmitigated_finding_count": 32,
+      "mitigated_finding_count": 4,
+      "residual_risk_world_count": 1
+    }
+  },
+  "world_effects": [
+    {
+      "variant_id": "variant_a_7d_aggregation",
+      "world_id": "WORLD-001",
+      "branch_reason": "Compliant single purchase request with department head approval",
+      "classification": "compliant",
+      "baseline_unmitigated_defects": [],
+      "variant_unmitigated_defects": [],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_a_7d_aggregation",
+      "world_id": "WORLD-002",
+      "branch_reason": "Split purchase requests to avoid department head approval threshold",
+      "classification": "gray_area",
+      "baseline_unmitigated_defects": [
+        "D-001"
+      ],
+      "variant_unmitigated_defects": [],
+      "variant_mitigated_defects": [
+        "D-001"
+      ],
+      "defects_mitigated_by_variant": [
+        "D-001"
+      ],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_a_7d_aggregation",
+      "world_id": "WORLD-003",
+      "branch_reason": "Emergency route usage with post-approval within 48 hours",
+      "classification": "gray_area",
+      "baseline_unmitigated_defects": [
+        "D-002"
+      ],
+      "variant_unmitigated_defects": [
+        "D-002"
+      ],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_a_7d_aggregation",
+      "world_id": "WORLD-004",
+      "branch_reason": "Underreporting total amount to avoid department head approval",
+      "classification": "misrepresentation",
+      "baseline_unmitigated_defects": [
+        "D-003"
+      ],
+      "variant_unmitigated_defects": [
+        "D-003"
+      ],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_a_7d_aggregation",
+      "world_id": "WORLD-005",
+      "branch_reason": "Informal preapproval chat off-system to gauge manager support",
+      "classification": "gray_area",
+      "baseline_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_a_7d_aggregation",
+      "world_id": "WORLD-006",
+      "branch_reason": "Consult Manager for Guidance Without Creating Request",
+      "classification": "gray_area",
+      "baseline_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_a_7d_aggregation",
+      "world_id": "WORLD-007",
+      "branch_reason": "Split Purchase Requests to Avoid High-Level Approval",
+      "classification": "policy_violation",
+      "baseline_unmitigated_defects": [
+        "D-001",
+        "D-004"
+      ],
+      "variant_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_mitigated_defects": [
+        "D-001"
+      ],
+      "defects_mitigated_by_variant": [
+        "D-001"
+      ],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_a_7d_aggregation",
+      "world_id": "WORLD-008",
+      "branch_reason": "Underreported Amount on Purchase Request",
+      "classification": "misrepresentation",
+      "baseline_unmitigated_defects": [
+        "D-003",
+        "D-004"
+      ],
+      "variant_unmitigated_defects": [
+        "D-003",
+        "D-004"
+      ],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_a_7d_aggregation",
+      "world_id": "WORLD-009",
+      "branch_reason": "Emergency Route Usage for Post-Approval Purchase Order Issuance",
+      "classification": "gray_area",
+      "baseline_unmitigated_defects": [
+        "D-002",
+        "D-004"
+      ],
+      "variant_unmitigated_defects": [
+        "D-002",
+        "D-004"
+      ],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_a_7d_aggregation",
+      "world_id": "WORLD-010",
+      "branch_reason": "Informal Preapproval Chat with Purchasing Department",
+      "classification": "gray_area",
+      "baseline_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_a_7d_aggregation",
+      "world_id": "WORLD-011",
+      "branch_reason": "Compliant Single Purchase Request Submission",
+      "classification": "compliant",
+      "baseline_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_a_7d_aggregation",
+      "world_id": "WORLD-012",
+      "branch_reason": "Split Purchase Requests Below Approval Threshold to Avoid Department Head Approval",
+      "classification": "policy_violation",
+      "baseline_unmitigated_defects": [
+        "D-001",
+        "D-004"
+      ],
+      "variant_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_mitigated_defects": [
+        "D-001"
+      ],
+      "defects_mitigated_by_variant": [
+        "D-001"
+      ],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_a_7d_aggregation",
+      "world_id": "WORLD-013",
+      "branch_reason": "Underreport Amount in Single Purchase Request to Lower Approval Level",
+      "classification": "misrepresentation",
+      "baseline_unmitigated_defects": [
+        "D-003",
+        "D-004"
+      ],
+      "variant_unmitigated_defects": [
+        "D-003",
+        "D-004"
+      ],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_a_7d_aggregation",
+      "world_id": "WORLD-014",
+      "branch_reason": "Use Emergency Route Purchase Request for Faster Approval",
+      "classification": "gray_area",
+      "baseline_unmitigated_defects": [
+        "D-002",
+        "D-004"
+      ],
+      "variant_unmitigated_defects": [
+        "D-002",
+        "D-004"
+      ],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_a_7d_aggregation",
+      "world_id": "WORLD-015",
+      "branch_reason": "Informal Preapproval Chat with Purchasing for Process Guidance Without Creating Request",
+      "classification": "gray_area",
+      "baseline_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_a_7d_aggregation",
+      "world_id": "WORLD-016",
+      "branch_reason": "Compliant standard purchase request submission",
+      "classification": "compliant",
+      "baseline_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_a_7d_aggregation",
+      "world_id": "WORLD-017",
+      "branch_reason": "Split purchase requests to avoid higher approval threshold",
+      "classification": "gray_area",
+      "baseline_unmitigated_defects": [
+        "D-001",
+        "D-004"
+      ],
+      "variant_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_mitigated_defects": [
+        "D-001"
+      ],
+      "defects_mitigated_by_variant": [
+        "D-001"
+      ],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_a_7d_aggregation",
+      "world_id": "WORLD-018",
+      "branch_reason": "Underreported amount on purchase request to reduce approval level",
+      "classification": "misrepresentation",
+      "baseline_unmitigated_defects": [
+        "D-003",
+        "D-004"
+      ],
+      "variant_unmitigated_defects": [
+        "D-003",
+        "D-004"
+      ],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_a_7d_aggregation",
+      "world_id": "WORLD-019",
+      "branch_reason": "Emergency route post-approval usage under delivery pressure",
+      "classification": "gray_area",
+      "baseline_unmitigated_defects": [
+        "D-002",
+        "D-004"
+      ],
+      "variant_unmitigated_defects": [
+        "D-002",
+        "D-004"
+      ],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_a_7d_aggregation",
+      "world_id": "WORLD-020",
+      "branch_reason": "Informal preapproval chat to keep purchase need open without formal request",
+      "classification": "gray_area",
+      "baseline_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_b_emergency_post_approval",
+      "world_id": "WORLD-001",
+      "branch_reason": "Compliant single purchase request with department head approval",
+      "classification": "compliant",
+      "baseline_unmitigated_defects": [],
+      "variant_unmitigated_defects": [],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_b_emergency_post_approval",
+      "world_id": "WORLD-002",
+      "branch_reason": "Split purchase requests to avoid department head approval threshold",
+      "classification": "gray_area",
+      "baseline_unmitigated_defects": [
+        "D-001"
+      ],
+      "variant_unmitigated_defects": [
+        "D-001"
+      ],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_b_emergency_post_approval",
+      "world_id": "WORLD-003",
+      "branch_reason": "Emergency route usage with post-approval within 48 hours",
+      "classification": "gray_area",
+      "baseline_unmitigated_defects": [
+        "D-002"
+      ],
+      "variant_unmitigated_defects": [],
+      "variant_mitigated_defects": [
+        "D-002"
+      ],
+      "defects_mitigated_by_variant": [
+        "D-002"
+      ],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_b_emergency_post_approval",
+      "world_id": "WORLD-004",
+      "branch_reason": "Underreporting total amount to avoid department head approval",
+      "classification": "misrepresentation",
+      "baseline_unmitigated_defects": [
+        "D-003"
+      ],
+      "variant_unmitigated_defects": [
+        "D-003"
+      ],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_b_emergency_post_approval",
+      "world_id": "WORLD-005",
+      "branch_reason": "Informal preapproval chat off-system to gauge manager support",
+      "classification": "gray_area",
+      "baseline_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_b_emergency_post_approval",
+      "world_id": "WORLD-006",
+      "branch_reason": "Consult Manager for Guidance Without Creating Request",
+      "classification": "gray_area",
+      "baseline_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_b_emergency_post_approval",
+      "world_id": "WORLD-007",
+      "branch_reason": "Split Purchase Requests to Avoid High-Level Approval",
+      "classification": "policy_violation",
+      "baseline_unmitigated_defects": [
+        "D-001",
+        "D-004"
+      ],
+      "variant_unmitigated_defects": [
+        "D-001",
+        "D-004"
+      ],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_b_emergency_post_approval",
+      "world_id": "WORLD-008",
+      "branch_reason": "Underreported Amount on Purchase Request",
+      "classification": "misrepresentation",
+      "baseline_unmitigated_defects": [
+        "D-003",
+        "D-004"
+      ],
+      "variant_unmitigated_defects": [
+        "D-003",
+        "D-004"
+      ],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_b_emergency_post_approval",
+      "world_id": "WORLD-009",
+      "branch_reason": "Emergency Route Usage for Post-Approval Purchase Order Issuance",
+      "classification": "gray_area",
+      "baseline_unmitigated_defects": [
+        "D-002",
+        "D-004"
+      ],
+      "variant_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_mitigated_defects": [
+        "D-002"
+      ],
+      "defects_mitigated_by_variant": [
+        "D-002"
+      ],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_b_emergency_post_approval",
+      "world_id": "WORLD-010",
+      "branch_reason": "Informal Preapproval Chat with Purchasing Department",
+      "classification": "gray_area",
+      "baseline_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_b_emergency_post_approval",
+      "world_id": "WORLD-011",
+      "branch_reason": "Compliant Single Purchase Request Submission",
+      "classification": "compliant",
+      "baseline_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_b_emergency_post_approval",
+      "world_id": "WORLD-012",
+      "branch_reason": "Split Purchase Requests Below Approval Threshold to Avoid Department Head Approval",
+      "classification": "policy_violation",
+      "baseline_unmitigated_defects": [
+        "D-001",
+        "D-004"
+      ],
+      "variant_unmitigated_defects": [
+        "D-001",
+        "D-004"
+      ],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_b_emergency_post_approval",
+      "world_id": "WORLD-013",
+      "branch_reason": "Underreport Amount in Single Purchase Request to Lower Approval Level",
+      "classification": "misrepresentation",
+      "baseline_unmitigated_defects": [
+        "D-003",
+        "D-004"
+      ],
+      "variant_unmitigated_defects": [
+        "D-003",
+        "D-004"
+      ],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_b_emergency_post_approval",
+      "world_id": "WORLD-014",
+      "branch_reason": "Use Emergency Route Purchase Request for Faster Approval",
+      "classification": "gray_area",
+      "baseline_unmitigated_defects": [
+        "D-002",
+        "D-004"
+      ],
+      "variant_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_mitigated_defects": [
+        "D-002"
+      ],
+      "defects_mitigated_by_variant": [
+        "D-002"
+      ],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_b_emergency_post_approval",
+      "world_id": "WORLD-015",
+      "branch_reason": "Informal Preapproval Chat with Purchasing for Process Guidance Without Creating Request",
+      "classification": "gray_area",
+      "baseline_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_b_emergency_post_approval",
+      "world_id": "WORLD-016",
+      "branch_reason": "Compliant standard purchase request submission",
+      "classification": "compliant",
+      "baseline_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_b_emergency_post_approval",
+      "world_id": "WORLD-017",
+      "branch_reason": "Split purchase requests to avoid higher approval threshold",
+      "classification": "gray_area",
+      "baseline_unmitigated_defects": [
+        "D-001",
+        "D-004"
+      ],
+      "variant_unmitigated_defects": [
+        "D-001",
+        "D-004"
+      ],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_b_emergency_post_approval",
+      "world_id": "WORLD-018",
+      "branch_reason": "Underreported amount on purchase request to reduce approval level",
+      "classification": "misrepresentation",
+      "baseline_unmitigated_defects": [
+        "D-003",
+        "D-004"
+      ],
+      "variant_unmitigated_defects": [
+        "D-003",
+        "D-004"
+      ],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_b_emergency_post_approval",
+      "world_id": "WORLD-019",
+      "branch_reason": "Emergency route post-approval usage under delivery pressure",
+      "classification": "gray_area",
+      "baseline_unmitigated_defects": [
+        "D-002",
+        "D-004"
+      ],
+      "variant_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_mitigated_defects": [
+        "D-002"
+      ],
+      "defects_mitigated_by_variant": [
+        "D-002"
+      ],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_b_emergency_post_approval",
+      "world_id": "WORLD-020",
+      "branch_reason": "Informal preapproval chat to keep purchase need open without formal request",
+      "classification": "gray_area",
+      "baseline_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    }
+  ]
+}

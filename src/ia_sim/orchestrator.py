@@ -2,11 +2,18 @@ from __future__ import annotations
 
 import hashlib
 import copy
+import json
 import subprocess
 from collections import Counter
 from pathlib import Path
 from typing import Any
 
+from ia_sim.branching import (
+    build_branching_artifacts,
+    execute_branching_worlds,
+    write_branching_report,
+    write_residual_risk_report,
+)
 from ia_sim.config import (
     load_agent_profiles,
     load_action_definitions,
@@ -18,12 +25,19 @@ from ia_sim.config import (
     validate_config_tree,
     write_yaml,
 )
-from ia_sim.detectors import build_findings, detect_split_orders
+from ia_sim.detectors import build_findings, detect_control_findings
 from ia_sim.evaluation import evaluate_findings
-from ia_sim.llm import LLMActionSelector, LLMSelectionResult
+from ia_sim.llm import (
+    LLMActionSelector,
+    LLMBranchingProposalGenerator,
+    LLMBranchingResult,
+    LLMOpenProposalGenerator,
+    LLMProposalResult,
+    LLMSelectionResult,
+)
 from ia_sim.llm_metrics import compare_action_selection_metric_sets, compute_action_selection_metrics
 from ia_sim.metrics import compare_metric_sets, compute_metrics
-from ia_sim.models import RunResult, now_utc_iso
+from ia_sim.models import PlannedAction, RunResult, now_utc_iso
 from ia_sim.reports import write_comparison_report, write_finding_report, write_llm_action_review_report
 from ia_sim.rule_engine import RuleEngine, VariantPolicy
 from ia_sim.simulation import SimulationEngine, behavior_replay_rows, build_behavior_plan
@@ -34,6 +48,14 @@ from ia_sim.synthetic import generate_synthetic_data, read_purchase_needs_csv
 PROMPT_TREATMENTS = ["full_context", "scenario_only", "objective_only", "planning_hint_only"]
 SUPPORTED_PROMPT_TREATMENTS = [*PROMPT_TREATMENTS, "balanced_planning_hint"]
 HINT_STRENGTHS = ["no_hint", "control_knowledge_only", "weak_hint", "medium_hint", "strong_hint"]
+AGENT_PERSONAS = ["compliant_requester", "pragmatic_requester", "control_avoidant_requester", "red_team_requester"]
+CONTROL_VISIBILITIES = [
+    "control_hidden",
+    "control_summary",
+    "control_full",
+    "control_full_with_failure_modes",
+    "control_full_red_team",
+]
 PRESSURE_TYPES = [
     "no_pressure",
     "budget_pressure",
@@ -42,17 +64,30 @@ PRESSURE_TYPES = [
     "vendor_constraint",
     "workload_pressure",
 ]
+BRANCHING_COMPARISON_VARIANTS = [
+    "baseline",
+    "variant_a_7d_aggregation",
+    "variant_b_emergency_post_approval",
+]
+BRANCHING_COVERAGE_TARGET_MODES = [
+    "current_coverage_target",
+    "risk_category_hidden",
+    "process_state_only",
+]
 
 
 def load_variant_policy(repo_root: Path, variant_id: str) -> VariantPolicy:
     raw = read_yaml(repo_root / "configs/variants/p2p_control_variants.yaml")
     for item in raw["variants"]:
         if item["variant_id"] == variant_id:
-            aggregate_days = item.get("rules", {}).get("aggregate_approval_window_days")
+            rules = item.get("rules", {})
+            aggregate_days = rules.get("aggregate_approval_window_days")
             return VariantPolicy(
                 variant_id=item["variant_id"],
                 name=item["name"],
                 aggregate_approval_window_days=aggregate_days,
+                emergency_route_reason_required=bool(rules.get("emergency_route_reason_required", False)),
+                emergency_route_post_approval_hours=rules.get("emergency_route_post_approval_hours"),
             )
     raise ValueError(f"Unknown variant_id: {variant_id}")
 
@@ -95,6 +130,8 @@ def run_simulation(
 
     max_purchase_needs = _max_purchase_needs(run_config.simulation)
     llm_selection: LLMSelectionResult | None = None
+    branching_result: LLMBranchingResult | None = None
+    branching_artifacts: dict[str, Any] | None = None
     if run_config.behavior_mode == "adaptive_agent":
         scenario = _select_scenario(scenarios, run_config.scenario_id)
         agent = _select_requester_agent(agents)
@@ -114,18 +151,75 @@ def run_simulation(
             prompt_treatment=str(run_config.llm.get("prompt_treatment", "full_context")),
             pressure_type=run_config.llm.get("pressure_type"),
             hint_strength=run_config.llm.get("hint_strength"),
+            agent_persona=run_config.llm.get("agent_persona"),
+            control_visibility=str(run_config.llm.get("control_visibility", "control_full")),
             trial_index=run_config.llm.get("trial_index"),
             llm_seed=run_config.llm.get("seed"),
         )
         llm_selection = selector.select_actions_for_needs(needs, max_purchase_needs=max_purchase_needs)
         plan = llm_selection.planned_actions
+        engine = SimulationEngine(run_config.run_id, rule_engine)
+        events = engine.run(needs, plan)
+    elif run_config.behavior_mode == "branching_proposal":
+        scenario = _select_scenario(scenarios, run_config.scenario_id)
+        agent = _select_requester_agent(agents)
+        branching_config = _branching_config(run_config.branching)
+        generator = LLMBranchingProposalGenerator(
+            repo_root=repo_root,
+            run_id=run_config.run_id,
+            model=str(run_config.llm.get("model", "gpt-4.1-mini")),
+            provider=str(run_config.llm.get("provider", "openai")),
+            temperature=float(run_config.llm.get("temperature", 0.7)),
+            max_retries=int(run_config.llm.get("max_retries", 2)),
+            allowed_actions=actions,
+            controls=controls,
+            scenario=scenario,
+            agent=agent,
+            variant_policy=variant_policy,
+            proposal_count_per_node=int(branching_config["proposal_count_per_node"]),
+            max_depth=int(branching_config["max_depth"]),
+            beam_width=int(branching_config["beam_width"]),
+            max_total_worlds=int(branching_config["max_total_worlds"]),
+            include_policy_violating_actions=bool(branching_config["include_policy_violating_actions"]),
+            include_misrepresentation_actions=bool(branching_config["include_misrepresentation_actions"]),
+            require_action_classification=bool(branching_config["require_action_classification"]),
+            execute_system_blocked_actions_as_attempts=bool(
+                branching_config["execute_system_blocked_actions_as_attempts"]
+            ),
+            risk_guided_selection=bool(branching_config["risk_guided_selection"]),
+            pressure_type=str(run_config.llm.get("pressure_type", "delivery_pressure")),
+            agent_persona=str(run_config.llm.get("agent_persona", "red_team_requester")),
+            control_visibility=str(run_config.llm.get("control_visibility", "control_full_red_team")),
+            coverage_target_mode=str(branching_config["coverage_target_mode"]),
+            trial_index=run_config.llm.get("trial_index"),
+            llm_seed=run_config.llm.get("seed"),
+        )
+        branching_result = generator.propose_for_needs(needs, max_purchase_needs=max_purchase_needs)
+        if int(branching_config["max_depth"]) > 1:
+            branching_result = _expand_multistage_branching(
+                generator=generator,
+                initial_result=branching_result,
+                needs=needs[:max_purchase_needs],
+                rule_engine=rule_engine,
+                branching_config=branching_config,
+                run_id=run_config.run_id,
+            )
+            plan = branching_result.planned_actions
+        else:
+            plan = _select_branching_actions(branching_result.planned_actions, branching_config)
+        events = execute_branching_worlds(
+            run_id=run_config.run_id,
+            needs=needs,
+            planned_actions=plan,
+            rule_engine=rule_engine,
+        )
     else:
         plan = build_behavior_plan(needs, max_purchase_needs=max_purchase_needs)
-    engine = SimulationEngine(run_config.run_id, rule_engine)
-    events = engine.run(needs, plan)
+        engine = SimulationEngine(run_config.run_id, rule_engine)
+        events = engine.run(needs, plan)
 
     ground_truth = read_yaml(repo_root / run_config.evaluation_inputs["ground_truth_labels"])
-    annotations = detect_split_orders(events)
+    annotations = detect_control_findings(events)
     findings = build_findings(annotations, events)
     evaluation_results = evaluate_findings(findings=findings, events=events, ground_truth=ground_truth)
     metrics = compute_metrics(
@@ -143,6 +237,18 @@ def run_simulation(
             events=events,
             findings=findings,
         )
+    if branching_result is not None:
+        branching_artifacts = build_branching_artifacts(
+            run_id=run_config.run_id,
+            branching_config=_branching_config(run_config.branching),
+            world_rows=branching_result.world_rows,
+            planned_actions=plan,
+            events=events,
+            annotations=annotations,
+            findings=findings,
+            action_library_candidates=branching_result.action_library_candidates,
+        )
+        metrics.update(branching_artifacts["branching_summary"])
 
     run_dir = _resolve_run_dir(repo_root, run_config.outputs["dir"], run_config.run_id, output_root_override)
     run_config_rel = _repo_relative_or_str(config_path, repo_root)
@@ -213,6 +319,8 @@ def run_simulation(
             "prompt_treatment": run_config.llm.get("prompt_treatment", "full_context"),
             "pressure_type": run_config.llm.get("pressure_type"),
             "hint_strength": run_config.llm.get("hint_strength"),
+            "agent_persona": run_config.llm.get("agent_persona"),
+            "control_visibility": run_config.llm.get("control_visibility", "control_full"),
             "trial_index": run_config.llm.get("trial_index"),
             "seed": run_config.llm.get("seed"),
         }
@@ -222,6 +330,44 @@ def run_simulation(
                 "llm_action_decisions": "llm_action_decisions.jsonl",
                 "action_selection_metrics": "action_selection_metrics.json",
                 "llm_action_review_report": "llm_action_review_report.md",
+            }
+        )
+    if branching_result is not None and branching_artifacts is not None:
+        manifest["branching"] = _branching_config(run_config.branching)
+        manifest["llm"] = {
+            "provider": run_config.llm.get("provider", "openai"),
+            "model": run_config.llm.get("model", "gpt-4.1-mini"),
+            "temperature": run_config.llm.get("temperature", 0.7),
+            "max_retries": run_config.llm.get("max_retries", 2),
+            "pressure_type": run_config.llm.get("pressure_type"),
+            "agent_persona": run_config.llm.get("agent_persona"),
+            "control_visibility": run_config.llm.get("control_visibility"),
+            "coverage_target_mode": _branching_config(run_config.branching).get("coverage_target_mode"),
+            "trial_index": run_config.llm.get("trial_index"),
+            "seed": run_config.llm.get("seed"),
+        }
+        manifest["outputs"].update(
+            {
+                "branching_calls": "branching_calls.jsonl",
+                "branching_proposals": "branching_proposals.jsonl",
+                "branching_grounding": "branching_grounding.jsonl",
+                "llm_action_decisions": "llm_action_decisions.jsonl",
+                "branching_summary": "branching_summary.json",
+                "world_summaries": "world_summaries.json",
+                "world_tree": "world_tree.json",
+                "action_library_candidates": "action_library_candidates.json",
+                "branching_report": "branching_report.md",
+                "residual_risk_report": "residual_risk_report.md",
+            }
+        )
+        manifest["summary"].update(
+            {
+                "generated_world_count": branching_artifacts["branching_summary"]["generated_world_count"],
+                "residual_risk_world_count": branching_artifacts["branching_summary"]["residual_risk_world_count"],
+                "detector_detection_rate": branching_artifacts["branching_summary"]["detector_detection_rate"],
+                "lineage_detection_rate": branching_artifacts["branching_summary"]["lineage_detection_rate"],
+                "new_risk_detection_rate": branching_artifacts["branching_summary"]["new_risk_detection_rate"],
+                "inherited_risk_count": branching_artifacts["branching_summary"]["inherited_risk_count"],
             }
         )
 
@@ -251,6 +397,25 @@ def run_simulation(
             action_selection_metrics=action_selection_metrics,
             decisions=llm_selection.decision_rows,
             llm_calls=llm_selection.call_rows,
+        )
+    if branching_result is not None and branching_artifacts is not None:
+        write_jsonl(run_dir / "branching_calls.jsonl", branching_result.call_rows)
+        write_jsonl(run_dir / "branching_proposals.jsonl", branching_result.proposal_rows)
+        write_jsonl(run_dir / "branching_grounding.jsonl", branching_result.grounding_rows)
+        write_jsonl(run_dir / "llm_action_decisions.jsonl", branching_result.decision_rows)
+        write_json(run_dir / "branching_summary.json", branching_artifacts["branching_summary"])
+        write_json(run_dir / "world_summaries.json", {"worlds": branching_artifacts["world_summaries"]})
+        write_json(run_dir / "world_tree.json", branching_artifacts["world_tree"])
+        write_json(run_dir / "action_library_candidates.json", {"candidates": branching_result.action_library_candidates})
+        write_branching_report(
+            run_dir / "branching_report.md",
+            run_id=run_config.run_id,
+            summary=branching_artifacts["branching_summary"],
+            world_summaries=branching_artifacts["world_summaries"],
+        )
+        write_residual_risk_report(
+            run_dir / "residual_risk_report.md",
+            residual_risks=branching_artifacts["residual_risks"],
         )
 
     return RunResult(
@@ -286,6 +451,201 @@ def compare_runs(baseline_run_dir: Path, variant_run_dir: Path, output_dir: Path
     write_json(output_dir / "comparison.json", comparison)
     write_comparison_report(output_dir / "comparison_report.md", comparison)
     return comparison
+
+
+def _expand_multistage_branching(
+    *,
+    generator: LLMBranchingProposalGenerator,
+    initial_result: LLMBranchingResult,
+    needs: list[Any],
+    rule_engine: RuleEngine,
+    branching_config: dict[str, Any],
+    run_id: str,
+) -> LLMBranchingResult:
+    result = initial_result
+    max_depth = int(branching_config.get("max_depth", 1))
+    max_total_worlds = int(branching_config.get("max_total_worlds", 100))
+    if max_depth <= 1 or not result.world_rows:
+        return result
+
+    needs_by_id = {need.purchase_need_id: need for need in needs}
+    frontier = list(result.world_rows)
+    next_sequence = _next_branching_sequence(result.planned_actions)
+    next_world_index = _next_branching_world_index(result.world_rows)
+    seen_world_signatures = _branching_world_signatures(result.world_rows, result.planned_actions)
+
+    while frontier and len(result.world_rows) < max_total_worlds:
+        parent_events = execute_branching_worlds(
+            run_id=run_id,
+            needs=needs,
+            planned_actions=result.planned_actions,
+            rule_engine=rule_engine,
+        )
+        events_by_world = _rows_by_world(parent_events)
+        actions_by_world = _actions_by_world(result.planned_actions)
+        parents = _select_expandable_branching_parents(
+            frontier=frontier,
+            events_by_world=events_by_world,
+            branching_config=branching_config,
+        )
+        if not parents:
+            break
+
+        next_frontier: list[dict[str, Any]] = []
+        for parent in parents:
+            remaining_worlds = max_total_worlds - len(result.world_rows)
+            if remaining_worlds <= 0:
+                break
+            need = needs_by_id[parent["purchase_need_id"]]
+            child_result = generator.propose_next_for_world(
+                need=need,
+                parent_world=parent,
+                parent_actions=actions_by_world.get(parent["world_id"], []),
+                parent_events=events_by_world.get(parent["world_id"], []),
+                first_sequence=next_sequence,
+                first_world_index=next_world_index,
+            )
+            child_result = _deduplicate_branching_result_worlds(child_result, seen_world_signatures)
+            child_result = _limit_branching_result_worlds(child_result, remaining_worlds)
+            if not child_result.world_rows:
+                continue
+            result = _combine_branching_results(result, child_result)
+            next_frontier.extend(child_result.world_rows)
+            next_sequence = _next_branching_sequence(result.planned_actions)
+            next_world_index = _next_branching_world_index(result.world_rows)
+        frontier = next_frontier
+    return result
+
+
+def _select_expandable_branching_parents(
+    *,
+    frontier: list[dict[str, Any]],
+    events_by_world: dict[str, list[dict[str, Any]]],
+    branching_config: dict[str, Any],
+) -> list[dict[str, Any]]:
+    max_depth = int(branching_config.get("max_depth", 1))
+    candidates: list[dict[str, Any]] = []
+    for world in frontier:
+        if int(world.get("depth", 1)) >= max_depth:
+            continue
+        if world.get("status") in {"unsupported", "blocked", "out_of_scope"}:
+            continue
+        world_events = events_by_world.get(world["world_id"], [])
+        if not world_events:
+            continue
+        terminal_state = world_events[-1]["state_after"]
+        if terminal_state in {"paid", "blocked_attempt", "postponed"}:
+            continue
+        candidates.append(world)
+    if branching_config.get("risk_guided_selection", True):
+        candidates = sorted(candidates, key=lambda world: (-int(world.get("risk_score", 0)), world["world_id"]))
+    return candidates[: max(1, int(branching_config.get("beam_width", 1)))]
+
+
+def _rows_by_world(rows: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for row in rows:
+        grouped.setdefault(str(row.get("world_id", "")), []).append(row)
+    return grouped
+
+
+def _actions_by_world(actions: list[PlannedAction]) -> dict[str, list[PlannedAction]]:
+    grouped: dict[str, list[PlannedAction]] = {}
+    for action in actions:
+        grouped.setdefault(action.world_id, []).append(action)
+    return grouped
+
+
+def _next_branching_sequence(actions: list[PlannedAction]) -> int:
+    return max((int(action.sequence) for action in actions), default=0) + 1
+
+
+def _next_branching_world_index(world_rows: list[dict[str, Any]]) -> int:
+    return len(world_rows) + 1
+
+
+def _deduplicate_branching_result_worlds(
+    result: LLMBranchingResult,
+    seen_signatures: set[str],
+) -> LLMBranchingResult:
+    actions_by_world = _actions_by_world(result.planned_actions)
+    selected_world_ids: set[str] = set()
+    for row in result.world_rows:
+        signature = _branching_world_signature(row, actions_by_world.get(row["world_id"], []))
+        if signature in seen_signatures:
+            continue
+        seen_signatures.add(signature)
+        selected_world_ids.add(row["world_id"])
+    return _filter_branching_result_worlds(result, selected_world_ids)
+
+
+def _branching_world_signatures(
+    world_rows: list[dict[str, Any]],
+    planned_actions: list[PlannedAction],
+) -> set[str]:
+    actions_by_world = _actions_by_world(planned_actions)
+    return {
+        _branching_world_signature(row, actions_by_world.get(row["world_id"], []))
+        for row in world_rows
+    }
+
+
+def _branching_world_signature(row: dict[str, Any], actions: list[PlannedAction]) -> str:
+    return json.dumps(
+        {
+            "parent_world_id": row.get("parent_world_id", ""),
+            "classification": row.get("classification", ""),
+            "policy_violation_flags": row.get("policy_violation_flags", []),
+            "integrity_flags": row.get("integrity_flags", []),
+            "actions": [
+                {
+                    "action_id": action.action_id,
+                    "parameters": {
+                        key: value
+                        for key, value in action.parameters.items()
+                        if not str(key).startswith("_lineage_")
+                    },
+                }
+                for action in actions
+            ],
+        },
+        ensure_ascii=False,
+        sort_keys=True,
+    )
+
+
+def _limit_branching_result_worlds(result: LLMBranchingResult, max_worlds: int) -> LLMBranchingResult:
+    selected_world_ids = {row["world_id"] for row in result.world_rows[:max_worlds]}
+    return _filter_branching_result_worlds(result, selected_world_ids)
+
+
+def _filter_branching_result_worlds(
+    result: LLMBranchingResult,
+    selected_world_ids: set[str],
+) -> LLMBranchingResult:
+    return LLMBranchingResult(
+        planned_actions=[action for action in result.planned_actions if action.world_id in selected_world_ids],
+        call_rows=result.call_rows,
+        proposal_rows=[row for row in result.proposal_rows if row["world_id"] in selected_world_ids],
+        grounding_rows=[row for row in result.grounding_rows if row["world_id"] in selected_world_ids],
+        decision_rows=[row for row in result.decision_rows if row.get("world_id") in selected_world_ids],
+        world_rows=[row for row in result.world_rows if row["world_id"] in selected_world_ids],
+        action_library_candidates=[
+            row for row in result.action_library_candidates if row["world_id"] in selected_world_ids
+        ],
+    )
+
+
+def _combine_branching_results(left: LLMBranchingResult, right: LLMBranchingResult) -> LLMBranchingResult:
+    return LLMBranchingResult(
+        planned_actions=[*left.planned_actions, *right.planned_actions],
+        call_rows=[*left.call_rows, *right.call_rows],
+        proposal_rows=[*left.proposal_rows, *right.proposal_rows],
+        grounding_rows=[*left.grounding_rows, *right.grounding_rows],
+        decision_rows=[*left.decision_rows, *right.decision_rows],
+        world_rows=[*left.world_rows, *right.world_rows],
+        action_library_candidates=[*left.action_library_candidates, *right.action_library_candidates],
+    )
 
 
 def run_first_slice(repo_root: Path, *, output_root_override: Path | None = None) -> dict[str, Any]:
@@ -349,6 +709,482 @@ def run_llm_action_slice(repo_root: Path, *, output_root_override: Path | None =
         "comparison_dir": comparison_dir,
         "comparison": comparison,
     }
+
+
+def run_branching_simulation(
+    repo_root: Path,
+    *,
+    output_root_override: Path | None = None,
+    provider: str = "openai",
+    model: str = "gpt-4.1-mini",
+    temperature: float = 0.7,
+    coverage_target_mode: str | None = None,
+) -> dict[str, Any]:
+    base_config_path = repo_root / "configs/run_configs/branching_baseline.yaml"
+    base_config = read_yaml(base_config_path)
+    purchase_needs_path = repo_root / base_config["inputs"]["purchase_needs"]
+    if not purchase_needs_path.exists():
+        purchase_needs_path = generate_synthetic_data(
+            purchase_needs_path.parent,
+            count=int(base_config.get("llm", {}).get("input_fixture_count", 100)),
+            seed=int(base_config["seed"]),
+        )
+
+    config = copy.deepcopy(base_config)
+    config["llm"]["provider"] = provider
+    config["llm"]["model"] = model
+    config["llm"]["temperature"] = temperature
+    if coverage_target_mode is not None:
+        _validate_branching_coverage_target_mode(coverage_target_mode)
+        config.setdefault("branching", {})["coverage_target_mode"] = coverage_target_mode
+    config_root = output_root_override or repo_root / "runs"
+    config_path = config_root / "configs" / f"{config['run_id']}.yaml"
+    write_yaml(config_path, config)
+    result = run_simulation(
+        repo_root,
+        config_path,
+        output_root_override=output_root_override,
+        purchase_needs_path_override=purchase_needs_path,
+    )
+    return {"run": result, "config_path": config_path}
+
+
+def run_branching_variant_comparison(
+    repo_root: Path,
+    *,
+    output_root_override: Path | None = None,
+    provider: str = "openai",
+    model: str = "gpt-4.1-mini",
+    temperature: float = 0.7,
+    coverage_target_mode: str | None = None,
+) -> dict[str, Any]:
+    baseline_result = run_branching_simulation(
+        repo_root,
+        output_root_override=output_root_override,
+        provider=provider,
+        model=model,
+        temperature=temperature,
+        coverage_target_mode=coverage_target_mode,
+    )
+    baseline_run: RunResult = baseline_result["run"]
+    base_config = read_yaml(baseline_result["config_path"])
+    purchase_needs_path = repo_root / base_config["inputs"]["purchase_needs"]
+    needs = read_purchase_needs_csv(purchase_needs_path)
+    controls = load_control_cards(repo_root / base_config["inputs"]["controls"])
+    ground_truth = read_yaml(repo_root / base_config["evaluation_inputs"]["ground_truth_labels"])
+    branching_config = _branching_config(base_config.get("branching", {}))
+    planned_actions = [
+        _planned_action_from_behavior_row(row)
+        for row in read_jsonl(baseline_run.run_dir / "behavior_replay_log.jsonl")
+    ]
+    world_rows = read_json(baseline_run.run_dir / "world_summaries.json")["worlds"]
+    action_library_candidates = read_json(baseline_run.run_dir / "action_library_candidates.json")["candidates"]
+
+    variant_runs: dict[str, dict[str, Any]] = {}
+    for variant_id in BRANCHING_COMPARISON_VARIANTS:
+        variant_policy = load_variant_policy(repo_root, variant_id)
+        run_id = f"RUN-S002-BRANCHING-{_branching_variant_label(variant_id)}"
+        rule_engine = RuleEngine(controls, variant_policy)
+        events = execute_branching_worlds(
+            run_id=run_id,
+            needs=needs,
+            planned_actions=planned_actions,
+            rule_engine=rule_engine,
+        )
+        annotations = detect_control_findings(events)
+        findings = build_findings(annotations, events)
+        evaluation_results = evaluate_findings(findings=findings, events=events, ground_truth=ground_truth)
+        metrics = compute_metrics(
+            events=events,
+            annotations=annotations,
+            findings=findings,
+            evaluation_results=evaluation_results,
+            variant_id=variant_id,
+        )
+        artifacts = build_branching_artifacts(
+            run_id=run_id,
+            branching_config=branching_config,
+            world_rows=world_rows,
+            planned_actions=planned_actions,
+            events=events,
+            annotations=annotations,
+            findings=findings,
+            action_library_candidates=action_library_candidates,
+        )
+        metrics.update(artifacts["branching_summary"])
+        variant_runs[variant_id] = {
+            "run_id": run_id,
+            "variant_name": variant_policy.name,
+            "metrics": metrics,
+            "branching_summary": artifacts["branching_summary"],
+            "world_summaries": artifacts["world_summaries"],
+            "findings": findings,
+        }
+
+    comparison = _build_branching_variant_comparison(
+        source_run_id=baseline_run.run_id,
+        provider=provider,
+        model=model,
+        temperature=temperature,
+        coverage_target_mode=str(branching_config.get("coverage_target_mode", "current_coverage_target")),
+        variant_runs=variant_runs,
+    )
+    comparison_dir = (output_root_override or repo_root / "runs") / "comparisons/CMP-S002-BRANCHING-BASELINE-VARIANTS"
+    write_json(comparison_dir / "branching_variant_comparison.json", comparison)
+    _write_branching_variant_comparison_report(
+        comparison_dir / "branching_variant_comparison_report.md",
+        comparison,
+    )
+    return {
+        "baseline_run": baseline_run,
+        "comparison_dir": comparison_dir,
+        "comparison": comparison,
+    }
+
+
+def _planned_action_from_behavior_row(row: dict[str, Any]) -> PlannedAction:
+    parameters = dict(row.get("parameters", {}))
+    purchase_need_id = str(parameters.get("purchase_need_id", row.get("purchase_need_id", "")))
+    return PlannedAction(
+        sequence=int(row["sequence"]),
+        purchase_need_id=purchase_need_id,
+        action_id=str(row["selected_action_id"]),
+        parameters=parameters,
+        rationale=str(row.get("rationale", "")),
+        allowed_actions=[str(action_id) for action_id in row.get("allowed_actions_presented", [])],
+        source=str(row.get("source", "branching_replay")),
+        classification=str(row.get("classification", "compliant")),
+        policy_violation_flags=[str(item) for item in row.get("policy_violation_flags", [])],
+        integrity_flags=[str(item) for item in row.get("integrity_flags", [])],
+        world_id=str(row.get("world_id", "")),
+        parent_world_id=str(row.get("parent_world_id", "")),
+        branch_reason=str(row.get("branch_reason", "")),
+        proposal_id=str(row.get("proposal_id", "")),
+        risk_score=int(row.get("risk_score", 0)),
+        depth=int(row.get("depth", 1)),
+    )
+
+
+def _branching_variant_label(variant_id: str) -> str:
+    labels = {
+        "baseline": "BASELINE",
+        "variant_a_7d_aggregation": "VARIANT-A",
+        "variant_b_emergency_post_approval": "VARIANT-B",
+    }
+    return labels.get(variant_id, variant_id.upper().replace("_", "-"))
+
+
+def run_branching_hint_ablation_experiment(
+    repo_root: Path,
+    *,
+    output_root_override: Path | None = None,
+    provider: str = "openai",
+    model: str = "gpt-4.1-mini",
+    temperature: float = 0.7,
+    coverage_target_modes: list[str] | None = None,
+) -> dict[str, Any]:
+    modes = coverage_target_modes or list(BRANCHING_COVERAGE_TARGET_MODES)
+    for mode in modes:
+        _validate_branching_coverage_target_mode(mode)
+
+    experiment_id = "EXP-S002-BRANCHING-HINT-ABLATION"
+    output_root = output_root_override or repo_root / "runs"
+    experiment_dir = output_root / "experiments" / experiment_id
+    condition_summaries: dict[str, dict[str, Any]] = {}
+
+    for mode in modes:
+        condition_root = experiment_dir / "conditions" / _branching_coverage_target_mode_slug(mode)
+        result = run_branching_variant_comparison(
+            repo_root,
+            output_root_override=condition_root,
+            provider=provider,
+            model=model,
+            temperature=temperature,
+            coverage_target_mode=mode,
+        )
+        condition_summaries[mode] = _branching_hint_condition_summary(
+            mode=mode,
+            experiment_dir=experiment_dir,
+            result=result,
+        )
+
+    summary = {
+        "experiment_id": experiment_id,
+        "experiment_mode": "branching_hint_ablation",
+        "provider": provider,
+        "model": model,
+        "temperature": temperature,
+        "coverage_target_modes": modes,
+        "conditions": condition_summaries,
+        "cross_condition": _branching_hint_cross_condition_summary(condition_summaries),
+    }
+    write_json(experiment_dir / "summary.json", summary)
+    _write_branching_hint_ablation_report(experiment_dir / "branching_hint_ablation_report.md", summary)
+    return {
+        "experiment_id": experiment_id,
+        "experiment_dir": experiment_dir,
+        "summary": summary,
+    }
+
+
+def _branching_hint_condition_summary(
+    *,
+    mode: str,
+    experiment_dir: Path,
+    result: dict[str, Any],
+) -> dict[str, Any]:
+    baseline_run: RunResult = result["baseline_run"]
+    branching_summary = read_json(baseline_run.run_dir / "branching_summary.json")
+    findings = read_json(baseline_run.run_dir / "findings.json")["findings"]
+    proposals = read_jsonl(baseline_run.run_dir / "branching_proposals.jsonl")
+    comparison = result["comparison"]
+    return {
+        "coverage_target_mode": mode,
+        "condition_slug": _branching_coverage_target_mode_slug(mode),
+        "condition_dir": str(baseline_run.run_dir.parent.relative_to(experiment_dir)),
+        "baseline_run_dir": str(baseline_run.run_dir.relative_to(experiment_dir)),
+        "comparison_dir": str(result["comparison_dir"].relative_to(experiment_dir)),
+        "generated_world_count": branching_summary["generated_world_count"],
+        "generated_depth_counts": branching_summary["generated_depth_counts"],
+        "expanded_world_count": branching_summary["expanded_world_count"],
+        "duplicate_world_count": branching_summary["duplicate_world_count"],
+        "high_risk_world_count": branching_summary["high_risk_world_count"],
+        "lineage_detection_rate": branching_summary["lineage_detection_rate"],
+        "new_risk_detection_rate": branching_summary["new_risk_detection_rate"],
+        "current_world_detection_rate": branching_summary["current_world_detection_rate"],
+        "inherited_risk_count": branching_summary["inherited_risk_count"],
+        "residual_risk_world_count": branching_summary["residual_risk_world_count"],
+        "detected_defect_ids": sorted({str(finding["defect_id"]) for finding in findings}),
+        "proposal_classification_counts": dict(
+            sorted(Counter(str(row.get("classification", "")) for row in proposals).items())
+        ),
+        "proposal_titles": [str(row.get("title", "")) for row in proposals[:15]],
+        "variant_mitigated_finding_counts": {
+            variant_id: variant_summary["mitigated_finding_count"]
+            for variant_id, variant_summary in comparison["variants"].items()
+            if variant_id != "baseline"
+        },
+    }
+
+
+def _branching_hint_cross_condition_summary(conditions: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    all_defects = sorted(
+        {
+            defect_id
+            for condition in conditions.values()
+            for defect_id in condition["detected_defect_ids"]
+        }
+    )
+    return {
+        "all_detected_defect_ids": all_defects,
+        "defect_ids_by_condition": {
+            mode: condition["detected_defect_ids"] for mode, condition in conditions.items()
+        },
+        "generated_world_count_by_condition": {
+            mode: condition["generated_world_count"] for mode, condition in conditions.items()
+        },
+        "new_risk_detection_rate_by_condition": {
+            mode: condition["new_risk_detection_rate"] for mode, condition in conditions.items()
+        },
+        "residual_risk_world_count_by_condition": {
+            mode: condition["residual_risk_world_count"] for mode, condition in conditions.items()
+        },
+    }
+
+
+def _write_branching_hint_ablation_report(path: Path, summary: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lines = [
+        "# Branching Hint Ablation Experiment",
+        "",
+        f"- experiment_id: {summary['experiment_id']}",
+        f"- provider: {summary['provider']}",
+        f"- model: {summary['model']}",
+        f"- temperature: {summary['temperature']}",
+        "",
+        "## Condition Summary",
+        "",
+        "| Condition | Worlds | Depths | Expanded | Defects | Lineage rate | New-risk rate | Residual worlds |",
+        "|---|---:|---|---:|---|---:|---:|---:|",
+    ]
+    for mode, condition in summary["conditions"].items():
+        lines.append(
+            f"| {mode} | {condition['generated_world_count']} | "
+            f"{condition['generated_depth_counts']} | {condition['expanded_world_count']} | "
+            f"{condition['detected_defect_ids']} | {condition['lineage_detection_rate']} | "
+            f"{condition['new_risk_detection_rate']} | {condition['residual_risk_world_count']} |"
+        )
+
+    lines.extend(
+        [
+            "",
+            "## Interpretation Boundary",
+            "",
+            "The current_coverage_target condition explicitly names target risk categories. "
+            "The risk_category_hidden condition keeps control structure and allowed actions visible but removes named risk-category coverage targets. "
+            "The process_state_only condition hides control cards and asks for branches from state, goals, constraints, and allowed actions only. "
+            "Allowed action identifiers remain visible in every condition because the output must be grounded into executable synthetic actions.",
+            "",
+            "## Proposal Titles",
+            "",
+        ]
+    )
+    for mode, condition in summary["conditions"].items():
+        lines.extend([f"### {mode}", ""])
+        for title in condition["proposal_titles"]:
+            lines.append(f"- {title}")
+        lines.append("")
+    path.write_text("\n".join(lines), encoding="utf-8")
+
+
+def _build_branching_variant_comparison(
+    *,
+    source_run_id: str,
+    provider: str,
+    model: str,
+    temperature: float,
+    coverage_target_mode: str,
+    variant_runs: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    baseline_findings_by_world = _findings_by_world(variant_runs["baseline"]["findings"])
+    variants: dict[str, Any] = {}
+    worlds: list[dict[str, Any]] = []
+    baseline_worlds = {
+        world["world_id"]: world
+        for world in variant_runs["baseline"]["world_summaries"]
+    }
+
+    for variant_id, result in variant_runs.items():
+        findings_by_world = _findings_by_world(result["findings"])
+        summary = result["branching_summary"]
+        findings = result["findings"]
+        variants[variant_id] = {
+            "run_id": result["run_id"],
+            "variant_name": result["variant_name"],
+            "generated_world_count": summary["generated_world_count"],
+            "detector_detection_rate": summary["detector_detection_rate"],
+            "detector_detection_rate_numerator": summary["detector_detection_rate_numerator"],
+            "detector_detection_rate_denominator": summary["detector_detection_rate_denominator"],
+            "lineage_detection_rate": summary.get("lineage_detection_rate", summary["detector_detection_rate"]),
+            "new_risk_detection_rate": summary.get("new_risk_detection_rate", 0.0),
+            "current_world_detection_rate": summary.get("current_world_detection_rate", 0.0),
+            "inherited_risk_count": summary.get("inherited_risk_count", 0),
+            "inherited_risk_world_count": summary.get("inherited_risk_world_count", 0),
+            "unmitigated_finding_count": sum(
+                1 for finding in findings if finding.get("status") == "candidate_unmitigated"
+            ),
+            "mitigated_finding_count": sum(
+                1 for finding in findings if finding.get("status") == "candidate_mitigated"
+            ),
+            "residual_risk_world_count": summary["residual_risk_world_count"],
+        }
+        for world in result["world_summaries"]:
+            if variant_id == "baseline":
+                continue
+            world_id = world["world_id"]
+            baseline_unmitigated = _world_defects(
+                baseline_findings_by_world.get(world_id, []),
+                status="candidate_unmitigated",
+            )
+            variant_unmitigated = _world_defects(
+                findings_by_world.get(world_id, []),
+                status="candidate_unmitigated",
+            )
+            variant_mitigated = _world_defects(
+                findings_by_world.get(world_id, []),
+                status="candidate_mitigated",
+            )
+            worlds.append(
+                {
+                    "variant_id": variant_id,
+                    "world_id": world_id,
+                    "branch_reason": baseline_worlds.get(world_id, {}).get("branch_reason", ""),
+                    "classification": baseline_worlds.get(world_id, {}).get("classification", ""),
+                    "baseline_unmitigated_defects": baseline_unmitigated,
+                    "variant_unmitigated_defects": variant_unmitigated,
+                    "variant_mitigated_defects": variant_mitigated,
+                    "defects_mitigated_by_variant": sorted(
+                        set(baseline_unmitigated) - set(variant_unmitigated)
+                    ),
+                    "new_unmitigated_defects": sorted(set(variant_unmitigated) - set(baseline_unmitigated)),
+                }
+            )
+
+    return {
+        "comparison_mode": "branching_variant_replay",
+        "world_group_source_run_id": source_run_id,
+        "same_world_group_replayed": True,
+        "provider": provider,
+        "model": model,
+        "temperature": temperature,
+        "coverage_target_mode": coverage_target_mode,
+        "variants": variants,
+        "world_effects": worlds,
+    }
+
+
+def _findings_by_world(findings: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for finding in findings:
+        grouped.setdefault(str(finding.get("world_id", "")), []).append(finding)
+    return grouped
+
+
+def _world_defects(findings: list[dict[str, Any]], *, status: str) -> list[str]:
+    return sorted({str(finding["defect_id"]) for finding in findings if finding.get("status") == status})
+
+
+def _write_branching_variant_comparison_report(path: Path, comparison: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lines = [
+        "# Branching Variant Comparison",
+        "",
+        f"- comparison_mode: {comparison['comparison_mode']}",
+        f"- world_group_source_run_id: {comparison['world_group_source_run_id']}",
+        f"- same_world_group_replayed: {comparison['same_world_group_replayed']}",
+        f"- model: {comparison['model']}",
+        f"- temperature: {comparison['temperature']}",
+        f"- coverage_target_mode: {comparison.get('coverage_target_mode', 'current_coverage_target')}",
+        "",
+        "## Variant Summary",
+        "",
+        "| Variant | Lineage detection | New-risk detection | Inherited risks | Unmitigated findings | Mitigated findings | Residual worlds |",
+        "|---|---:|---:|---:|---:|---:|---:|",
+    ]
+    for variant_id, summary in comparison["variants"].items():
+        lines.append(
+            f"| {variant_id} | "
+            f"{summary['detector_detection_rate_numerator']}/{summary['detector_detection_rate_denominator']} "
+            f"({summary['detector_detection_rate']}) | "
+            f"{summary['new_risk_detection_rate']} | "
+            f"{summary['inherited_risk_count']} | "
+            f"{summary['unmitigated_finding_count']} | "
+            f"{summary['mitigated_finding_count']} | "
+            f"{summary['residual_risk_world_count']} |"
+        )
+
+    lines.extend(
+        [
+            "",
+            "## World Effects",
+            "",
+            "| Variant | World | Branch | Baseline unmitigated | Variant mitigated | Variant unmitigated |",
+            "|---|---|---|---|---|---|",
+        ]
+    )
+    for row in comparison["world_effects"]:
+        lines.append(
+            f"| {row['variant_id']} | {row['world_id']} | {row['branch_reason']} | "
+            f"{row['baseline_unmitigated_defects']} | "
+            f"{row['variant_mitigated_defects']} | "
+            f"{row['variant_unmitigated_defects']} |"
+        )
+    lines.append("")
+    lines.append(
+        "Interpretation: Variant A should mainly mitigate split-request worlds, while Variant B should mainly mitigate emergency-route worlds. "
+        "Underreported amount and informal preapproval remain separate review surfaces."
+    )
+    path.write_text("\n".join(lines), encoding="utf-8")
 
 
 def run_pressure_condition_experiment(
@@ -591,6 +1427,267 @@ def run_hint_pressure_matrix_experiment(
     }
 
 
+def run_agent_stress_experiment(
+    repo_root: Path,
+    *,
+    trials: int = 3,
+    output_root_override: Path | None = None,
+    provider: str = "openai",
+    model: str = "gpt-4.1-mini",
+    temperature: float = 0.7,
+) -> dict[str, Any]:
+    experiment_id = f"EXP-S002-AGENT-STRESS-{trials}X"
+    experiment_dir = (output_root_override or repo_root / "runs/experiments") / experiment_id
+    configs_dir = experiment_dir / "configs"
+    runs_root = experiment_dir / "runs"
+
+    base_config = read_yaml(repo_root / "configs/run_configs/llm_baseline.yaml")
+    purchase_needs_path = repo_root / base_config["inputs"]["purchase_needs"]
+    if not purchase_needs_path.exists():
+        purchase_needs_path = generate_synthetic_data(
+            purchase_needs_path.parent,
+            count=int(base_config.get("llm", {}).get("input_fixture_count", 100)),
+            seed=int(base_config["seed"]),
+        )
+
+    closed_results: list[dict[str, Any]] = []
+    for agent_persona in AGENT_PERSONAS:
+        for trial_index in range(1, trials + 1):
+            config = _agent_stress_closed_trial_config(
+                base_config,
+                agent_persona=agent_persona,
+                trial_index=trial_index,
+                provider=provider,
+                model=model,
+                temperature=temperature,
+            )
+            config_path = configs_dir / f"{config['run_id']}.yaml"
+            write_yaml(config_path, config)
+            result = run_simulation(
+                repo_root,
+                config_path,
+                output_root_override=runs_root,
+                purchase_needs_path_override=purchase_needs_path,
+            )
+            closed_results.append(
+                _agent_stress_closed_trial_result(
+                    agent_persona=agent_persona,
+                    trial_index=trial_index,
+                    run_dir=result.run_dir,
+                )
+            )
+
+    open_results: list[dict[str, Any]] = []
+    for control_visibility in CONTROL_VISIBILITIES:
+        for trial_index in range(1, trials + 1):
+            config = _agent_stress_open_trial_config(
+                base_config,
+                control_visibility=control_visibility,
+                trial_index=trial_index,
+                provider=provider,
+                model=model,
+                temperature=temperature,
+            )
+            config_path = configs_dir / f"{config['run_id']}.yaml"
+            write_yaml(config_path, config)
+            run_dir = _run_open_proposal_trial(
+                repo_root,
+                config_path,
+                output_root_override=runs_root,
+                purchase_needs_path_override=purchase_needs_path,
+            )
+            open_results.append(
+                _agent_stress_open_trial_result(
+                    control_visibility=control_visibility,
+                    trial_index=trial_index,
+                    run_dir=run_dir,
+                )
+            )
+
+    summary = _summarize_agent_stress_experiment(
+        experiment_id=experiment_id,
+        trials=trials,
+        provider=provider,
+        model=model,
+        temperature=temperature,
+        closed_results=closed_results,
+        open_results=open_results,
+    )
+    write_json(experiment_dir / "summary.json", summary)
+    _write_agent_stress_report(experiment_dir / "agent_stress_report.md", summary)
+    return {
+        "experiment_id": experiment_id,
+        "experiment_dir": experiment_dir,
+        "summary": summary,
+    }
+
+
+def _run_open_proposal_trial(
+    repo_root: Path,
+    config_path: Path,
+    *,
+    output_root_override: Path,
+    purchase_needs_path_override: Path,
+) -> Path:
+    validate_or_raise(repo_root)
+    run_config = load_run_config(config_path)
+
+    actions = load_action_definitions(repo_root / run_config.inputs["actions"])
+    controls = load_control_cards(repo_root / run_config.inputs["controls"])
+    scenarios = load_scenarios(repo_root / run_config.inputs["scenarios"])
+    agents = load_agent_profiles(repo_root / run_config.inputs["agents"])
+    variant_policy = load_variant_policy(repo_root, run_config.variant_id)
+    rule_engine = RuleEngine(controls, variant_policy)
+    needs = read_purchase_needs_csv(purchase_needs_path_override)
+    scenario = _select_scenario(scenarios, run_config.scenario_id)
+    agent = _select_requester_agent(agents)
+
+    generator = LLMOpenProposalGenerator(
+        repo_root=repo_root,
+        run_id=run_config.run_id,
+        model=str(run_config.llm.get("model", "gpt-4.1-mini")),
+        provider=str(run_config.llm.get("provider", "openai")),
+        temperature=float(run_config.llm.get("temperature", 0.7)),
+        max_retries=int(run_config.llm.get("max_retries", 2)),
+        allowed_actions=actions,
+        controls=controls,
+        scenario=scenario,
+        agent=agent,
+        variant_policy=variant_policy,
+        pressure_type=str(run_config.llm.get("pressure_type", "delivery_pressure")),
+        agent_persona=str(run_config.llm.get("agent_persona", "red_team_requester")),
+        control_visibility=str(run_config.llm.get("control_visibility", "control_full_red_team")),
+        trial_index=run_config.llm.get("trial_index"),
+        llm_seed=run_config.llm.get("seed"),
+    )
+    proposal_result: LLMProposalResult = generator.propose_for_needs(
+        needs,
+        max_purchase_needs=_max_purchase_needs(run_config.simulation),
+    )
+    plan = proposal_result.planned_actions
+    engine = SimulationEngine(run_config.run_id, rule_engine)
+    events = engine.run(needs, plan)
+
+    ground_truth = read_yaml(repo_root / run_config.evaluation_inputs["ground_truth_labels"])
+    annotations = detect_control_findings(events)
+    findings = build_findings(annotations, events)
+    evaluation_results = evaluate_findings(findings=findings, events=events, ground_truth=ground_truth)
+    metrics = compute_metrics(
+        events=events,
+        annotations=annotations,
+        findings=findings,
+        evaluation_results=evaluation_results,
+        variant_id=run_config.variant_id,
+    )
+    action_selection_metrics = compute_action_selection_metrics(
+        decisions=proposal_result.decision_rows,
+        llm_calls=proposal_result.call_rows,
+        events=events,
+        findings=findings,
+    )
+    proposal_metrics = _compute_open_proposal_metrics(
+        proposal_rows=proposal_result.proposal_rows,
+        grounding_rows=proposal_result.grounding_rows,
+        findings=findings,
+    )
+    action_selection_metrics.update(proposal_metrics)
+
+    run_dir = _resolve_run_dir(repo_root, run_config.outputs["dir"], run_config.run_id, output_root_override)
+    run_config_rel = _repo_relative_or_str(config_path, repo_root)
+    purchase_needs_rel = _repo_relative_or_str(purchase_needs_path_override, repo_root)
+    ground_truth_path = repo_root / run_config.evaluation_inputs["ground_truth_labels"]
+    manifest = {
+        "run_id": run_config.run_id,
+        "name": run_config.name,
+        "created_at": now_utc_iso(),
+        "process": run_config.process,
+        "scenario_id": run_config.scenario_id,
+        "variant_id": run_config.variant_id,
+        "seed": run_config.seed,
+        "behavior_mode": run_config.behavior_mode,
+        "comparison_mode": run_config.comparison_mode,
+        "code_version": _git_code_version(repo_root),
+        "config_hashes": {
+            "run_config": _sha256_file(config_path),
+            "actions": _sha256_file(repo_root / run_config.inputs["actions"]),
+            "controls": _sha256_file(repo_root / run_config.inputs["controls"]),
+            "agents": _sha256_file(repo_root / run_config.inputs["agents"]),
+            "scenarios": _sha256_file(repo_root / run_config.inputs["scenarios"]),
+            "variants": _sha256_file(repo_root / run_config.inputs["variants"]),
+        },
+        "data_hashes": {
+            "purchase_needs": _sha256_file(purchase_needs_path_override),
+            "ground_truth_labels": _sha256_file(ground_truth_path),
+        },
+        "inputs": {
+            "run_config": run_config_rel,
+            "purchase_needs": purchase_needs_rel,
+            "ground_truth_labels": run_config.evaluation_inputs["ground_truth_labels"],
+        },
+        "outputs": {
+            "events": "events.jsonl",
+            "detector_annotations": "detector_annotations.jsonl",
+            "findings": "findings.json",
+            "evaluation_results": "evaluation_results.json",
+            "metrics": "metrics.json",
+            "behavior_replay_log": "behavior_replay_log.jsonl",
+            "finding_report": "finding_report.md",
+            "open_proposal_calls": "open_proposal_calls.jsonl",
+            "open_proposals": "open_proposals.jsonl",
+            "action_grounding": "action_grounding.jsonl",
+            "llm_action_decisions": "llm_action_decisions.jsonl",
+            "action_selection_metrics": "action_selection_metrics.json",
+            "llm_action_review_report": "llm_action_review_report.md",
+        },
+        "llm": {
+            "provider": run_config.llm.get("provider", "openai"),
+            "model": run_config.llm.get("model", "gpt-4.1-mini"),
+            "temperature": run_config.llm.get("temperature", 0.7),
+            "max_retries": run_config.llm.get("max_retries", 2),
+            "pressure_type": run_config.llm.get("pressure_type"),
+            "agent_persona": run_config.llm.get("agent_persona"),
+            "control_visibility": run_config.llm.get("control_visibility"),
+            "trial_index": run_config.llm.get("trial_index"),
+            "seed": run_config.llm.get("seed"),
+        },
+        "summary": {
+            "event_count": metrics["event_count"],
+            "finding_count": metrics["finding_count"],
+            "split_order_bypass_success_count": metrics["split_order_bypass_success_count"],
+        },
+    }
+
+    write_json(run_dir / "run_manifest.json", manifest)
+    write_jsonl(run_dir / "events.jsonl", events)
+    write_jsonl(run_dir / "detector_annotations.jsonl", annotations)
+    write_json(run_dir / "findings.json", {"findings": findings})
+    write_json(run_dir / "evaluation_results.json", evaluation_results)
+    write_json(run_dir / "metrics.json", metrics)
+    write_jsonl(
+        run_dir / "behavior_replay_log.jsonl",
+        behavior_replay_rows(
+            run_config.run_id,
+            plan,
+            behavior_mode=run_config.behavior_mode,
+            comparison_mode=run_config.comparison_mode,
+        ),
+    )
+    write_finding_report(run_dir / "finding_report.md", run_id=run_config.run_id, metrics=metrics, findings=findings)
+    write_jsonl(run_dir / "open_proposal_calls.jsonl", proposal_result.call_rows)
+    write_jsonl(run_dir / "open_proposals.jsonl", proposal_result.proposal_rows)
+    write_jsonl(run_dir / "action_grounding.jsonl", proposal_result.grounding_rows)
+    write_jsonl(run_dir / "llm_action_decisions.jsonl", proposal_result.decision_rows)
+    write_json(run_dir / "action_selection_metrics.json", action_selection_metrics)
+    write_llm_action_review_report(
+        run_dir / "llm_action_review_report.md",
+        run_id=run_config.run_id,
+        action_selection_metrics=action_selection_metrics,
+        decisions=proposal_result.decision_rows,
+        llm_calls=proposal_result.call_rows,
+    )
+    return run_dir
+
+
 def _resolve_run_dir(repo_root: Path, template: str, run_id: str, output_root_override: Path | None) -> Path:
     if output_root_override is not None:
         return output_root_override / run_id
@@ -686,6 +1783,85 @@ def _matrix_trial_config(
     return config
 
 
+def _agent_stress_closed_trial_config(
+    base_config: dict[str, Any],
+    *,
+    agent_persona: str,
+    trial_index: int,
+    provider: str,
+    model: str,
+    temperature: float,
+) -> dict[str, Any]:
+    config = copy.deepcopy(base_config)
+    persona_offset = AGENT_PERSONAS.index(agent_persona) * 10_000
+    llm_seed = int(base_config["seed"]) + 300_000 + persona_offset + trial_index
+    persona_slug = agent_persona.upper().replace("_", "-")
+    config["run_id"] = f"RUN-S002-CLOSED-{persona_slug}-{trial_index:02d}"
+    config["name"] = f"s002_closed_{agent_persona}_trial_{trial_index:02d}"
+    config["seed"] = llm_seed
+    config["behavior_mode"] = "adaptive_agent"
+    config["comparison_mode"] = "agent_personality_ablation"
+    config["simulation"]["max_purchase_needs"] = 1
+    config.setdefault("llm", {})
+    config["llm"].update(
+        {
+            "provider": provider,
+            "model": model,
+            "temperature": temperature,
+            "max_retries": 2,
+            "pressure_condition": "pressure",
+            "pressure_type": "delivery_pressure",
+            "prompt_treatment": "agent_personality_ablation",
+            "hint_strength": "control_knowledge_only",
+            "agent_persona": agent_persona,
+            "control_visibility": "control_summary",
+            "trial_index": trial_index,
+            "seed": llm_seed,
+            "input_fixture_count": 100,
+        }
+    )
+    return config
+
+
+def _agent_stress_open_trial_config(
+    base_config: dict[str, Any],
+    *,
+    control_visibility: str,
+    trial_index: int,
+    provider: str,
+    model: str,
+    temperature: float,
+) -> dict[str, Any]:
+    config = copy.deepcopy(base_config)
+    visibility_offset = CONTROL_VISIBILITIES.index(control_visibility) * 10_000
+    llm_seed = int(base_config["seed"]) + 500_000 + visibility_offset + trial_index
+    visibility_slug = control_visibility.upper().replace("_", "-")
+    config["run_id"] = f"RUN-S002-OPEN-RED-TEAM-{visibility_slug}-{trial_index:02d}"
+    config["name"] = f"s002_open_red_team_{control_visibility}_trial_{trial_index:02d}"
+    config["seed"] = llm_seed
+    config["behavior_mode"] = "open_proposal_agent"
+    config["comparison_mode"] = "red_team_open_proposal"
+    config["simulation"]["max_purchase_needs"] = 1
+    config.setdefault("llm", {})
+    config["llm"].update(
+        {
+            "provider": provider,
+            "model": model,
+            "temperature": temperature,
+            "max_retries": 2,
+            "pressure_condition": "pressure",
+            "pressure_type": "delivery_pressure",
+            "prompt_treatment": "red_team_open_proposal",
+            "agent_persona": "red_team_requester",
+            "control_visibility": control_visibility,
+            "trial_index": trial_index,
+            "seed": llm_seed,
+            "input_fixture_count": 100,
+        }
+    )
+    return config
+
+
 def _pressure_trial_result(prompt_treatment: str, condition: str, trial_index: int, run_dir: Path) -> dict[str, Any]:
     action_metrics = read_json(run_dir / "action_selection_metrics.json")
     metrics = read_json(run_dir / "metrics.json")
@@ -725,6 +1901,113 @@ def _matrix_trial_result(
     row["consult_action_count"] = sum(1 for action in row["selected_actions"] if action in {"consult_manager", "consult_purchasing"})
     row["postpone_action_count"] = sum(1 for action in row["selected_actions"] if action == "postpone_request")
     return row
+
+
+def _agent_stress_closed_trial_result(*, agent_persona: str, trial_index: int, run_dir: Path) -> dict[str, Any]:
+    row = _pressure_trial_result(agent_persona, "pressure", trial_index, run_dir)
+    action_metrics = read_json(run_dir / "action_selection_metrics.json")
+    decisions = read_jsonl(run_dir / "llm_action_decisions.jsonl")
+    row.update(
+        {
+            "mode": "closed_action",
+            "agent_persona": agent_persona,
+            "control_visibility": "control_summary",
+            "pressure_type": "delivery_pressure",
+            "consult_action_count": sum(1 for action in row["selected_actions"] if action in {"consult_manager", "consult_purchasing"}),
+            "postpone_action_count": sum(1 for action in row["selected_actions"] if action == "postpone_request"),
+            "emergency_proposal": False,
+            "unsupported_action_proposal_count": 0,
+            "mapped_to_action": True,
+            "compliance_concern_present": any(str(decision.get("control_awareness", "")).strip() for decision in decisions),
+            "human_useful_hypothesis": action_metrics.get("human_plausibility_score", 0) >= 0.7,
+            "detector_candidate_generated": row["split_order_candidate_count"] > 0,
+        }
+    )
+    return row
+
+
+def _agent_stress_open_trial_result(*, control_visibility: str, trial_index: int, run_dir: Path) -> dict[str, Any]:
+    action_metrics = read_json(run_dir / "action_selection_metrics.json")
+    metrics = read_json(run_dir / "metrics.json")
+    decisions = read_jsonl(run_dir / "llm_action_decisions.jsonl")
+    proposals = read_jsonl(run_dir / "open_proposals.jsonl")
+    grounding_rows = read_jsonl(run_dir / "action_grounding.jsonl")
+    create_decisions = [row for row in decisions if row["selected_action_id"] == "create_purchase_request"]
+    create_amounts = [int(row["parameters"]["amount"]) for row in create_decisions]
+    split_like = len(create_amounts) >= 2 and all(0 < amount < 1_000_000 for amount in create_amounts)
+    proposal = proposals[0] if proposals else {}
+    grounding = grounding_rows[0] if grounding_rows else {}
+    return {
+        "mode": "open_proposal",
+        "agent_persona": "red_team_requester",
+        "control_visibility": control_visibility,
+        "pressure_type": "delivery_pressure",
+        "trial_index": trial_index,
+        "run_id": run_dir.name,
+        "run_dir": run_dir.as_posix(),
+        "selected_actions": [row["selected_action_id"] for row in decisions],
+        "create_amounts": create_amounts,
+        "create_request_count": len(create_amounts),
+        "split_like_selection": split_like,
+        "split_order_candidate_count": action_metrics["split_order_candidate_count"],
+        "bypass_success_count": action_metrics["bypass_success_count"],
+        "fallback_rate": action_metrics["fallback_rate"],
+        "retry_rate": action_metrics["retry_rate"],
+        "fact_in_reason_error_rate": action_metrics["fact_in_reason_error_rate"],
+        "purchase_request_count": metrics["purchase_request_count"],
+        "consult_action_count": sum(1 for action in [row["selected_action_id"] for row in decisions] if action in {"consult_manager", "consult_purchasing"}),
+        "postpone_action_count": sum(1 for action in [row["selected_action_id"] for row in decisions] if action == "postpone_request"),
+        "emergency_proposal": bool(proposal.get("emergency_proposal") or grounding.get("emergency_proposal")),
+        "unsupported_action_proposal_count": len(grounding.get("unsupported_operations", [])),
+        "unsupported_operations": grounding.get("unsupported_operations", []),
+        "disallowed_grounding_reasons": grounding.get("disallowed_grounding_reasons", []),
+        "mapped_action_ids": grounding.get("mapped_action_ids", []),
+        "mapped_to_action": bool(grounding.get("mapped_to_action")),
+        "fully_mapped_to_allowed_actions": bool(grounding.get("fully_mapped_to_allowed_actions")),
+        "compliance_concern_present": bool(proposal.get("compliance_concern_present")),
+        "human_useful_hypothesis": _human_useful_open_proposal(proposal, grounding),
+        "detector_candidate_generated": action_metrics["split_order_candidate_count"] > 0,
+        "proposed_behavior": proposal.get("proposed_behavior", ""),
+        "control_concern": proposal.get("control_concern", ""),
+        "required_system_operations": proposal.get("required_system_operations", []),
+        "review_evidence": proposal.get("review_evidence", []),
+    }
+
+
+def _compute_open_proposal_metrics(
+    *,
+    proposal_rows: list[dict[str, Any]],
+    grounding_rows: list[dict[str, Any]],
+    findings: list[dict[str, Any]],
+) -> dict[str, Any]:
+    proposal_count = len(proposal_rows)
+    mapped_count = sum(1 for row in grounding_rows if row.get("mapped_to_action"))
+    unsupported_count = sum(len(row.get("unsupported_operations", [])) for row in grounding_rows)
+    emergency_count = sum(1 for row in proposal_rows if row.get("emergency_proposal"))
+    compliance_count = sum(1 for row in proposal_rows if row.get("compliance_concern_present"))
+    useful_count = sum(
+        1
+        for proposal, grounding in zip(proposal_rows, grounding_rows, strict=False)
+        if _human_useful_open_proposal(proposal, grounding)
+    )
+    return {
+        "proposal_count": proposal_count,
+        "mapped_to_action_rate": round(mapped_count / proposal_count, 4) if proposal_count else 0.0,
+        "unsupported_action_proposal_count": unsupported_count,
+        "emergency_proposal_rate": round(emergency_count / proposal_count, 4) if proposal_count else 0.0,
+        "compliance_concern_coverage": round(compliance_count / proposal_count, 4) if proposal_count else 0.0,
+        "human_useful_hypothesis_rate": round(useful_count / proposal_count, 4) if proposal_count else 0.0,
+        "detector_candidate_generation_rate": round(1.0 if findings else 0.0, 4),
+    }
+
+
+def _human_useful_open_proposal(proposal: dict[str, Any], grounding: dict[str, Any]) -> bool:
+    return bool(
+        str(proposal.get("business_rationale", "")).strip()
+        and str(proposal.get("control_concern", "")).strip()
+        and proposal.get("review_evidence_count", 0) >= 2
+        and (grounding.get("mapped_to_action") or grounding.get("unsupported_operations"))
+    )
 
 
 def _summarize_pressure_trials(
@@ -866,6 +2149,158 @@ def _summarize_hint_pressure_matrix(
         "insights": _hint_pressure_insights(matrix, effects_vs_no_pressure, hint_strengths, pressure_types),
         "trial_results": trial_results,
     }
+
+
+def _summarize_agent_stress_experiment(
+    *,
+    experiment_id: str,
+    trials: int,
+    provider: str,
+    model: str,
+    temperature: float,
+    closed_results: list[dict[str, Any]],
+    open_results: list[dict[str, Any]],
+) -> dict[str, Any]:
+    closed_by_persona = {
+        persona: _agent_stress_cell_summary([row for row in closed_results if row["agent_persona"] == persona], trials)
+        for persona in AGENT_PERSONAS
+    }
+    open_by_visibility = {
+        visibility: _agent_stress_cell_summary([row for row in open_results if row["control_visibility"] == visibility], trials)
+        for visibility in CONTROL_VISIBILITIES
+    }
+    return {
+        "experiment_id": experiment_id,
+        "created_at": now_utc_iso(),
+        "scenario_id": "S-002",
+        "variant_id": "baseline",
+        "pressure_type": "delivery_pressure",
+        "trials_per_cell": trials,
+        "provider": provider,
+        "model": model,
+        "temperature": temperature,
+        "closed_action_personas": list(AGENT_PERSONAS),
+        "open_proposal_control_visibilities": list(CONTROL_VISIBILITIES),
+        "closed_action": closed_by_persona,
+        "open_proposal": open_by_visibility,
+        "insights": _agent_stress_insights(closed_by_persona, open_by_visibility),
+        "closed_trial_results": closed_results,
+        "open_trial_results": open_results,
+    }
+
+
+def _agent_stress_cell_summary(rows: list[dict[str, Any]], trials: int) -> dict[str, Any]:
+    action_sequences = Counter(" + ".join(row["selected_actions"]) or "no_action" for row in rows)
+    amount_patterns = Counter(" + ".join(str(amount) for amount in row["create_amounts"]) or "none" for row in rows)
+    split_count = sum(1 for row in rows if row["split_like_selection"])
+    candidate_count = sum(1 for row in rows if row["split_order_candidate_count"] > 0)
+    bypass_count = sum(1 for row in rows if row["bypass_success_count"] > 0)
+    consult_count = sum(1 for row in rows if row["consult_action_count"] > 0)
+    postpone_count = sum(1 for row in rows if row["postpone_action_count"] > 0)
+    emergency_count = sum(1 for row in rows if row.get("emergency_proposal"))
+    unsupported_count = sum(int(row.get("unsupported_action_proposal_count", 0)) for row in rows)
+    mapped_count = sum(1 for row in rows if row.get("mapped_to_action"))
+    concern_count = sum(1 for row in rows if row.get("compliance_concern_present"))
+    useful_count = sum(1 for row in rows if row.get("human_useful_hypothesis"))
+    return {
+        "trial_count": len(rows),
+        "split_like_selection_count": split_count,
+        "split_like_selection_rate": round(split_count / trials, 4) if trials else 0.0,
+        "consult_run_count": consult_count,
+        "consult_rate": round(consult_count / trials, 4) if trials else 0.0,
+        "postpone_run_count": postpone_count,
+        "postpone_rate": round(postpone_count / trials, 4) if trials else 0.0,
+        "emergency_proposal_count": emergency_count,
+        "emergency_proposal_rate": round(emergency_count / trials, 4) if trials else 0.0,
+        "unsupported_action_proposal_count": unsupported_count,
+        "mapped_to_action_rate": round(mapped_count / trials, 4) if trials else 0.0,
+        "compliance_concern_coverage": round(concern_count / trials, 4) if trials else 0.0,
+        "human_useful_hypothesis_rate": round(useful_count / trials, 4) if trials else 0.0,
+        "detector_candidate_generation_count": candidate_count,
+        "detector_candidate_generation_rate": round(candidate_count / trials, 4) if trials else 0.0,
+        "bypass_success_count": bypass_count,
+        "bypass_success_rate": round(bypass_count / trials, 4) if trials else 0.0,
+        "selected_action_sequence_distribution": dict(sorted(action_sequences.items())),
+        "create_amount_pattern_distribution": dict(sorted(amount_patterns.items())),
+    }
+
+
+def _agent_stress_insights(closed_by_persona: dict[str, Any], open_by_visibility: dict[str, Any]) -> list[dict[str, Any]]:
+    insights: list[dict[str, Any]] = []
+    closed_split_rates = {
+        persona: values["split_like_selection_rate"]
+        for persona, values in closed_by_persona.items()
+    }
+    if max(closed_split_rates.values() or [0.0]) == 0.0:
+        insights.append(
+            {
+                "type": "closed_persona_no_split",
+                "split_like_rates": closed_split_rates,
+                "interpretation": "Changing requester personality alone did not create split-like closed-action selections under the tested pressure/control-knowledge condition.",
+            }
+        )
+    best_open = max(
+        open_by_visibility.items(),
+        key=lambda item: (
+            item[1]["human_useful_hypothesis_rate"],
+            item[1]["detector_candidate_generation_rate"],
+            item[1]["split_like_selection_rate"],
+            item[1]["mapped_to_action_rate"],
+        ),
+    )
+    insights.append(
+        {
+            "type": "most_useful_open_proposal_visibility",
+            "control_visibility": best_open[0],
+            "human_useful_hypothesis_rate": best_open[1]["human_useful_hypothesis_rate"],
+            "detector_candidate_generation_rate": best_open[1]["detector_candidate_generation_rate"],
+            "split_like_selection_rate": best_open[1]["split_like_selection_rate"],
+            "interpretation": "Open Proposal Mode is evaluated as a hypothesis generator; useful hypotheses are not audit conclusions. Ties on usefulness are broken by detector-candidate and split-like generation rates.",
+        }
+    )
+    closed_red_team = closed_by_persona.get("red_team_requester", {})
+    if (
+        closed_red_team.get("split_like_selection_rate", 0.0) == 0.0
+        and closed_red_team.get("consult_rate", 0.0) > 0.0
+    ):
+        insights.append(
+            {
+                "type": "closed_red_team_consult_not_split",
+                "consult_rate": closed_red_team["consult_rate"],
+                "interpretation": "Even a red-team persona stayed within the closed action set by consulting rather than creating split-like requests; adversarial role wording alone did not create bypass execution in this setting.",
+            }
+        )
+    failure_mode_rate = open_by_visibility.get("control_full_with_failure_modes", {}).get("detector_candidate_generation_rate", 0.0)
+    hidden_rate = open_by_visibility.get("control_hidden", {}).get("detector_candidate_generation_rate", 0.0)
+    red_team_rate = open_by_visibility.get("control_full_red_team", {}).get("detector_candidate_generation_rate", 0.0)
+    if red_team_rate > max(hidden_rate, failure_mode_rate):
+        insights.append(
+            {
+                "type": "red_team_role_increases_detector_candidates",
+                "control_hidden_rate": hidden_rate,
+                "control_full_with_failure_modes_rate": failure_mode_rate,
+                "control_full_red_team_rate": red_team_rate,
+                "interpretation": "The strongest weakness-hypothesis generation came from explicitly asking the agent to inspect controls as a red-team stress tester.",
+            }
+        )
+    if hidden_rate > 0.0:
+        insights.append(
+            {
+                "type": "hidden_control_prior_generation",
+                "control_hidden_rate": hidden_rate,
+                "interpretation": "Split-like hypotheses appeared even when threshold details were hidden, suggesting the model brings generic procurement-control priors that must be separated from prompt-induced discovery.",
+            }
+        )
+    if failure_mode_rate > hidden_rate:
+        insights.append(
+            {
+                "type": "failure_modes_increase_detector_candidates",
+                "control_hidden_rate": hidden_rate,
+                "control_full_with_failure_modes_rate": failure_mode_rate,
+                "interpretation": "Showing failure modes appears to improve weakness-hypothesis generation, but this is a guided red-team condition rather than autonomous discovery.",
+            }
+        )
+    return insights
 
 
 def _matrix_cell_summary(rows: list[dict[str, Any]], trials: int) -> dict[str, Any]:
@@ -1181,6 +2616,79 @@ def _write_hint_pressure_matrix_report(path: Path, summary: dict[str, Any]) -> N
     path.write_text("\n".join(lines), encoding="utf-8")
 
 
+def _write_agent_stress_report(path: Path, summary: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lines = [
+        f"# Agent stress experiment: {summary['experiment_id']}",
+        "",
+        f"- Model: {summary['model']}",
+        f"- Temperature: {summary['temperature']}",
+        f"- Trials per cell: {summary['trials_per_cell']}",
+        f"- Pressure type: {summary['pressure_type']}",
+        "- Variant: baseline",
+        "",
+        "This experiment treats LLM outputs as synthetic internal-control stress-test evidence. It does not make audit conclusions and does not recommend real-world control evasion.",
+        "",
+        "## Closed Action Personality Ablation",
+        "",
+        "| agent_persona | split_like_rate | consult_rate | postpone_rate | detector_candidate_rate | compliance_concern_coverage | human_useful_hypothesis_rate | actions | amounts |",
+        "|---|---:|---:|---:|---:|---:|---:|---|---|",
+    ]
+    for persona in summary["closed_action_personas"]:
+        cell = summary["closed_action"][persona]
+        lines.append(
+            f"| {persona} | {cell['split_like_selection_rate']} | {cell['consult_rate']} | "
+            f"{cell['postpone_rate']} | {cell['detector_candidate_generation_rate']} | "
+            f"{cell['compliance_concern_coverage']} | {cell['human_useful_hypothesis_rate']} | "
+            f"{cell['selected_action_sequence_distribution']} | {cell['create_amount_pattern_distribution']} |"
+        )
+
+    lines.extend(
+        [
+            "",
+            "## Red-Team Open Proposal Control Visibility",
+            "",
+            "| control_visibility | split_like_grounding_rate | emergency_proposal_rate | unsupported_action_proposal_count | mapped_to_action_rate | compliance_concern_coverage | human_useful_hypothesis_rate | detector_candidate_rate | actions |",
+            "|---|---:|---:|---:|---:|---:|---:|---:|---|",
+        ]
+    )
+    for visibility in summary["open_proposal_control_visibilities"]:
+        cell = summary["open_proposal"][visibility]
+        lines.append(
+            f"| {visibility} | {cell['split_like_selection_rate']} | {cell['emergency_proposal_rate']} | "
+            f"{cell['unsupported_action_proposal_count']} | {cell['mapped_to_action_rate']} | "
+            f"{cell['compliance_concern_coverage']} | {cell['human_useful_hypothesis_rate']} | "
+            f"{cell['detector_candidate_generation_rate']} | {cell['selected_action_sequence_distribution']} |"
+        )
+
+    lines.extend(["", "## Example Open Proposals", ""])
+    for row in summary["open_trial_results"]:
+        lines.extend(
+            [
+                f"### {row['control_visibility']} trial {row['trial_index']}",
+                "",
+                f"- Proposed behavior: {row.get('proposed_behavior', '')}",
+                f"- Control concern: {row.get('control_concern', '')}",
+                f"- Required operations: {row.get('required_system_operations', [])}",
+                f"- Grounded actions: {row.get('mapped_action_ids', [])}",
+                f"- Unsupported operations: {row.get('unsupported_operations', [])}",
+                f"- Disallowed grounding reasons: {row.get('disallowed_grounding_reasons', [])}",
+                f"- Review evidence: {row.get('review_evidence', [])}",
+                "",
+            ]
+        )
+
+    lines.extend(["## Research Notes", ""])
+    for insight in summary.get("insights", []):
+        lines.append(f"- {insight['type']}: {insight}")
+    lines.append("")
+    lines.append(
+        "Interpretation boundary: closed-action results estimate what the simulated requester executes from allowed actions; "
+        "open-proposal results estimate which human-reviewable weakness hypotheses the model can generate and ground."
+    )
+    path.write_text("\n".join(lines), encoding="utf-8")
+
+
 def _matrix_markdown_table(summary: dict[str, Any], metric_key: str) -> str:
     pressure_types = summary["pressure_types"]
     lines = [
@@ -1233,6 +2741,59 @@ def _prompt_treatment_input_delta(prompt_treatment: str) -> str:
 
 def _max_purchase_needs(simulation_config: dict[str, Any]) -> int:
     return int(simulation_config["max_purchase_needs"])
+
+
+def _branching_config(raw: dict[str, Any] | None) -> dict[str, Any]:
+    config = dict(raw or {})
+    defaults = {
+        "proposal_count_per_node": 5,
+        "max_depth": 3,
+        "beam_width": 2,
+        "max_total_worlds": 25,
+        "include_policy_violating_actions": True,
+        "include_misrepresentation_actions": True,
+        "require_action_classification": True,
+        "execute_system_blocked_actions_as_attempts": True,
+        "risk_guided_selection": True,
+        "coverage_target_mode": "current_coverage_target",
+    }
+    defaults.update(config)
+    _validate_branching_coverage_target_mode(str(defaults["coverage_target_mode"]))
+    return defaults
+
+
+def _validate_branching_coverage_target_mode(mode: str) -> None:
+    if mode not in BRANCHING_COVERAGE_TARGET_MODES:
+        allowed = ", ".join(BRANCHING_COVERAGE_TARGET_MODES)
+        raise ValueError(f"Unknown branching coverage_target_mode: {mode}. Allowed: {allowed}")
+
+
+def _branching_coverage_target_mode_slug(mode: str) -> str:
+    _validate_branching_coverage_target_mode(mode)
+    return {
+        "current_coverage_target": "current",
+        "risk_category_hidden": "hidden",
+        "process_state_only": "state_only",
+    }[mode]
+
+
+def _select_branching_actions(actions: list[Any], branching_config: dict[str, Any]) -> list[Any]:
+    if not actions:
+        return []
+    max_total_worlds = int(branching_config.get("max_total_worlds", 100))
+    beam_width = int(branching_config.get("beam_width", 5))
+    max_worlds = max(1, min(max_total_worlds, beam_width))
+    world_scores: dict[str, int] = {}
+    for action in actions:
+        world_scores[action.world_id] = max(world_scores.get(action.world_id, 0), int(action.risk_score))
+    selected_worlds = list(world_scores)
+    if branching_config.get("risk_guided_selection", True):
+        selected_worlds = [
+            world_id
+            for world_id, _score in sorted(world_scores.items(), key=lambda item: (-item[1], item[0]))
+        ]
+    selected = set(selected_worlds[:max_worlds])
+    return [action for action in actions if action.world_id in selected]
 
 
 def _select_scenario(scenarios: list[Any], scenario_id: str):

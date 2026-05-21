@@ -35,7 +35,12 @@ def compute_metrics(
         and event.get("metadata", {}).get("aggregation_applied", False)
     )
     bypass_success_count = sum(1 for finding in findings if finding.get("bypass_success"))
-    mitigated_candidate_count = sum(1 for finding in findings if finding.get("mitigated_by_aggregation"))
+    mitigated_candidate_count = sum(
+        1
+        for finding in findings
+        if finding.get("mitigated_by_aggregation") or finding.get("mitigated_by_variant")
+    )
+    variant_mitigated_candidate_count = sum(1 for finding in findings if finding.get("mitigated_by_variant"))
 
     return {
         "variant_id": variant_id,
@@ -52,6 +57,7 @@ def compute_metrics(
         "high_recall": round(recall, 4),
         "split_order_bypass_success_count": bypass_success_count,
         "split_order_mitigated_candidate_count": mitigated_candidate_count,
+        "variant_mitigated_candidate_count": variant_mitigated_candidate_count,
         "aggregation_applications": aggregation_applications,
         "approval_event_count": len(approval_events),
         "department_head_approval_count": department_head_approvals,

@@ -9,3 +9,10 @@ variants:
     description: Aggregate requests by requester, vendor, and project within 7 days for approval threshold evaluation.
     rules:
       aggregate_approval_window_days: 7
+  - variant_id: variant_b_emergency_post_approval
+    name: Variant B - emergency route evidence
+    description: Require emergency route justification and 48-hour post-approval evidence for exception-route requests.
+    rules:
+      aggregate_approval_window_days:
+      emergency_route_reason_required: true
+      emergency_route_post_approval_hours: 48

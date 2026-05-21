@@ -1,0 +1,91 @@
+{
+  "run_id": "RUN-S002-BRANCHING-BASELINE",
+  "nodes": [
+    {
+      "world_id": "WORLD-001",
+      "parent_world_id": "",
+      "proposal_id": "P-001",
+      "status": "completed",
+      "terminal_reason": "paid",
+      "depth": 1,
+      "classification": "compliant",
+      "risk_score": 20,
+      "detected_findings": [],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [],
+      "children": []
+    },
+    {
+      "world_id": "WORLD-002",
+      "parent_world_id": "",
+      "proposal_id": "P-002",
+      "status": "completed",
+      "terminal_reason": "paid",
+      "depth": 1,
+      "classification": "gray_area",
+      "risk_score": 55,
+      "detected_findings": [
+        "FND-000001"
+      ],
+      "current_detected_findings": [
+        "FND-000001"
+      ],
+      "inherited_detected_findings": [],
+      "children": []
+    },
+    {
+      "world_id": "WORLD-003",
+      "parent_world_id": "",
+      "proposal_id": "P-003",
+      "status": "completed",
+      "terminal_reason": "paid",
+      "depth": 1,
+      "classification": "compliant",
+      "risk_score": 20,
+      "detected_findings": [
+        "FND-000004"
+      ],
+      "current_detected_findings": [
+        "FND-000004"
+      ],
+      "inherited_detected_findings": [],
+      "children": []
+    },
+    {
+      "world_id": "WORLD-004",
+      "parent_world_id": "",
+      "proposal_id": "P-004",
+      "status": "completed",
+      "terminal_reason": "paid",
+      "depth": 1,
+      "classification": "gray_area",
+      "risk_score": 55,
+      "detected_findings": [
+        "FND-000003"
+      ],
+      "current_detected_findings": [
+        "FND-000003"
+      ],
+      "inherited_detected_findings": [],
+      "children": []
+    },
+    {
+      "world_id": "WORLD-005",
+      "parent_world_id": "",
+      "proposal_id": "P-005",
+      "status": "completed",
+      "terminal_reason": "paid",
+      "depth": 1,
+      "classification": "misrepresentation",
+      "risk_score": 100,
+      "detected_findings": [
+        "FND-000002"
+      ],
+      "current_detected_findings": [
+        "FND-000002"
+      ],
+      "inherited_detected_findings": [],
+      "children": []
+    }
+  ]
+}

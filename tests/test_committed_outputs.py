@@ -17,6 +17,8 @@ PRESSURE_EXPERIMENT = REPO_ROOT / "runs/experiments/EXP-S002-PRESSURE-CONTROL-10
 PROMPT_ABLATION_EXPERIMENT = REPO_ROOT / "runs/experiments/EXP-S002-PROMPT-ABLATION-10X"
 BALANCED_HINT_EXPERIMENT = REPO_ROOT / "runs/experiments/EXP-S002-BALANCED-PLANNING-HINT-10X"
 HINT_PRESSURE_MATRIX_EXPERIMENT = REPO_ROOT / "runs/experiments/EXP-S002-HINT-PRESSURE-MATRIX-5X"
+AGENT_STRESS_EXPERIMENT = REPO_ROOT / "runs/experiments/EXP-S002-AGENT-STRESS-3X"
+BRANCHING_HINT_ABLATION_EVIDENCE = REPO_ROOT / "runs/evidence/RUN-S002-BRANCHING-HINT-ABLATION-GPT41-MINI"
 FORBIDDEN_REVIEW_KEYS = {"evaluation_group_id", "behavior_pattern", "seeded_deficiency_id", "evaluation_result"}
 
 
@@ -289,6 +291,114 @@ def test_committed_hint_pressure_matrix_manifest_config_hashes_are_current():
         manifest = read_json(run_dir / "run_manifest.json")
         config_path = REPO_ROOT / manifest["inputs"]["run_config"]
         assert manifest["config_hashes"]["run_config"] == _sha256(config_path)
+
+
+def test_committed_agent_stress_experiment_matches_expected_values():
+    summary = read_json(AGENT_STRESS_EXPERIMENT / "summary.json")
+
+    assert summary["trials_per_cell"] == 3
+    assert summary["model"] == "gpt-4.1-mini"
+    assert summary["pressure_type"] == "delivery_pressure"
+    assert summary["closed_action_personas"] == [
+        "compliant_requester",
+        "pragmatic_requester",
+        "control_avoidant_requester",
+        "red_team_requester",
+    ]
+    assert summary["open_proposal_control_visibilities"] == [
+        "control_hidden",
+        "control_summary",
+        "control_full",
+        "control_full_with_failure_modes",
+        "control_full_red_team",
+    ]
+    assert all(
+        summary["closed_action"][persona]["split_like_selection_count"] == 0
+        for persona in summary["closed_action_personas"]
+    )
+    assert summary["closed_action"]["red_team_requester"]["consult_run_count"] == 2
+    assert summary["open_proposal"]["control_hidden"]["detector_candidate_generation_count"] == 2
+    assert summary["open_proposal"]["control_summary"]["unsupported_action_proposal_count"] == 1
+    assert summary["open_proposal"]["control_summary"]["mapped_to_action_rate"] == 0.6667
+    assert summary["open_proposal"]["control_full"]["unsupported_action_proposal_count"] == 1
+    assert summary["open_proposal"]["control_full_red_team"]["split_like_selection_count"] == 3
+    assert summary["open_proposal"]["control_full_red_team"]["detector_candidate_generation_count"] == 3
+    assert summary["open_proposal"]["control_full_red_team"]["create_amount_pattern_distribution"] == {
+        "875000 + 875000": 3
+    }
+    assert any(
+        insight["type"] == "most_useful_open_proposal_visibility"
+        and insight["control_visibility"] == "control_full_red_team"
+        for insight in summary["insights"]
+    )
+    assert any(insight["type"] == "hidden_control_prior_generation" for insight in summary["insights"])
+    assert (AGENT_STRESS_EXPERIMENT / "agent_stress_report.md").exists()
+
+
+def test_committed_agent_stress_review_outputs_do_not_expose_evaluation_labels():
+    run_dirs = sorted((AGENT_STRESS_EXPERIMENT / "runs").glob("RUN-S002-*"))
+    assert len(run_dirs) == 27
+
+    for run_dir in run_dirs:
+        for event in read_jsonl(run_dir / "events.jsonl"):
+            assert FORBIDDEN_REVIEW_KEYS.isdisjoint(event)
+            assert FORBIDDEN_REVIEW_KEYS.isdisjoint(event.get("metadata", {}))
+        for annotation in read_jsonl(run_dir / "detector_annotations.jsonl"):
+            assert FORBIDDEN_REVIEW_KEYS.isdisjoint(annotation)
+        for finding in read_json(run_dir / "findings.json")["findings"]:
+            assert FORBIDDEN_REVIEW_KEYS.isdisjoint(finding)
+
+        for filename in ["llm_calls.jsonl", "open_proposal_calls.jsonl"]:
+            path = run_dir / filename
+            if path.exists():
+                text = path.read_text(encoding="utf-8")
+                assert "OPENAI_API_KEY" not in text
+                for forbidden_key in FORBIDDEN_REVIEW_KEYS:
+                    assert forbidden_key not in text
+
+        for filename in ["open_proposals.jsonl", "action_grounding.jsonl"]:
+            path = run_dir / filename
+            if path.exists():
+                text = path.read_text(encoding="utf-8")
+                for forbidden_key in FORBIDDEN_REVIEW_KEYS:
+                    assert forbidden_key not in text
+
+
+def test_committed_branching_hint_ablation_evidence_matches_expected_values():
+    summary = read_json(BRANCHING_HINT_ABLATION_EVIDENCE / "summary.json")
+
+    assert summary["model"] == "gpt-4.1-mini"
+    assert summary["temperature"] == 0.7
+    assert summary["coverage_target_modes"] == [
+        "current_coverage_target",
+        "risk_category_hidden",
+        "process_state_only",
+    ]
+    assert summary["conditions"]["current_coverage_target"]["generated_world_count"] == 5
+    assert summary["conditions"]["risk_category_hidden"]["detected_defect_ids"] == [
+        "D-001",
+        "D-002",
+        "D-003",
+        "D-004",
+    ]
+    assert summary["conditions"]["process_state_only"]["generated_world_count"] == 25
+    assert summary["conditions"]["process_state_only"]["generated_depth_counts"] == {
+        "1": 5,
+        "2": 10,
+        "3": 10,
+    }
+    assert summary["conditions"]["process_state_only"]["detected_defect_ids"] == ["D-003", "D-004"]
+    assert summary["conditions"]["process_state_only"]["residual_risk_world_count"] == 2
+
+    for condition_slug in ["current", "hidden", "state_only"]:
+        condition_dir = BRANCHING_HINT_ABLATION_EVIDENCE / condition_slug
+        manifest = read_json(condition_dir / "evidence_manifest.json")
+        assert manifest["missing_files"] == []
+        calls_path = condition_dir / "RUN-S002-BRANCHING-BASELINE/branching_calls.jsonl"
+        assert calls_path.exists()
+        calls_text = calls_path.read_text(encoding="utf-8")
+        assert "OPENAI_API_KEY" not in calls_text
+        assert "sk-" not in calls_text
 
 
 def test_run_manifests_use_relative_paths_and_include_provenance_hashes():

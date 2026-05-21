@@ -5,9 +5,14 @@ import json
 from pathlib import Path
 
 from ia_sim.config import validate_config_tree
+from ia_sim.evidence import export_redacted_branching_evidence
 from ia_sim.orchestrator import (
     compare_runs,
+    run_agent_stress_experiment,
     run_balanced_planning_hint_experiment,
+    run_branching_hint_ablation_experiment,
+    run_branching_simulation,
+    run_branching_variant_comparison,
     run_first_slice,
     run_hint_pressure_matrix_experiment,
     run_llm_action_slice,
@@ -91,6 +96,60 @@ def build_parser() -> argparse.ArgumentParser:
     matrix.add_argument("--temperature", type=float, default=0.7)
     matrix.add_argument("--hint-strength", action="append", dest="hint_strengths")
     matrix.add_argument("--pressure-type", action="append", dest="pressure_types")
+
+    stress = subparsers.add_parser(
+        "run-agent-stress-experiment",
+        help="Run closed personality ablation and red-team open-proposal control visibility trials",
+    )
+    stress.add_argument("--trials", type=int, default=3)
+    stress.add_argument("--output-root")
+    stress.add_argument("--provider", default="openai")
+    stress.add_argument("--model", default="gpt-4.1-mini")
+    stress.add_argument("--temperature", type=float, default=0.7)
+
+    branching = subparsers.add_parser(
+        "run-branching-simulation",
+        help="Run Branching Proposal stress-test mode for S-002",
+    )
+    branching.add_argument("--output-root")
+    branching.add_argument("--provider", default="openai")
+    branching.add_argument("--model", default="gpt-4.1-mini")
+    branching.add_argument("--temperature", type=float, default=0.7)
+    branching.add_argument("--coverage-target-mode")
+
+    branching_compare = subparsers.add_parser(
+        "run-branching-variant-comparison",
+        help="Generate Branching Proposal worlds once, then replay them under Baseline and Variants A/B",
+    )
+    branching_compare.add_argument("--output-root")
+    branching_compare.add_argument("--provider", default="openai")
+    branching_compare.add_argument("--model", default="gpt-4.1-mini")
+    branching_compare.add_argument("--temperature", type=float, default=0.7)
+    branching_compare.add_argument("--coverage-target-mode")
+
+    branching_hint_ablation = subparsers.add_parser(
+        "run-branching-hint-ablation-experiment",
+        help="Compare explicit, risk-category-hidden, and process-state-only Branching Proposal prompts",
+    )
+    branching_hint_ablation.add_argument("--output-root")
+    branching_hint_ablation.add_argument("--provider", default="openai")
+    branching_hint_ablation.add_argument("--model", default="gpt-4.1-mini")
+    branching_hint_ablation.add_argument("--temperature", type=float, default=0.7)
+    branching_hint_ablation.add_argument(
+        "--coverage-target-mode",
+        action="append",
+        dest="coverage_target_modes",
+        help="Coverage target mode to include. Repeat to select multiple modes. Defaults to all three modes.",
+    )
+
+    evidence = subparsers.add_parser(
+        "export-branching-evidence",
+        help="Copy a Branching Proposal run and comparison into a redacted evidence directory",
+    )
+    evidence.add_argument("--source-root", required=True)
+    evidence.add_argument("--output-dir", required=True)
+    evidence.add_argument("--run-id", default="RUN-S002-BRANCHING-BASELINE")
+    evidence.add_argument("--comparison-id", default="CMP-S002-BRANCHING-BASELINE-VARIANTS")
     return parser
 
 
@@ -255,6 +314,108 @@ def main(argv: list[str] | None = None) -> int:
                 indent=2,
             )
         )
+        return 0
+
+    if args.command == "run-agent-stress-experiment":
+        output_root = Path(args.output_root) if args.output_root else None
+        result = run_agent_stress_experiment(
+            repo_root,
+            trials=args.trials,
+            output_root_override=output_root,
+            provider=args.provider,
+            model=args.model,
+            temperature=args.temperature,
+        )
+        print(
+            json.dumps(
+                {
+                    "experiment_id": result["experiment_id"],
+                    "experiment_dir": str(result["experiment_dir"]),
+                    "summary": result["summary"],
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+        return 0
+
+    if args.command == "run-branching-simulation":
+        output_root = Path(args.output_root) if args.output_root else None
+        result = run_branching_simulation(
+            repo_root,
+            output_root_override=output_root,
+            provider=args.provider,
+            model=args.model,
+            temperature=args.temperature,
+            coverage_target_mode=args.coverage_target_mode,
+        )
+        print(
+            json.dumps(
+                {
+                    "run_id": result["run"].run_id,
+                    "run_dir": str(result["run"].run_dir),
+                    "config_path": str(result["config_path"]),
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+        return 0
+
+    if args.command == "run-branching-variant-comparison":
+        output_root = Path(args.output_root) if args.output_root else None
+        result = run_branching_variant_comparison(
+            repo_root,
+            output_root_override=output_root,
+            provider=args.provider,
+            model=args.model,
+            temperature=args.temperature,
+            coverage_target_mode=args.coverage_target_mode,
+        )
+        print(
+            json.dumps(
+                {
+                    "baseline_run_dir": str(result["baseline_run"].run_dir),
+                    "comparison_dir": str(result["comparison_dir"]),
+                    "comparison": result["comparison"],
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+        return 0
+
+    if args.command == "run-branching-hint-ablation-experiment":
+        output_root = Path(args.output_root) if args.output_root else None
+        result = run_branching_hint_ablation_experiment(
+            repo_root,
+            output_root_override=output_root,
+            provider=args.provider,
+            model=args.model,
+            temperature=args.temperature,
+            coverage_target_modes=args.coverage_target_modes,
+        )
+        print(
+            json.dumps(
+                {
+                    "experiment_id": result["experiment_id"],
+                    "experiment_dir": str(result["experiment_dir"]),
+                    "summary": result["summary"],
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+        return 0
+
+    if args.command == "export-branching-evidence":
+        manifest = export_redacted_branching_evidence(
+            source_root=Path(args.source_root),
+            output_dir=Path(args.output_dir),
+            run_id=args.run_id,
+            comparison_id=args.comparison_id,
+        )
+        print(json.dumps(manifest, ensure_ascii=False, indent=2))
         return 0
 
     parser.error("unknown command")
