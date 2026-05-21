@@ -69,6 +69,11 @@ BRANCHING_COMPARISON_VARIANTS = [
     "variant_a_7d_aggregation",
     "variant_b_emergency_post_approval",
 ]
+BRANCHING_COVERAGE_TARGET_MODES = [
+    "current_coverage_target",
+    "risk_category_hidden",
+    "process_state_only",
+]
 
 
 def load_variant_policy(repo_root: Path, variant_id: str) -> VariantPolicy:
@@ -185,6 +190,7 @@ def run_simulation(
             pressure_type=str(run_config.llm.get("pressure_type", "delivery_pressure")),
             agent_persona=str(run_config.llm.get("agent_persona", "red_team_requester")),
             control_visibility=str(run_config.llm.get("control_visibility", "control_full_red_team")),
+            coverage_target_mode=str(branching_config["coverage_target_mode"]),
             trial_index=run_config.llm.get("trial_index"),
             llm_seed=run_config.llm.get("seed"),
         )
@@ -336,6 +342,7 @@ def run_simulation(
             "pressure_type": run_config.llm.get("pressure_type"),
             "agent_persona": run_config.llm.get("agent_persona"),
             "control_visibility": run_config.llm.get("control_visibility"),
+            "coverage_target_mode": _branching_config(run_config.branching).get("coverage_target_mode"),
             "trial_index": run_config.llm.get("trial_index"),
             "seed": run_config.llm.get("seed"),
         }
@@ -711,6 +718,7 @@ def run_branching_simulation(
     provider: str = "openai",
     model: str = "gpt-4.1-mini",
     temperature: float = 0.7,
+    coverage_target_mode: str | None = None,
 ) -> dict[str, Any]:
     base_config_path = repo_root / "configs/run_configs/branching_baseline.yaml"
     base_config = read_yaml(base_config_path)
@@ -726,6 +734,9 @@ def run_branching_simulation(
     config["llm"]["provider"] = provider
     config["llm"]["model"] = model
     config["llm"]["temperature"] = temperature
+    if coverage_target_mode is not None:
+        _validate_branching_coverage_target_mode(coverage_target_mode)
+        config.setdefault("branching", {})["coverage_target_mode"] = coverage_target_mode
     config_root = output_root_override or repo_root / "runs"
     config_path = config_root / "configs" / f"{config['run_id']}.yaml"
     write_yaml(config_path, config)
@@ -745,6 +756,7 @@ def run_branching_variant_comparison(
     provider: str = "openai",
     model: str = "gpt-4.1-mini",
     temperature: float = 0.7,
+    coverage_target_mode: str | None = None,
 ) -> dict[str, Any]:
     baseline_result = run_branching_simulation(
         repo_root,
@@ -752,6 +764,7 @@ def run_branching_variant_comparison(
         provider=provider,
         model=model,
         temperature=temperature,
+        coverage_target_mode=coverage_target_mode,
     )
     baseline_run: RunResult = baseline_result["run"]
     base_config = read_yaml(baseline_result["config_path"])
@@ -813,6 +826,7 @@ def run_branching_variant_comparison(
         provider=provider,
         model=model,
         temperature=temperature,
+        coverage_target_mode=str(branching_config.get("coverage_target_mode", "current_coverage_target")),
         variant_runs=variant_runs,
     )
     comparison_dir = (output_root_override or repo_root / "runs") / "comparisons/CMP-S002-BRANCHING-BASELINE-VARIANTS"
@@ -860,12 +874,176 @@ def _branching_variant_label(variant_id: str) -> str:
     return labels.get(variant_id, variant_id.upper().replace("_", "-"))
 
 
+def run_branching_hint_ablation_experiment(
+    repo_root: Path,
+    *,
+    output_root_override: Path | None = None,
+    provider: str = "openai",
+    model: str = "gpt-4.1-mini",
+    temperature: float = 0.7,
+    coverage_target_modes: list[str] | None = None,
+) -> dict[str, Any]:
+    modes = coverage_target_modes or list(BRANCHING_COVERAGE_TARGET_MODES)
+    for mode in modes:
+        _validate_branching_coverage_target_mode(mode)
+
+    experiment_id = "EXP-S002-BRANCHING-HINT-ABLATION"
+    output_root = output_root_override or repo_root / "runs"
+    experiment_dir = output_root / "experiments" / experiment_id
+    condition_summaries: dict[str, dict[str, Any]] = {}
+
+    for mode in modes:
+        condition_root = experiment_dir / "conditions" / _branching_coverage_target_mode_slug(mode)
+        result = run_branching_variant_comparison(
+            repo_root,
+            output_root_override=condition_root,
+            provider=provider,
+            model=model,
+            temperature=temperature,
+            coverage_target_mode=mode,
+        )
+        condition_summaries[mode] = _branching_hint_condition_summary(
+            mode=mode,
+            experiment_dir=experiment_dir,
+            result=result,
+        )
+
+    summary = {
+        "experiment_id": experiment_id,
+        "experiment_mode": "branching_hint_ablation",
+        "provider": provider,
+        "model": model,
+        "temperature": temperature,
+        "coverage_target_modes": modes,
+        "conditions": condition_summaries,
+        "cross_condition": _branching_hint_cross_condition_summary(condition_summaries),
+    }
+    write_json(experiment_dir / "summary.json", summary)
+    _write_branching_hint_ablation_report(experiment_dir / "branching_hint_ablation_report.md", summary)
+    return {
+        "experiment_id": experiment_id,
+        "experiment_dir": experiment_dir,
+        "summary": summary,
+    }
+
+
+def _branching_hint_condition_summary(
+    *,
+    mode: str,
+    experiment_dir: Path,
+    result: dict[str, Any],
+) -> dict[str, Any]:
+    baseline_run: RunResult = result["baseline_run"]
+    branching_summary = read_json(baseline_run.run_dir / "branching_summary.json")
+    findings = read_json(baseline_run.run_dir / "findings.json")["findings"]
+    proposals = read_jsonl(baseline_run.run_dir / "branching_proposals.jsonl")
+    comparison = result["comparison"]
+    return {
+        "coverage_target_mode": mode,
+        "condition_slug": _branching_coverage_target_mode_slug(mode),
+        "condition_dir": str(baseline_run.run_dir.parent.relative_to(experiment_dir)),
+        "baseline_run_dir": str(baseline_run.run_dir.relative_to(experiment_dir)),
+        "comparison_dir": str(result["comparison_dir"].relative_to(experiment_dir)),
+        "generated_world_count": branching_summary["generated_world_count"],
+        "generated_depth_counts": branching_summary["generated_depth_counts"],
+        "expanded_world_count": branching_summary["expanded_world_count"],
+        "duplicate_world_count": branching_summary["duplicate_world_count"],
+        "high_risk_world_count": branching_summary["high_risk_world_count"],
+        "lineage_detection_rate": branching_summary["lineage_detection_rate"],
+        "new_risk_detection_rate": branching_summary["new_risk_detection_rate"],
+        "current_world_detection_rate": branching_summary["current_world_detection_rate"],
+        "inherited_risk_count": branching_summary["inherited_risk_count"],
+        "residual_risk_world_count": branching_summary["residual_risk_world_count"],
+        "detected_defect_ids": sorted({str(finding["defect_id"]) for finding in findings}),
+        "proposal_classification_counts": dict(
+            sorted(Counter(str(row.get("classification", "")) for row in proposals).items())
+        ),
+        "proposal_titles": [str(row.get("title", "")) for row in proposals[:15]],
+        "variant_mitigated_finding_counts": {
+            variant_id: variant_summary["mitigated_finding_count"]
+            for variant_id, variant_summary in comparison["variants"].items()
+            if variant_id != "baseline"
+        },
+    }
+
+
+def _branching_hint_cross_condition_summary(conditions: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    all_defects = sorted(
+        {
+            defect_id
+            for condition in conditions.values()
+            for defect_id in condition["detected_defect_ids"]
+        }
+    )
+    return {
+        "all_detected_defect_ids": all_defects,
+        "defect_ids_by_condition": {
+            mode: condition["detected_defect_ids"] for mode, condition in conditions.items()
+        },
+        "generated_world_count_by_condition": {
+            mode: condition["generated_world_count"] for mode, condition in conditions.items()
+        },
+        "new_risk_detection_rate_by_condition": {
+            mode: condition["new_risk_detection_rate"] for mode, condition in conditions.items()
+        },
+        "residual_risk_world_count_by_condition": {
+            mode: condition["residual_risk_world_count"] for mode, condition in conditions.items()
+        },
+    }
+
+
+def _write_branching_hint_ablation_report(path: Path, summary: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lines = [
+        "# Branching Hint Ablation Experiment",
+        "",
+        f"- experiment_id: {summary['experiment_id']}",
+        f"- provider: {summary['provider']}",
+        f"- model: {summary['model']}",
+        f"- temperature: {summary['temperature']}",
+        "",
+        "## Condition Summary",
+        "",
+        "| Condition | Worlds | Depths | Expanded | Defects | Lineage rate | New-risk rate | Residual worlds |",
+        "|---|---:|---|---:|---|---:|---:|---:|",
+    ]
+    for mode, condition in summary["conditions"].items():
+        lines.append(
+            f"| {mode} | {condition['generated_world_count']} | "
+            f"{condition['generated_depth_counts']} | {condition['expanded_world_count']} | "
+            f"{condition['detected_defect_ids']} | {condition['lineage_detection_rate']} | "
+            f"{condition['new_risk_detection_rate']} | {condition['residual_risk_world_count']} |"
+        )
+
+    lines.extend(
+        [
+            "",
+            "## Interpretation Boundary",
+            "",
+            "The current_coverage_target condition explicitly names target risk categories. "
+            "The risk_category_hidden condition keeps control structure and allowed actions visible but removes named risk-category coverage targets. "
+            "The process_state_only condition hides control cards and asks for branches from state, goals, constraints, and allowed actions only. "
+            "Allowed action identifiers remain visible in every condition because the output must be grounded into executable synthetic actions.",
+            "",
+            "## Proposal Titles",
+            "",
+        ]
+    )
+    for mode, condition in summary["conditions"].items():
+        lines.extend([f"### {mode}", ""])
+        for title in condition["proposal_titles"]:
+            lines.append(f"- {title}")
+        lines.append("")
+    path.write_text("\n".join(lines), encoding="utf-8")
+
+
 def _build_branching_variant_comparison(
     *,
     source_run_id: str,
     provider: str,
     model: str,
     temperature: float,
+    coverage_target_mode: str,
     variant_runs: dict[str, dict[str, Any]],
 ) -> dict[str, Any]:
     baseline_findings_by_world = _findings_by_world(variant_runs["baseline"]["findings"])
@@ -939,6 +1117,7 @@ def _build_branching_variant_comparison(
         "provider": provider,
         "model": model,
         "temperature": temperature,
+        "coverage_target_mode": coverage_target_mode,
         "variants": variants,
         "world_effects": worlds,
     }
@@ -965,6 +1144,7 @@ def _write_branching_variant_comparison_report(path: Path, comparison: dict[str,
         f"- same_world_group_replayed: {comparison['same_world_group_replayed']}",
         f"- model: {comparison['model']}",
         f"- temperature: {comparison['temperature']}",
+        f"- coverage_target_mode: {comparison.get('coverage_target_mode', 'current_coverage_target')}",
         "",
         "## Variant Summary",
         "",
@@ -2575,9 +2755,26 @@ def _branching_config(raw: dict[str, Any] | None) -> dict[str, Any]:
         "require_action_classification": True,
         "execute_system_blocked_actions_as_attempts": True,
         "risk_guided_selection": True,
+        "coverage_target_mode": "current_coverage_target",
     }
     defaults.update(config)
+    _validate_branching_coverage_target_mode(str(defaults["coverage_target_mode"]))
     return defaults
+
+
+def _validate_branching_coverage_target_mode(mode: str) -> None:
+    if mode not in BRANCHING_COVERAGE_TARGET_MODES:
+        allowed = ", ".join(BRANCHING_COVERAGE_TARGET_MODES)
+        raise ValueError(f"Unknown branching coverage_target_mode: {mode}. Allowed: {allowed}")
+
+
+def _branching_coverage_target_mode_slug(mode: str) -> str:
+    _validate_branching_coverage_target_mode(mode)
+    return {
+        "current_coverage_target": "current",
+        "risk_category_hidden": "hidden",
+        "process_state_only": "state_only",
+    }[mode]
 
 
 def _select_branching_actions(actions: list[Any], branching_config: dict[str, Any]) -> list[Any]:

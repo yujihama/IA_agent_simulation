@@ -42,3 +42,4 @@ branching:
   require_action_classification: true
   execute_system_blocked_actions_as_attempts: true
   risk_guided_selection: true
+  coverage_target_mode: current_coverage_target

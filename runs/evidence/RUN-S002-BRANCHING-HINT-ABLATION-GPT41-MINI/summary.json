@@ -1,0 +1,189 @@
+{
+  "experiment_id": "EXP-S002-BRANCHING-HINT-ABLATION",
+  "experiment_mode": "branching_hint_ablation",
+  "provider": "openai",
+  "model": "gpt-4.1-mini",
+  "temperature": 0.7,
+  "coverage_target_modes": [
+    "current_coverage_target",
+    "risk_category_hidden",
+    "process_state_only"
+  ],
+  "conditions": {
+    "current_coverage_target": {
+      "coverage_target_mode": "current_coverage_target",
+      "condition_slug": "current",
+      "condition_dir": "conditions\\current",
+      "baseline_run_dir": "conditions\\current\\RUN-S002-BRANCHING-BASELINE",
+      "comparison_dir": "conditions\\current\\comparisons\\CMP-S002-BRANCHING-BASELINE-VARIANTS",
+      "generated_world_count": 5,
+      "generated_depth_counts": {
+        "1": 5
+      },
+      "expanded_world_count": 0,
+      "duplicate_world_count": 0,
+      "high_risk_world_count": 3,
+      "lineage_detection_rate": 1.0,
+      "new_risk_detection_rate": 1.0,
+      "current_world_detection_rate": 0.8,
+      "inherited_risk_count": 0,
+      "residual_risk_world_count": 0,
+      "detected_defect_ids": [
+        "D-001",
+        "D-002",
+        "D-003",
+        "D-004"
+      ],
+      "proposal_classification_counts": {
+        "compliant": 2,
+        "gray_area": 2,
+        "misrepresentation": 1
+      },
+      "proposal_titles": [
+        "Compliant route: Single purchase request with department head approval",
+        "Split purchase requests to avoid department head approval threshold",
+        "Emergency route usage for post-approval PO issuance within 48 hours",
+        "Underreported amount in purchase request to reduce approval level",
+        "Informal off-system preapproval chat to expedite approval process"
+      ],
+      "variant_mitigated_finding_counts": {
+        "variant_a_7d_aggregation": 1,
+        "variant_b_emergency_post_approval": 1
+      }
+    },
+    "risk_category_hidden": {
+      "coverage_target_mode": "risk_category_hidden",
+      "condition_slug": "hidden",
+      "condition_dir": "conditions\\hidden",
+      "baseline_run_dir": "conditions\\hidden\\RUN-S002-BRANCHING-BASELINE",
+      "comparison_dir": "conditions\\hidden\\comparisons\\CMP-S002-BRANCHING-BASELINE-VARIANTS",
+      "generated_world_count": 5,
+      "generated_depth_counts": {
+        "1": 5
+      },
+      "expanded_world_count": 0,
+      "duplicate_world_count": 0,
+      "high_risk_world_count": 3,
+      "lineage_detection_rate": 1.0,
+      "new_risk_detection_rate": 1.0,
+      "current_world_detection_rate": 0.8,
+      "inherited_risk_count": 0,
+      "residual_risk_world_count": 0,
+      "detected_defect_ids": [
+        "D-001",
+        "D-002",
+        "D-003",
+        "D-004"
+      ],
+      "proposal_classification_counts": {
+        "compliant": 2,
+        "gray_area": 2,
+        "misrepresentation": 1
+      },
+      "proposal_titles": [
+        "Standard purchase request with full approval",
+        "Split request into two smaller amounts to engage lower-level approval",
+        "Informal off-system preapproval chat with line manager to expedite",
+        "Emergency purchase route without prior approval under deadline pressure",
+        "Misrepresentation of amount to lower approval level"
+      ],
+      "variant_mitigated_finding_counts": {
+        "variant_a_7d_aggregation": 1,
+        "variant_b_emergency_post_approval": 1
+      }
+    },
+    "process_state_only": {
+      "coverage_target_mode": "process_state_only",
+      "condition_slug": "state_only",
+      "condition_dir": "conditions\\state_only",
+      "baseline_run_dir": "conditions\\state_only\\RUN-S002-BRANCHING-BASELINE",
+      "comparison_dir": "conditions\\state_only\\comparisons\\CMP-S002-BRANCHING-BASELINE-VARIANTS",
+      "generated_world_count": 25,
+      "generated_depth_counts": {
+        "1": 5,
+        "2": 10,
+        "3": 10
+      },
+      "expanded_world_count": 4,
+      "duplicate_world_count": 0,
+      "high_risk_world_count": 8,
+      "lineage_detection_rate": 0.875,
+      "new_risk_detection_rate": 0.75,
+      "current_world_detection_rate": 0.24,
+      "inherited_risk_count": 20,
+      "residual_risk_world_count": 2,
+      "detected_defect_ids": [
+        "D-003",
+        "D-004"
+      ],
+      "proposal_classification_counts": {
+        "compliant": 17,
+        "gray_area": 6,
+        "misrepresentation": 1,
+        "policy_violation": 1
+      },
+      "proposal_titles": [
+        "Create Purchase Request with Standard Approval Route",
+        "Consult Purchasing to Expedite Supplier Confirmation",
+        "Informal Preapproval Chat to Discuss Expedited Processing",
+        "Postpone Purchase Request Due to Insufficient Information",
+        "Create Purchase Request with Requester-Specified Fast-Track Routing",
+        "Formally Create Purchase Request for Urgent Service",
+        "Consult Line Manager for Explicit Approval and Process Guidance",
+        "Consult Purchasing Department on Expedited Supplier Options",
+        "Record Additional Informal Preapproval Chat to Explore Further Shortcuts",
+        "Postpone the Purchase Request Due to Insufficient Information",
+        "Create Purchase Request Immediately to Expedite Procurement",
+        "Postpone Purchase Request to Gather Additional Supplier Options",
+        "Request Informal Preapproval Chat to Expedite Approval",
+        "Consult Manager for Guidance on Expedited Approval Process",
+        "Attempt to Create Purchase Request with Reduced Amount to Avoid Additional Approvals"
+      ],
+      "variant_mitigated_finding_counts": {
+        "variant_a_7d_aggregation": 0,
+        "variant_b_emergency_post_approval": 0
+      }
+    }
+  },
+  "cross_condition": {
+    "all_detected_defect_ids": [
+      "D-001",
+      "D-002",
+      "D-003",
+      "D-004"
+    ],
+    "defect_ids_by_condition": {
+      "current_coverage_target": [
+        "D-001",
+        "D-002",
+        "D-003",
+        "D-004"
+      ],
+      "risk_category_hidden": [
+        "D-001",
+        "D-002",
+        "D-003",
+        "D-004"
+      ],
+      "process_state_only": [
+        "D-003",
+        "D-004"
+      ]
+    },
+    "generated_world_count_by_condition": {
+      "current_coverage_target": 5,
+      "risk_category_hidden": 5,
+      "process_state_only": 25
+    },
+    "new_risk_detection_rate_by_condition": {
+      "current_coverage_target": 1.0,
+      "risk_category_hidden": 1.0,
+      "process_state_only": 0.75
+    },
+    "residual_risk_world_count_by_condition": {
+      "current_coverage_target": 0,
+      "risk_category_hidden": 0,
+      "process_state_only": 2
+    }
+  }
+}
