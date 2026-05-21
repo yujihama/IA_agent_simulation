@@ -1,0 +1,924 @@
+{
+  "findings": [
+    {
+      "finding_id": "FND-000001",
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-004",
+      "defect_id": "D-004",
+      "title": "非公式事前承認・システム外相談のレビュー候補",
+      "severity": "medium",
+      "status": "candidate_unmitigated",
+      "detector_id": "informal_preapproval_detector",
+      "related_controls": [
+        "P2P-C-001",
+        "P2P-C-003"
+      ],
+      "evidence_event_ids": [
+        "EVT-000011"
+      ],
+      "observed_facts": [
+        "正式な購買申請前に、システム外の非公式事前相談が記録された。",
+        "このイベントは通常の承認ワークフロー上の承認証跡ではない。"
+      ],
+      "inference": "非公式事前承認は正式統制を形骸化させる可能性がある。承認コメント、チャット証跡、ヒアリング手続で追加確認すべきレビュー候補である。",
+      "bypass_success": false,
+      "mitigated_by_aggregation": false,
+      "mitigated_by_variant": false,
+      "mitigated_by_emergency_control": false,
+      "recommended_review_steps": [
+        "正式承認前の非公式な合意形成があったか確認する。",
+        "承認コメント、チャット証跡、ヒアリング手続で根拠を確認する。",
+        "非公式相談が正式承認を形骸化させていないか評価する。"
+      ],
+      "evidence_summary": [
+        {
+          "event_id": "EVT-000011",
+          "timestamp": "2026-06-25T09:00:00+09:00",
+          "world_id": "WORLD-004",
+          "purchase_need_id": "NEED-001",
+          "purchase_request_id": "",
+          "amount": 0,
+          "reported_amount": 0,
+          "economic_amount": 0,
+          "requested_route_type": "",
+          "required_approver_level": "",
+          "aggregation_applied": false
+        }
+      ]
+    },
+    {
+      "finding_id": "FND-000002",
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-006",
+      "defect_id": "D-004",
+      "title": "非公式事前承認・システム外相談のレビュー候補",
+      "severity": "medium",
+      "status": "candidate_unmitigated",
+      "detector_id": "informal_preapproval_detector",
+      "related_controls": [
+        "P2P-C-001",
+        "P2P-C-003"
+      ],
+      "evidence_event_ids": [
+        "EVT-000020"
+      ],
+      "observed_facts": [
+        "正式な購買申請前に、システム外の非公式事前相談が記録された。",
+        "このイベントは通常の承認ワークフロー上の承認証跡ではない。"
+      ],
+      "inference": "非公式事前承認は正式統制を形骸化させる可能性がある。承認コメント、チャット証跡、ヒアリング手続で追加確認すべきレビュー候補である。",
+      "bypass_success": false,
+      "mitigated_by_aggregation": false,
+      "mitigated_by_variant": false,
+      "mitigated_by_emergency_control": false,
+      "recommended_review_steps": [
+        "正式承認前の非公式な合意形成があったか確認する。",
+        "承認コメント、チャット証跡、ヒアリング手続で根拠を確認する。",
+        "非公式相談が正式承認を形骸化させていないか評価する。"
+      ],
+      "evidence_summary": [
+        {
+          "event_id": "EVT-000020",
+          "timestamp": "2026-06-25T09:00:00+09:00",
+          "world_id": "WORLD-006",
+          "purchase_need_id": "NEED-001",
+          "purchase_request_id": "",
+          "amount": 0,
+          "reported_amount": 0,
+          "economic_amount": 0,
+          "requested_route_type": "",
+          "required_approver_level": "",
+          "aggregation_applied": false
+        }
+      ]
+    },
+    {
+      "finding_id": "FND-000003",
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-007",
+      "defect_id": "D-004",
+      "title": "非公式事前承認・システム外相談のレビュー候補",
+      "severity": "medium",
+      "status": "candidate_unmitigated",
+      "detector_id": "informal_preapproval_detector",
+      "related_controls": [
+        "P2P-C-001",
+        "P2P-C-003"
+      ],
+      "evidence_event_ids": [
+        "EVT-000029"
+      ],
+      "observed_facts": [
+        "正式な購買申請前に、システム外の非公式事前相談が記録された。",
+        "このイベントは通常の承認ワークフロー上の承認証跡ではない。"
+      ],
+      "inference": "非公式事前承認は正式統制を形骸化させる可能性がある。承認コメント、チャット証跡、ヒアリング手続で追加確認すべきレビュー候補である。",
+      "bypass_success": false,
+      "mitigated_by_aggregation": false,
+      "mitigated_by_variant": false,
+      "mitigated_by_emergency_control": false,
+      "recommended_review_steps": [
+        "正式承認前の非公式な合意形成があったか確認する。",
+        "承認コメント、チャット証跡、ヒアリング手続で根拠を確認する。",
+        "非公式相談が正式承認を形骸化させていないか評価する。"
+      ],
+      "evidence_summary": [
+        {
+          "event_id": "EVT-000029",
+          "timestamp": "2026-06-25T09:00:00+09:00",
+          "world_id": "WORLD-007",
+          "purchase_need_id": "NEED-001",
+          "purchase_request_id": "",
+          "amount": 0,
+          "reported_amount": 0,
+          "economic_amount": 0,
+          "requested_route_type": "",
+          "required_approver_level": "",
+          "aggregation_applied": false
+        }
+      ]
+    },
+    {
+      "finding_id": "FND-000004",
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-008",
+      "defect_id": "D-004",
+      "title": "非公式事前承認・システム外相談のレビュー候補",
+      "severity": "medium",
+      "status": "candidate_unmitigated",
+      "detector_id": "informal_preapproval_detector",
+      "related_controls": [
+        "P2P-C-001",
+        "P2P-C-003"
+      ],
+      "evidence_event_ids": [
+        "EVT-000031"
+      ],
+      "observed_facts": [
+        "正式な購買申請前に、システム外の非公式事前相談が記録された。",
+        "このイベントは通常の承認ワークフロー上の承認証跡ではない。"
+      ],
+      "inference": "非公式事前承認は正式統制を形骸化させる可能性がある。承認コメント、チャット証跡、ヒアリング手続で追加確認すべきレビュー候補である。",
+      "bypass_success": false,
+      "mitigated_by_aggregation": false,
+      "mitigated_by_variant": false,
+      "mitigated_by_emergency_control": false,
+      "recommended_review_steps": [
+        "正式承認前の非公式な合意形成があったか確認する。",
+        "承認コメント、チャット証跡、ヒアリング手続で根拠を確認する。",
+        "非公式相談が正式承認を形骸化させていないか評価する。"
+      ],
+      "evidence_summary": [
+        {
+          "event_id": "EVT-000031",
+          "timestamp": "2026-06-25T09:00:00+09:00",
+          "world_id": "WORLD-008",
+          "purchase_need_id": "NEED-001",
+          "purchase_request_id": "",
+          "amount": 0,
+          "reported_amount": 0,
+          "economic_amount": 0,
+          "requested_route_type": "",
+          "required_approver_level": "",
+          "aggregation_applied": false
+        }
+      ]
+    },
+    {
+      "finding_id": "FND-000005",
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-009",
+      "defect_id": "D-004",
+      "title": "非公式事前承認・システム外相談のレビュー候補",
+      "severity": "medium",
+      "status": "candidate_unmitigated",
+      "detector_id": "informal_preapproval_detector",
+      "related_controls": [
+        "P2P-C-001",
+        "P2P-C-003"
+      ],
+      "evidence_event_ids": [
+        "EVT-000033"
+      ],
+      "observed_facts": [
+        "正式な購買申請前に、システム外の非公式事前相談が記録された。",
+        "このイベントは通常の承認ワークフロー上の承認証跡ではない。"
+      ],
+      "inference": "非公式事前承認は正式統制を形骸化させる可能性がある。承認コメント、チャット証跡、ヒアリング手続で追加確認すべきレビュー候補である。",
+      "bypass_success": false,
+      "mitigated_by_aggregation": false,
+      "mitigated_by_variant": false,
+      "mitigated_by_emergency_control": false,
+      "recommended_review_steps": [
+        "正式承認前の非公式な合意形成があったか確認する。",
+        "承認コメント、チャット証跡、ヒアリング手続で根拠を確認する。",
+        "非公式相談が正式承認を形骸化させていないか評価する。"
+      ],
+      "evidence_summary": [
+        {
+          "event_id": "EVT-000033",
+          "timestamp": "2026-06-25T09:00:00+09:00",
+          "world_id": "WORLD-009",
+          "purchase_need_id": "NEED-001",
+          "purchase_request_id": "",
+          "amount": 0,
+          "reported_amount": 0,
+          "economic_amount": 0,
+          "requested_route_type": "",
+          "required_approver_level": "",
+          "aggregation_applied": false
+        }
+      ]
+    },
+    {
+      "finding_id": "FND-000006",
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-009",
+      "defect_id": "D-004",
+      "title": "非公式事前承認・システム外相談のレビュー候補",
+      "severity": "medium",
+      "status": "candidate_unmitigated",
+      "detector_id": "informal_preapproval_detector",
+      "related_controls": [
+        "P2P-C-001",
+        "P2P-C-003"
+      ],
+      "evidence_event_ids": [
+        "EVT-000034"
+      ],
+      "observed_facts": [
+        "正式な購買申請前に、システム外の非公式事前相談が記録された。",
+        "このイベントは通常の承認ワークフロー上の承認証跡ではない。"
+      ],
+      "inference": "非公式事前承認は正式統制を形骸化させる可能性がある。承認コメント、チャット証跡、ヒアリング手続で追加確認すべきレビュー候補である。",
+      "bypass_success": false,
+      "mitigated_by_aggregation": false,
+      "mitigated_by_variant": false,
+      "mitigated_by_emergency_control": false,
+      "recommended_review_steps": [
+        "正式承認前の非公式な合意形成があったか確認する。",
+        "承認コメント、チャット証跡、ヒアリング手続で根拠を確認する。",
+        "非公式相談が正式承認を形骸化させていないか評価する。"
+      ],
+      "evidence_summary": [
+        {
+          "event_id": "EVT-000034",
+          "timestamp": "2026-06-25T09:00:00+09:00",
+          "world_id": "WORLD-009",
+          "purchase_need_id": "NEED-001",
+          "purchase_request_id": "",
+          "amount": 0,
+          "reported_amount": 0,
+          "economic_amount": 0,
+          "requested_route_type": "",
+          "required_approver_level": "",
+          "aggregation_applied": false
+        }
+      ]
+    },
+    {
+      "finding_id": "FND-000007",
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-010",
+      "defect_id": "D-004",
+      "title": "非公式事前承認・システム外相談のレビュー候補",
+      "severity": "medium",
+      "status": "candidate_unmitigated",
+      "detector_id": "informal_preapproval_detector",
+      "related_controls": [
+        "P2P-C-001",
+        "P2P-C-003"
+      ],
+      "evidence_event_ids": [
+        "EVT-000035"
+      ],
+      "observed_facts": [
+        "正式な購買申請前に、システム外の非公式事前相談が記録された。",
+        "このイベントは通常の承認ワークフロー上の承認証跡ではない。"
+      ],
+      "inference": "非公式事前承認は正式統制を形骸化させる可能性がある。承認コメント、チャット証跡、ヒアリング手続で追加確認すべきレビュー候補である。",
+      "bypass_success": false,
+      "mitigated_by_aggregation": false,
+      "mitigated_by_variant": false,
+      "mitigated_by_emergency_control": false,
+      "recommended_review_steps": [
+        "正式承認前の非公式な合意形成があったか確認する。",
+        "承認コメント、チャット証跡、ヒアリング手続で根拠を確認する。",
+        "非公式相談が正式承認を形骸化させていないか評価する。"
+      ],
+      "evidence_summary": [
+        {
+          "event_id": "EVT-000035",
+          "timestamp": "2026-06-25T09:00:00+09:00",
+          "world_id": "WORLD-010",
+          "purchase_need_id": "NEED-001",
+          "purchase_request_id": "",
+          "amount": 0,
+          "reported_amount": 0,
+          "economic_amount": 0,
+          "requested_route_type": "",
+          "required_approver_level": "",
+          "aggregation_applied": false
+        }
+      ]
+    },
+    {
+      "finding_id": "FND-000008",
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-013",
+      "defect_id": "D-004",
+      "title": "非公式事前承認・システム外相談のレビュー候補",
+      "severity": "medium",
+      "status": "candidate_unmitigated",
+      "detector_id": "informal_preapproval_detector",
+      "related_controls": [
+        "P2P-C-001",
+        "P2P-C-003"
+      ],
+      "evidence_event_ids": [
+        "EVT-000042"
+      ],
+      "observed_facts": [
+        "正式な購買申請前に、システム外の非公式事前相談が記録された。",
+        "このイベントは通常の承認ワークフロー上の承認証跡ではない。"
+      ],
+      "inference": "非公式事前承認は正式統制を形骸化させる可能性がある。承認コメント、チャット証跡、ヒアリング手続で追加確認すべきレビュー候補である。",
+      "bypass_success": false,
+      "mitigated_by_aggregation": false,
+      "mitigated_by_variant": false,
+      "mitigated_by_emergency_control": false,
+      "recommended_review_steps": [
+        "正式承認前の非公式な合意形成があったか確認する。",
+        "承認コメント、チャット証跡、ヒアリング手続で根拠を確認する。",
+        "非公式相談が正式承認を形骸化させていないか評価する。"
+      ],
+      "evidence_summary": [
+        {
+          "event_id": "EVT-000042",
+          "timestamp": "2026-06-25T09:00:00+09:00",
+          "world_id": "WORLD-013",
+          "purchase_need_id": "NEED-001",
+          "purchase_request_id": "",
+          "amount": 0,
+          "reported_amount": 0,
+          "economic_amount": 0,
+          "requested_route_type": "",
+          "required_approver_level": "",
+          "aggregation_applied": false
+        }
+      ]
+    },
+    {
+      "finding_id": "FND-000009",
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-018",
+      "defect_id": "D-004",
+      "title": "非公式事前承認・システム外相談のレビュー候補",
+      "severity": "medium",
+      "status": "candidate_unmitigated",
+      "detector_id": "informal_preapproval_detector",
+      "related_controls": [
+        "P2P-C-001",
+        "P2P-C-003"
+      ],
+      "evidence_event_ids": [
+        "EVT-000062"
+      ],
+      "observed_facts": [
+        "正式な購買申請前に、システム外の非公式事前相談が記録された。",
+        "このイベントは通常の承認ワークフロー上の承認証跡ではない。"
+      ],
+      "inference": "非公式事前承認は正式統制を形骸化させる可能性がある。承認コメント、チャット証跡、ヒアリング手続で追加確認すべきレビュー候補である。",
+      "bypass_success": false,
+      "mitigated_by_aggregation": false,
+      "mitigated_by_variant": false,
+      "mitigated_by_emergency_control": false,
+      "recommended_review_steps": [
+        "正式承認前の非公式な合意形成があったか確認する。",
+        "承認コメント、チャット証跡、ヒアリング手続で根拠を確認する。",
+        "非公式相談が正式承認を形骸化させていないか評価する。"
+      ],
+      "evidence_summary": [
+        {
+          "event_id": "EVT-000062",
+          "timestamp": "2026-06-25T09:00:00+09:00",
+          "world_id": "WORLD-018",
+          "purchase_need_id": "NEED-001",
+          "purchase_request_id": "",
+          "amount": 0,
+          "reported_amount": 0,
+          "economic_amount": 0,
+          "requested_route_type": "",
+          "required_approver_level": "",
+          "aggregation_applied": false
+        }
+      ]
+    },
+    {
+      "finding_id": "FND-000010",
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-021",
+      "defect_id": "D-004",
+      "title": "非公式事前承認・システム外相談のレビュー候補",
+      "severity": "medium",
+      "status": "candidate_unmitigated",
+      "detector_id": "informal_preapproval_detector",
+      "related_controls": [
+        "P2P-C-001",
+        "P2P-C-003"
+      ],
+      "evidence_event_ids": [
+        "EVT-000077"
+      ],
+      "observed_facts": [
+        "正式な購買申請前に、システム外の非公式事前相談が記録された。",
+        "このイベントは通常の承認ワークフロー上の承認証跡ではない。"
+      ],
+      "inference": "非公式事前承認は正式統制を形骸化させる可能性がある。承認コメント、チャット証跡、ヒアリング手続で追加確認すべきレビュー候補である。",
+      "bypass_success": false,
+      "mitigated_by_aggregation": false,
+      "mitigated_by_variant": false,
+      "mitigated_by_emergency_control": false,
+      "recommended_review_steps": [
+        "正式承認前の非公式な合意形成があったか確認する。",
+        "承認コメント、チャット証跡、ヒアリング手続で根拠を確認する。",
+        "非公式相談が正式承認を形骸化させていないか評価する。"
+      ],
+      "evidence_summary": [
+        {
+          "event_id": "EVT-000077",
+          "timestamp": "2026-06-25T09:00:00+09:00",
+          "world_id": "WORLD-021",
+          "purchase_need_id": "NEED-001",
+          "purchase_request_id": "",
+          "amount": 0,
+          "reported_amount": 0,
+          "economic_amount": 0,
+          "requested_route_type": "",
+          "required_approver_level": "",
+          "aggregation_applied": false
+        }
+      ]
+    },
+    {
+      "finding_id": "FND-000011",
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-021",
+      "defect_id": "D-004",
+      "title": "非公式事前承認・システム外相談のレビュー候補",
+      "severity": "medium",
+      "status": "candidate_unmitigated",
+      "detector_id": "informal_preapproval_detector",
+      "related_controls": [
+        "P2P-C-001",
+        "P2P-C-003"
+      ],
+      "evidence_event_ids": [
+        "EVT-000078"
+      ],
+      "observed_facts": [
+        "正式な購買申請前に、システム外の非公式事前相談が記録された。",
+        "このイベントは通常の承認ワークフロー上の承認証跡ではない。"
+      ],
+      "inference": "非公式事前承認は正式統制を形骸化させる可能性がある。承認コメント、チャット証跡、ヒアリング手続で追加確認すべきレビュー候補である。",
+      "bypass_success": false,
+      "mitigated_by_aggregation": false,
+      "mitigated_by_variant": false,
+      "mitigated_by_emergency_control": false,
+      "recommended_review_steps": [
+        "正式承認前の非公式な合意形成があったか確認する。",
+        "承認コメント、チャット証跡、ヒアリング手続で根拠を確認する。",
+        "非公式相談が正式承認を形骸化させていないか評価する。"
+      ],
+      "evidence_summary": [
+        {
+          "event_id": "EVT-000078",
+          "timestamp": "2026-06-25T09:00:00+09:00",
+          "world_id": "WORLD-021",
+          "purchase_need_id": "NEED-001",
+          "purchase_request_id": "",
+          "amount": 0,
+          "reported_amount": 0,
+          "economic_amount": 0,
+          "requested_route_type": "",
+          "required_approver_level": "",
+          "aggregation_applied": false
+        }
+      ]
+    },
+    {
+      "finding_id": "FND-000012",
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-022",
+      "defect_id": "D-004",
+      "title": "非公式事前承認・システム外相談のレビュー候補",
+      "severity": "medium",
+      "status": "candidate_unmitigated",
+      "detector_id": "informal_preapproval_detector",
+      "related_controls": [
+        "P2P-C-001",
+        "P2P-C-003"
+      ],
+      "evidence_event_ids": [
+        "EVT-000087"
+      ],
+      "observed_facts": [
+        "正式な購買申請前に、システム外の非公式事前相談が記録された。",
+        "このイベントは通常の承認ワークフロー上の承認証跡ではない。"
+      ],
+      "inference": "非公式事前承認は正式統制を形骸化させる可能性がある。承認コメント、チャット証跡、ヒアリング手続で追加確認すべきレビュー候補である。",
+      "bypass_success": false,
+      "mitigated_by_aggregation": false,
+      "mitigated_by_variant": false,
+      "mitigated_by_emergency_control": false,
+      "recommended_review_steps": [
+        "正式承認前の非公式な合意形成があったか確認する。",
+        "承認コメント、チャット証跡、ヒアリング手続で根拠を確認する。",
+        "非公式相談が正式承認を形骸化させていないか評価する。"
+      ],
+      "evidence_summary": [
+        {
+          "event_id": "EVT-000087",
+          "timestamp": "2026-06-25T09:00:00+09:00",
+          "world_id": "WORLD-022",
+          "purchase_need_id": "NEED-001",
+          "purchase_request_id": "",
+          "amount": 0,
+          "reported_amount": 0,
+          "economic_amount": 0,
+          "requested_route_type": "",
+          "required_approver_level": "",
+          "aggregation_applied": false
+        }
+      ]
+    },
+    {
+      "finding_id": "FND-000013",
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-022",
+      "defect_id": "D-004",
+      "title": "非公式事前承認・システム外相談のレビュー候補",
+      "severity": "medium",
+      "status": "candidate_unmitigated",
+      "detector_id": "informal_preapproval_detector",
+      "related_controls": [
+        "P2P-C-001",
+        "P2P-C-003"
+      ],
+      "evidence_event_ids": [
+        "EVT-000088"
+      ],
+      "observed_facts": [
+        "正式な購買申請前に、システム外の非公式事前相談が記録された。",
+        "このイベントは通常の承認ワークフロー上の承認証跡ではない。"
+      ],
+      "inference": "非公式事前承認は正式統制を形骸化させる可能性がある。承認コメント、チャット証跡、ヒアリング手続で追加確認すべきレビュー候補である。",
+      "bypass_success": false,
+      "mitigated_by_aggregation": false,
+      "mitigated_by_variant": false,
+      "mitigated_by_emergency_control": false,
+      "recommended_review_steps": [
+        "正式承認前の非公式な合意形成があったか確認する。",
+        "承認コメント、チャット証跡、ヒアリング手続で根拠を確認する。",
+        "非公式相談が正式承認を形骸化させていないか評価する。"
+      ],
+      "evidence_summary": [
+        {
+          "event_id": "EVT-000088",
+          "timestamp": "2026-06-25T09:00:00+09:00",
+          "world_id": "WORLD-022",
+          "purchase_need_id": "NEED-001",
+          "purchase_request_id": "",
+          "amount": 0,
+          "reported_amount": 0,
+          "economic_amount": 0,
+          "requested_route_type": "",
+          "required_approver_level": "",
+          "aggregation_applied": false
+        }
+      ]
+    },
+    {
+      "finding_id": "FND-000014",
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-023",
+      "defect_id": "D-004",
+      "title": "非公式事前承認・システム外相談のレビュー候補",
+      "severity": "medium",
+      "status": "candidate_unmitigated",
+      "detector_id": "informal_preapproval_detector",
+      "related_controls": [
+        "P2P-C-001",
+        "P2P-C-003"
+      ],
+      "evidence_event_ids": [
+        "EVT-000090"
+      ],
+      "observed_facts": [
+        "正式な購買申請前に、システム外の非公式事前相談が記録された。",
+        "このイベントは通常の承認ワークフロー上の承認証跡ではない。"
+      ],
+      "inference": "非公式事前承認は正式統制を形骸化させる可能性がある。承認コメント、チャット証跡、ヒアリング手続で追加確認すべきレビュー候補である。",
+      "bypass_success": false,
+      "mitigated_by_aggregation": false,
+      "mitigated_by_variant": false,
+      "mitigated_by_emergency_control": false,
+      "recommended_review_steps": [
+        "正式承認前の非公式な合意形成があったか確認する。",
+        "承認コメント、チャット証跡、ヒアリング手続で根拠を確認する。",
+        "非公式相談が正式承認を形骸化させていないか評価する。"
+      ],
+      "evidence_summary": [
+        {
+          "event_id": "EVT-000090",
+          "timestamp": "2026-06-25T09:00:00+09:00",
+          "world_id": "WORLD-023",
+          "purchase_need_id": "NEED-001",
+          "purchase_request_id": "",
+          "amount": 0,
+          "reported_amount": 0,
+          "economic_amount": 0,
+          "requested_route_type": "",
+          "required_approver_level": "",
+          "aggregation_applied": false
+        }
+      ]
+    },
+    {
+      "finding_id": "FND-000015",
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-023",
+      "defect_id": "D-004",
+      "title": "非公式事前承認・システム外相談のレビュー候補",
+      "severity": "medium",
+      "status": "candidate_unmitigated",
+      "detector_id": "informal_preapproval_detector",
+      "related_controls": [
+        "P2P-C-001",
+        "P2P-C-003"
+      ],
+      "evidence_event_ids": [
+        "EVT-000091"
+      ],
+      "observed_facts": [
+        "正式な購買申請前に、システム外の非公式事前相談が記録された。",
+        "このイベントは通常の承認ワークフロー上の承認証跡ではない。"
+      ],
+      "inference": "非公式事前承認は正式統制を形骸化させる可能性がある。承認コメント、チャット証跡、ヒアリング手続で追加確認すべきレビュー候補である。",
+      "bypass_success": false,
+      "mitigated_by_aggregation": false,
+      "mitigated_by_variant": false,
+      "mitigated_by_emergency_control": false,
+      "recommended_review_steps": [
+        "正式承認前の非公式な合意形成があったか確認する。",
+        "承認コメント、チャット証跡、ヒアリング手続で根拠を確認する。",
+        "非公式相談が正式承認を形骸化させていないか評価する。"
+      ],
+      "evidence_summary": [
+        {
+          "event_id": "EVT-000091",
+          "timestamp": "2026-06-25T09:00:00+09:00",
+          "world_id": "WORLD-023",
+          "purchase_need_id": "NEED-001",
+          "purchase_request_id": "",
+          "amount": 0,
+          "reported_amount": 0,
+          "economic_amount": 0,
+          "requested_route_type": "",
+          "required_approver_level": "",
+          "aggregation_applied": false
+        }
+      ]
+    },
+    {
+      "finding_id": "FND-000016",
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-024",
+      "defect_id": "D-004",
+      "title": "非公式事前承認・システム外相談のレビュー候補",
+      "severity": "medium",
+      "status": "candidate_unmitigated",
+      "detector_id": "informal_preapproval_detector",
+      "related_controls": [
+        "P2P-C-001",
+        "P2P-C-003"
+      ],
+      "evidence_event_ids": [
+        "EVT-000093"
+      ],
+      "observed_facts": [
+        "正式な購買申請前に、システム外の非公式事前相談が記録された。",
+        "このイベントは通常の承認ワークフロー上の承認証跡ではない。"
+      ],
+      "inference": "非公式事前承認は正式統制を形骸化させる可能性がある。承認コメント、チャット証跡、ヒアリング手続で追加確認すべきレビュー候補である。",
+      "bypass_success": false,
+      "mitigated_by_aggregation": false,
+      "mitigated_by_variant": false,
+      "mitigated_by_emergency_control": false,
+      "recommended_review_steps": [
+        "正式承認前の非公式な合意形成があったか確認する。",
+        "承認コメント、チャット証跡、ヒアリング手続で根拠を確認する。",
+        "非公式相談が正式承認を形骸化させていないか評価する。"
+      ],
+      "evidence_summary": [
+        {
+          "event_id": "EVT-000093",
+          "timestamp": "2026-06-25T09:00:00+09:00",
+          "world_id": "WORLD-024",
+          "purchase_need_id": "NEED-001",
+          "purchase_request_id": "",
+          "amount": 0,
+          "reported_amount": 0,
+          "economic_amount": 0,
+          "requested_route_type": "",
+          "required_approver_level": "",
+          "aggregation_applied": false
+        }
+      ]
+    },
+    {
+      "finding_id": "FND-000017",
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-024",
+      "defect_id": "D-004",
+      "title": "非公式事前承認・システム外相談のレビュー候補",
+      "severity": "medium",
+      "status": "candidate_unmitigated",
+      "detector_id": "informal_preapproval_detector",
+      "related_controls": [
+        "P2P-C-001",
+        "P2P-C-003"
+      ],
+      "evidence_event_ids": [
+        "EVT-000094"
+      ],
+      "observed_facts": [
+        "正式な購買申請前に、システム外の非公式事前相談が記録された。",
+        "このイベントは通常の承認ワークフロー上の承認証跡ではない。"
+      ],
+      "inference": "非公式事前承認は正式統制を形骸化させる可能性がある。承認コメント、チャット証跡、ヒアリング手続で追加確認すべきレビュー候補である。",
+      "bypass_success": false,
+      "mitigated_by_aggregation": false,
+      "mitigated_by_variant": false,
+      "mitigated_by_emergency_control": false,
+      "recommended_review_steps": [
+        "正式承認前の非公式な合意形成があったか確認する。",
+        "承認コメント、チャット証跡、ヒアリング手続で根拠を確認する。",
+        "非公式相談が正式承認を形骸化させていないか評価する。"
+      ],
+      "evidence_summary": [
+        {
+          "event_id": "EVT-000094",
+          "timestamp": "2026-06-25T09:00:00+09:00",
+          "world_id": "WORLD-024",
+          "purchase_need_id": "NEED-001",
+          "purchase_request_id": "",
+          "amount": 0,
+          "reported_amount": 0,
+          "economic_amount": 0,
+          "requested_route_type": "",
+          "required_approver_level": "",
+          "aggregation_applied": false
+        }
+      ]
+    },
+    {
+      "finding_id": "FND-000018",
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-025",
+      "defect_id": "D-004",
+      "title": "非公式事前承認・システム外相談のレビュー候補",
+      "severity": "medium",
+      "status": "candidate_unmitigated",
+      "detector_id": "informal_preapproval_detector",
+      "related_controls": [
+        "P2P-C-001",
+        "P2P-C-003"
+      ],
+      "evidence_event_ids": [
+        "EVT-000096"
+      ],
+      "observed_facts": [
+        "正式な購買申請前に、システム外の非公式事前相談が記録された。",
+        "このイベントは通常の承認ワークフロー上の承認証跡ではない。"
+      ],
+      "inference": "非公式事前承認は正式統制を形骸化させる可能性がある。承認コメント、チャット証跡、ヒアリング手続で追加確認すべきレビュー候補である。",
+      "bypass_success": false,
+      "mitigated_by_aggregation": false,
+      "mitigated_by_variant": false,
+      "mitigated_by_emergency_control": false,
+      "recommended_review_steps": [
+        "正式承認前の非公式な合意形成があったか確認する。",
+        "承認コメント、チャット証跡、ヒアリング手続で根拠を確認する。",
+        "非公式相談が正式承認を形骸化させていないか評価する。"
+      ],
+      "evidence_summary": [
+        {
+          "event_id": "EVT-000096",
+          "timestamp": "2026-06-25T09:00:00+09:00",
+          "world_id": "WORLD-025",
+          "purchase_need_id": "NEED-001",
+          "purchase_request_id": "",
+          "amount": 0,
+          "reported_amount": 0,
+          "economic_amount": 0,
+          "requested_route_type": "",
+          "required_approver_level": "",
+          "aggregation_applied": false
+        }
+      ]
+    },
+    {
+      "finding_id": "FND-000019",
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-025",
+      "defect_id": "D-004",
+      "title": "非公式事前承認・システム外相談のレビュー候補",
+      "severity": "medium",
+      "status": "candidate_unmitigated",
+      "detector_id": "informal_preapproval_detector",
+      "related_controls": [
+        "P2P-C-001",
+        "P2P-C-003"
+      ],
+      "evidence_event_ids": [
+        "EVT-000097"
+      ],
+      "observed_facts": [
+        "正式な購買申請前に、システム外の非公式事前相談が記録された。",
+        "このイベントは通常の承認ワークフロー上の承認証跡ではない。"
+      ],
+      "inference": "非公式事前承認は正式統制を形骸化させる可能性がある。承認コメント、チャット証跡、ヒアリング手続で追加確認すべきレビュー候補である。",
+      "bypass_success": false,
+      "mitigated_by_aggregation": false,
+      "mitigated_by_variant": false,
+      "mitigated_by_emergency_control": false,
+      "recommended_review_steps": [
+        "正式承認前の非公式な合意形成があったか確認する。",
+        "承認コメント、チャット証跡、ヒアリング手続で根拠を確認する。",
+        "非公式相談が正式承認を形骸化させていないか評価する。"
+      ],
+      "evidence_summary": [
+        {
+          "event_id": "EVT-000097",
+          "timestamp": "2026-06-25T09:00:00+09:00",
+          "world_id": "WORLD-025",
+          "purchase_need_id": "NEED-001",
+          "purchase_request_id": "",
+          "amount": 0,
+          "reported_amount": 0,
+          "economic_amount": 0,
+          "requested_route_type": "",
+          "required_approver_level": "",
+          "aggregation_applied": false
+        }
+      ]
+    },
+    {
+      "finding_id": "FND-000020",
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-025",
+      "defect_id": "D-004",
+      "title": "非公式事前承認・システム外相談のレビュー候補",
+      "severity": "medium",
+      "status": "candidate_unmitigated",
+      "detector_id": "informal_preapproval_detector",
+      "related_controls": [
+        "P2P-C-001",
+        "P2P-C-003"
+      ],
+      "evidence_event_ids": [
+        "EVT-000098"
+      ],
+      "observed_facts": [
+        "正式な購買申請前に、システム外の非公式事前相談が記録された。",
+        "このイベントは通常の承認ワークフロー上の承認証跡ではない。"
+      ],
+      "inference": "非公式事前承認は正式統制を形骸化させる可能性がある。承認コメント、チャット証跡、ヒアリング手続で追加確認すべきレビュー候補である。",
+      "bypass_success": false,
+      "mitigated_by_aggregation": false,
+      "mitigated_by_variant": false,
+      "mitigated_by_emergency_control": false,
+      "recommended_review_steps": [
+        "正式承認前の非公式な合意形成があったか確認する。",
+        "承認コメント、チャット証跡、ヒアリング手続で根拠を確認する。",
+        "非公式相談が正式承認を形骸化させていないか評価する。"
+      ],
+      "evidence_summary": [
+        {
+          "event_id": "EVT-000098",
+          "timestamp": "2026-06-25T09:00:00+09:00",
+          "world_id": "WORLD-025",
+          "purchase_need_id": "NEED-001",
+          "purchase_request_id": "",
+          "amount": 0,
+          "reported_amount": 0,
+          "economic_amount": 0,
+          "requested_route_type": "",
+          "required_approver_level": "",
+          "aggregation_applied": false
+        }
+      ]
+    }
+  ]
+}

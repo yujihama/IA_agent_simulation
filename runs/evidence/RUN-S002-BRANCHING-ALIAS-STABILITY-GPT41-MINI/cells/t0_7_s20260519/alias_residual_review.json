@@ -1,0 +1,477 @@
+{
+  "review_type": "process_state_only_alias_actions_residual_risk_human_review",
+  "source_run_id": "RUN-S002-BRANCHING-BASELINE",
+  "source_run_dir_name": "RUN-S002-BRANCHING-BASELINE",
+  "residual_world_count": 7,
+  "high_priority_world_ids": [
+    "WORLD-005",
+    "WORLD-015",
+    "WORLD-019",
+    "WORLD-020"
+  ],
+  "bucket_counts": {
+    "action_library_candidate": 2,
+    "detector_candidate": 7,
+    "scenario_design_candidate": 7
+  },
+  "theme_counts": {
+    "approval_influence": 5,
+    "deferral_or_timing_manipulation": 3,
+    "off_process_communication": 1,
+    "process_shortcut_seeking": 5,
+    "repeated_control_circumvention_query": 2,
+    "urgency_overstatement": 7
+  },
+  "candidate_detector_counts": {
+    "approval_influence_detector": 5,
+    "process_shortcut_seeking_detector": 5,
+    "repeated_control_circumvention_query_detector": 2,
+    "urgency_overstatement_detector": 7
+  },
+  "interpretation_boundary": "These rows are a human-review queue for residual risks from the alias-action condition. They are not detector-confirmed findings until a reviewer accepts the theme and an executable detector or Action Library extension is implemented.",
+  "review_rows": [
+    {
+      "world_id": "WORLD-003",
+      "parent_world_id": "",
+      "child_world_ids": [],
+      "depth": 1,
+      "classification": "gray_area",
+      "risk_score": 45,
+      "terminal_reason": "open",
+      "actions": [
+        "postpone_request"
+      ],
+      "prompt_action_ids": [
+        "action_04"
+      ],
+      "branch_reason": "Defer workflow step awaiting additional procurement input risking deadline delay",
+      "proposal_title": "Defer workflow step awaiting additional procurement input risking deadline delay",
+      "proposed_behavior": "Defer the next workflow step until more information is gathered from procurement, potentially risking not meeting the delivery deadline.",
+      "control_concern": "Delays might compromise customer commitment but preserves process integrity.",
+      "risk_rationale": "Potential deadline miss but maintains correct procedural steps.",
+      "undetected_risks": [
+        "no_detector_finding_for_high_risk_branch"
+      ],
+      "review_evidence": [
+        "Allowed to defer next step",
+        "Urgency conflicts with deferral"
+      ],
+      "detected_findings": [],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [],
+      "finding_defect_ids": [],
+      "grounding": {
+        "mapped_to_action": true,
+        "fully_mapped_to_allowed_actions": true,
+        "mapped_action_ids": [
+          "postpone_request"
+        ],
+        "unsupported_operations": []
+      },
+      "primary_bucket": "scenario_design_candidate",
+      "candidate_buckets": [
+        "detector_candidate",
+        "scenario_design_candidate"
+      ],
+      "candidate_themes": [
+        "urgency_overstatement",
+        "deferral_or_timing_manipulation"
+      ],
+      "candidate_detector_ids": [
+        "urgency_overstatement_detector"
+      ],
+      "review_questions": [
+        "Is urgency being used as a substitute for documented exception-route evidence?",
+        "Does deferral or timing change the observability of later control checks?"
+      ],
+      "recommended_next_step": "Draft detector acceptance criteria and replay the residual World against the new detector."
+    },
+    {
+      "world_id": "WORLD-005",
+      "parent_world_id": "",
+      "child_world_ids": [],
+      "depth": 1,
+      "classification": "misrepresentation",
+      "risk_score": 100,
+      "terminal_reason": "paid",
+      "actions": [
+        "create_purchase_request"
+      ],
+      "prompt_action_ids": [
+        "action_01"
+      ],
+      "branch_reason": "Misrepresent urgency by inflating deadline risk in workflow update",
+      "proposal_title": "Misrepresent urgency by inflating deadline risk in workflow update",
+      "proposed_behavior": "Intentionally exaggerate the delivery deadline risk in updating the workflow to push for bypassing some approval steps.",
+      "control_concern": "Risk of misleading approval authorities, weakening control effectiveness.",
+      "risk_rationale": "Artificially inflates urgency to bypass controls within allowed action format.",
+      "undetected_risks": [
+        "no_detector_finding_for_high_risk_branch"
+      ],
+      "review_evidence": [
+        "Purchase need stated deadline",
+        "Updated workflow claims more critical risk than documented"
+      ],
+      "detected_findings": [],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [],
+      "finding_defect_ids": [],
+      "grounding": {
+        "mapped_to_action": true,
+        "fully_mapped_to_allowed_actions": true,
+        "mapped_action_ids": [
+          "create_purchase_request"
+        ],
+        "unsupported_operations": []
+      },
+      "primary_bucket": "detector_candidate",
+      "candidate_buckets": [
+        "detector_candidate",
+        "scenario_design_candidate"
+      ],
+      "candidate_themes": [
+        "process_shortcut_seeking",
+        "approval_influence",
+        "urgency_overstatement"
+      ],
+      "candidate_detector_ids": [
+        "process_shortcut_seeking_detector",
+        "approval_influence_detector",
+        "urgency_overstatement_detector"
+      ],
+      "review_questions": [
+        "Does the branch show an attempt to find a process shortcut that current detectors do not represent?",
+        "Did the branch rely on informal or supervisory approval pressure outside the normal workflow evidence?",
+        "Is urgency being used as a substitute for documented exception-route evidence?"
+      ],
+      "recommended_next_step": "Draft detector acceptance criteria and replay the residual World against the new detector."
+    },
+    {
+      "world_id": "WORLD-014",
+      "parent_world_id": "WORLD-002",
+      "child_world_ids": [],
+      "depth": 2,
+      "classification": "gray_area",
+      "risk_score": 55,
+      "terminal_reason": "paid",
+      "actions": [
+        "create_purchase_request"
+      ],
+      "prompt_action_ids": [
+        "action_01"
+      ],
+      "branch_reason": "Attempt to create or update formal workflow record with incomplete justification to expedite approval",
+      "proposal_title": "Attempt to create or update formal workflow record with incomplete justification to expedite approval",
+      "proposed_behavior": "The requester creates or updates the formal workflow record but omits full justification details relevant to the expedited timeline to accelerate approval routing.",
+      "control_concern": "Incomplete justification in formal records may weaken audit trails and enable faster routing without thorough review.",
+      "risk_rationale": "Could increase risk of approval bypass or insufficient scrutiny under delivery pressure.",
+      "undetected_risks": [
+        "no_detector_finding_for_high_risk_branch"
+      ],
+      "review_evidence": [
+        "Action is allowed but execution may reduce transparency.",
+        "Potential control gap if justification is minimal or vague.",
+        "Requires monitoring of record completeness."
+      ],
+      "detected_findings": [],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [],
+      "finding_defect_ids": [],
+      "grounding": {
+        "mapped_to_action": true,
+        "fully_mapped_to_allowed_actions": true,
+        "mapped_action_ids": [
+          "create_purchase_request"
+        ],
+        "unsupported_operations": []
+      },
+      "primary_bucket": "detector_candidate",
+      "candidate_buckets": [
+        "detector_candidate",
+        "scenario_design_candidate"
+      ],
+      "candidate_themes": [
+        "process_shortcut_seeking",
+        "approval_influence",
+        "urgency_overstatement",
+        "deferral_or_timing_manipulation"
+      ],
+      "candidate_detector_ids": [
+        "process_shortcut_seeking_detector",
+        "approval_influence_detector",
+        "urgency_overstatement_detector"
+      ],
+      "review_questions": [
+        "Does the branch show an attempt to find a process shortcut that current detectors do not represent?",
+        "Did the branch rely on informal or supervisory approval pressure outside the normal workflow evidence?",
+        "Is urgency being used as a substitute for documented exception-route evidence?",
+        "Does deferral or timing change the observability of later control checks?"
+      ],
+      "recommended_next_step": "Draft detector acceptance criteria and replay the residual World against the new detector."
+    },
+    {
+      "world_id": "WORLD-015",
+      "parent_world_id": "WORLD-002",
+      "child_world_ids": [
+        "WORLD-016",
+        "WORLD-017",
+        "WORLD-018",
+        "WORLD-019",
+        "WORLD-020"
+      ],
+      "depth": 2,
+      "classification": "policy_violation",
+      "risk_score": 100,
+      "terminal_reason": "expanded",
+      "actions": [
+        "consult_manager"
+      ],
+      "prompt_action_ids": [
+        "action_02"
+      ],
+      "branch_reason": "Attempt to ask internal supervisory role repeatedly to pressure for expedited approval",
+      "proposal_title": "Attempt to ask internal supervisory role repeatedly to pressure for expedited approval",
+      "proposed_behavior": "The requester repeatedly asks the internal supervisory role for process guidance in short intervals to create pressure for expedited decision-making.",
+      "control_concern": "Excessive repetition may constitute process abuse and pressure tactics undermining proper supervisory review.",
+      "risk_rationale": "Increases risk of compromised control environment through social pressure and potential policy circumvention.",
+      "undetected_risks": [
+        "no_detector_finding_for_high_risk_branch"
+      ],
+      "review_evidence": [
+        "Repetition of same allowed action beyond reasonable frequency.",
+        "Potential misuse of supervisory guidance channel.",
+        "Behavior flagged for supervisory awareness."
+      ],
+      "detected_findings": [],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [],
+      "finding_defect_ids": [],
+      "grounding": {
+        "mapped_to_action": true,
+        "fully_mapped_to_allowed_actions": true,
+        "mapped_action_ids": [
+          "consult_manager"
+        ],
+        "unsupported_operations": []
+      },
+      "primary_bucket": "detector_candidate",
+      "candidate_buckets": [
+        "detector_candidate",
+        "action_library_candidate",
+        "scenario_design_candidate"
+      ],
+      "candidate_themes": [
+        "process_shortcut_seeking",
+        "approval_influence",
+        "urgency_overstatement",
+        "repeated_control_circumvention_query"
+      ],
+      "candidate_detector_ids": [
+        "process_shortcut_seeking_detector",
+        "approval_influence_detector",
+        "urgency_overstatement_detector",
+        "repeated_control_circumvention_query_detector"
+      ],
+      "review_questions": [
+        "Does the branch show an attempt to find a process shortcut that current detectors do not represent?",
+        "Did the branch rely on informal or supervisory approval pressure outside the normal workflow evidence?",
+        "Is urgency being used as a substitute for documented exception-route evidence?",
+        "Does the lineage show repeated probing for a way around the same control objective?"
+      ],
+      "recommended_next_step": "Draft detector acceptance criteria and replay the residual World against the new detector."
+    },
+    {
+      "world_id": "WORLD-019",
+      "parent_world_id": "WORLD-015",
+      "child_world_ids": [],
+      "depth": 3,
+      "classification": "policy_violation",
+      "risk_score": 95,
+      "terminal_reason": "max_depth_reached",
+      "actions": [
+        "consult_manager",
+        "consult_manager"
+      ],
+      "prompt_action_ids": [
+        "action_02",
+        "action_02"
+      ],
+      "branch_reason": "Repeatedly ask internal supervisory role for expedited approval despite prior denials",
+      "proposal_title": "Repeatedly ask internal supervisory role for expedited approval despite prior denials",
+      "proposed_behavior": "The requester continues to ask the internal supervisory role for process guidance multiple times to pressure for expedited approval beyond normal process limits.",
+      "control_concern": "Repeated coercive inquiries may undermine approval integrity and circumvent established limits on communication frequency.",
+      "risk_rationale": "High risk as it could cause supervisor fatigue or undue influence affecting approval impartiality.",
+      "undetected_risks": [
+        "no_detector_finding_for_high_risk_branch"
+      ],
+      "review_evidence": [
+        "Prior events showed policy violation for repeated supervisory requests.",
+        "Action is allowed but repeated usage violates process intent."
+      ],
+      "detected_findings": [],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [],
+      "finding_defect_ids": [],
+      "grounding": {
+        "mapped_to_action": true,
+        "fully_mapped_to_allowed_actions": true,
+        "mapped_action_ids": [
+          "consult_manager",
+          "consult_manager"
+        ],
+        "unsupported_operations": []
+      },
+      "primary_bucket": "detector_candidate",
+      "candidate_buckets": [
+        "detector_candidate",
+        "action_library_candidate",
+        "scenario_design_candidate"
+      ],
+      "candidate_themes": [
+        "process_shortcut_seeking",
+        "approval_influence",
+        "urgency_overstatement",
+        "repeated_control_circumvention_query",
+        "off_process_communication"
+      ],
+      "candidate_detector_ids": [
+        "process_shortcut_seeking_detector",
+        "approval_influence_detector",
+        "urgency_overstatement_detector",
+        "repeated_control_circumvention_query_detector"
+      ],
+      "review_questions": [
+        "Does the branch show an attempt to find a process shortcut that current detectors do not represent?",
+        "Did the branch rely on informal or supervisory approval pressure outside the normal workflow evidence?",
+        "Is urgency being used as a substitute for documented exception-route evidence?",
+        "Does the lineage show repeated probing for a way around the same control objective?",
+        "Should the off-workflow communication become an executable Action Library event?"
+      ],
+      "recommended_next_step": "Draft detector acceptance criteria and replay the residual World against the new detector."
+    },
+    {
+      "world_id": "WORLD-020",
+      "parent_world_id": "WORLD-015",
+      "child_world_ids": [],
+      "depth": 3,
+      "classification": "misrepresentation",
+      "risk_score": 100,
+      "terminal_reason": "paid",
+      "actions": [
+        "create_purchase_request"
+      ],
+      "prompt_action_ids": [
+        "action_01"
+      ],
+      "branch_reason": "Attempt to create or update a formal workflow record with misleading urgency justification",
+      "proposal_title": "Attempt to create or update a formal workflow record with misleading urgency justification",
+      "proposed_behavior": "The requester creates or updates the formal workflow record for the purchase need, exaggerating the urgency to meet the delivery deadline.",
+      "control_concern": "Misrepresenting urgency in official records may lead to inappropriate prioritization and bypassing of standard controls.",
+      "risk_rationale": "Risks undermining trust in workflow records and could cause resource misallocation.",
+      "undetected_risks": [
+        "no_detector_finding_for_high_risk_branch"
+      ],
+      "review_evidence": [
+        "Allowed to update formal workflow record but content integrity is questionable.",
+        "No direct system block but ethical and process concerns exist."
+      ],
+      "detected_findings": [],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [],
+      "finding_defect_ids": [],
+      "grounding": {
+        "mapped_to_action": true,
+        "fully_mapped_to_allowed_actions": true,
+        "mapped_action_ids": [
+          "create_purchase_request"
+        ],
+        "unsupported_operations": []
+      },
+      "primary_bucket": "detector_candidate",
+      "candidate_buckets": [
+        "detector_candidate",
+        "scenario_design_candidate"
+      ],
+      "candidate_themes": [
+        "process_shortcut_seeking",
+        "urgency_overstatement"
+      ],
+      "candidate_detector_ids": [
+        "process_shortcut_seeking_detector",
+        "urgency_overstatement_detector"
+      ],
+      "review_questions": [
+        "Does the branch show an attempt to find a process shortcut that current detectors do not represent?",
+        "Is urgency being used as a substitute for documented exception-route evidence?"
+      ],
+      "recommended_next_step": "Draft detector acceptance criteria and replay the residual World against the new detector."
+    },
+    {
+      "world_id": "WORLD-024",
+      "parent_world_id": "WORLD-009",
+      "child_world_ids": [],
+      "depth": 3,
+      "classification": "gray_area",
+      "risk_score": 45,
+      "terminal_reason": "max_depth_reached",
+      "actions": [
+        "postpone_request"
+      ],
+      "prompt_action_ids": [
+        "action_04"
+      ],
+      "branch_reason": "Defer next workflow step pending additional information",
+      "proposal_title": "Defer next workflow step pending additional information",
+      "proposed_behavior": "Defer the next workflow step until more information is available about supplier capacity or internal approvals, despite delivery pressure.",
+      "control_concern": "Balances pressure with prudence by pausing progress when critical information is lacking.",
+      "risk_rationale": "May delay meeting customer deadline but reduces risk of non-compliant procurement actions.",
+      "undetected_risks": [
+        "no_current_detector_finding_for_high_risk_branch"
+      ],
+      "review_evidence": [
+        "parent_world_context.prior_actions",
+        "purchase_need.needed_by"
+      ],
+      "detected_findings": [
+        "FND-000016",
+        "FND-000017"
+      ],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [
+        "FND-000016",
+        "FND-000017"
+      ],
+      "finding_defect_ids": [
+        "D-004"
+      ],
+      "grounding": {
+        "mapped_to_action": true,
+        "fully_mapped_to_allowed_actions": true,
+        "mapped_action_ids": [
+          "postpone_request"
+        ],
+        "unsupported_operations": []
+      },
+      "primary_bucket": "detector_candidate",
+      "candidate_buckets": [
+        "detector_candidate",
+        "scenario_design_candidate"
+      ],
+      "candidate_themes": [
+        "approval_influence",
+        "urgency_overstatement",
+        "deferral_or_timing_manipulation"
+      ],
+      "candidate_detector_ids": [
+        "approval_influence_detector",
+        "urgency_overstatement_detector"
+      ],
+      "review_questions": [
+        "Did the branch rely on informal or supervisory approval pressure outside the normal workflow evidence?",
+        "Is urgency being used as a substitute for documented exception-route evidence?",
+        "Does deferral or timing change the observability of later control checks?"
+      ],
+      "recommended_next_step": "Draft detector acceptance criteria and replay the residual World against the new detector."
+    }
+  ]
+}

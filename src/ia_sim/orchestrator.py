@@ -69,12 +69,17 @@ BRANCHING_COMPARISON_VARIANTS = [
     "variant_a_7d_aggregation",
     "variant_b_emergency_post_approval",
 ]
-BRANCHING_COVERAGE_TARGET_MODES = [
+BRANCHING_DEFAULT_COVERAGE_TARGET_MODES = [
     "current_coverage_target",
     "risk_category_hidden",
     "process_state_only",
     "process_state_only_alias_actions",
 ]
+BRANCHING_COVERAGE_TARGET_MODES = [
+    *BRANCHING_DEFAULT_COVERAGE_TARGET_MODES,
+    "process_state_only_alias_actions_no_descriptions",
+]
+BRANCHING_ALIAS_COVERAGE_TARGET_MODE = "process_state_only_alias_actions"
 
 
 def load_variant_policy(repo_root: Path, variant_id: str) -> VariantPolicy:
@@ -720,6 +725,7 @@ def run_branching_simulation(
     model: str = "gpt-4.1-mini",
     temperature: float = 0.7,
     coverage_target_mode: str | None = None,
+    llm_seed: int | None = None,
 ) -> dict[str, Any]:
     base_config_path = repo_root / "configs/run_configs/branching_baseline.yaml"
     base_config = read_yaml(base_config_path)
@@ -735,6 +741,9 @@ def run_branching_simulation(
     config["llm"]["provider"] = provider
     config["llm"]["model"] = model
     config["llm"]["temperature"] = temperature
+    if llm_seed is not None:
+        config["seed"] = llm_seed
+        config["llm"]["seed"] = llm_seed
     if coverage_target_mode is not None:
         _validate_branching_coverage_target_mode(coverage_target_mode)
         config.setdefault("branching", {})["coverage_target_mode"] = coverage_target_mode
@@ -758,6 +767,7 @@ def run_branching_variant_comparison(
     model: str = "gpt-4.1-mini",
     temperature: float = 0.7,
     coverage_target_mode: str | None = None,
+    llm_seed: int | None = None,
 ) -> dict[str, Any]:
     baseline_result = run_branching_simulation(
         repo_root,
@@ -766,6 +776,7 @@ def run_branching_variant_comparison(
         model=model,
         temperature=temperature,
         coverage_target_mode=coverage_target_mode,
+        llm_seed=llm_seed,
     )
     baseline_run: RunResult = baseline_result["run"]
     base_config = read_yaml(baseline_result["config_path"])
@@ -883,8 +894,9 @@ def run_branching_hint_ablation_experiment(
     model: str = "gpt-4.1-mini",
     temperature: float = 0.7,
     coverage_target_modes: list[str] | None = None,
+    llm_seed: int | None = None,
 ) -> dict[str, Any]:
-    modes = coverage_target_modes or list(BRANCHING_COVERAGE_TARGET_MODES)
+    modes = coverage_target_modes or list(BRANCHING_DEFAULT_COVERAGE_TARGET_MODES)
     for mode in modes:
         _validate_branching_coverage_target_mode(mode)
 
@@ -902,6 +914,7 @@ def run_branching_hint_ablation_experiment(
             model=model,
             temperature=temperature,
             coverage_target_mode=mode,
+            llm_seed=llm_seed,
         )
         condition_summaries[mode] = _branching_hint_condition_summary(
             mode=mode,
@@ -909,15 +922,21 @@ def run_branching_hint_ablation_experiment(
             result=result,
         )
 
+    alias_residual_review = _write_alias_residual_review_for_experiment(
+        experiment_dir=experiment_dir,
+        condition_summaries=condition_summaries,
+    )
     summary = {
         "experiment_id": experiment_id,
         "experiment_mode": "branching_hint_ablation",
         "provider": provider,
         "model": model,
         "temperature": temperature,
+        "llm_seed": llm_seed,
         "coverage_target_modes": modes,
         "conditions": condition_summaries,
         "cross_condition": _branching_hint_cross_condition_summary(condition_summaries),
+        "alias_residual_review": alias_residual_review,
     }
     write_json(experiment_dir / "summary.json", summary)
     _write_branching_hint_ablation_report(experiment_dir / "branching_hint_ablation_report.md", summary)
@@ -993,6 +1012,478 @@ def _branching_hint_cross_condition_summary(conditions: dict[str, dict[str, Any]
     }
 
 
+def build_alias_residual_review(run_dir: Path) -> dict[str, Any]:
+    world_summaries = read_json(run_dir / "world_summaries.json")["worlds"]
+    proposals_by_world = {
+        str(row.get("world_id", "")): row for row in read_jsonl(run_dir / "branching_proposals.jsonl")
+    }
+    grounding_by_world = {
+        str(row.get("world_id", "")): row for row in read_jsonl(run_dir / "branching_grounding.jsonl")
+    }
+    findings_by_world: dict[str, list[dict[str, Any]]] = {}
+    for finding in read_json(run_dir / "findings.json")["findings"]:
+        findings_by_world.setdefault(str(finding.get("world_id", "")), []).append(finding)
+
+    residual_worlds = [world for world in world_summaries if world.get("undetected_risks")]
+    review_rows = [
+        _alias_residual_review_row(
+            world=world,
+            proposal=proposals_by_world.get(str(world["world_id"]), {}),
+            grounding=grounding_by_world.get(str(world["world_id"]), {}),
+            findings=findings_by_world.get(str(world["world_id"]), []),
+        )
+        for world in residual_worlds
+    ]
+    bucket_counts = Counter(
+        bucket for row in review_rows for bucket in row["candidate_buckets"]
+    )
+    theme_counts = Counter(theme for row in review_rows for theme in row["candidate_themes"])
+    detector_counts = Counter(
+        detector for row in review_rows for detector in row["candidate_detector_ids"]
+    )
+    high_priority_world_ids = [
+        str(row["world_id"]) for row in review_rows if int(row["risk_score"]) >= 80
+    ]
+    return {
+        "review_type": "process_state_only_alias_actions_residual_risk_human_review",
+        "source_run_id": read_json(run_dir / "run_manifest.json")["run_id"],
+        "source_run_dir_name": run_dir.name,
+        "residual_world_count": len(review_rows),
+        "high_priority_world_ids": high_priority_world_ids,
+        "bucket_counts": dict(sorted(bucket_counts.items())),
+        "theme_counts": dict(sorted(theme_counts.items())),
+        "candidate_detector_counts": dict(sorted(detector_counts.items())),
+        "interpretation_boundary": (
+            "These rows are a human-review queue for residual risks from the alias-action condition. "
+            "They are not detector-confirmed findings until a reviewer accepts the theme and an executable "
+            "detector or Action Library extension is implemented."
+        ),
+        "review_rows": review_rows,
+    }
+
+
+def _alias_residual_review_row(
+    *,
+    world: dict[str, Any],
+    proposal: dict[str, Any],
+    grounding: dict[str, Any],
+    findings: list[dict[str, Any]],
+) -> dict[str, Any]:
+    text = _alias_residual_text(world, proposal, grounding)
+    themes = _alias_residual_candidate_themes(text)
+    buckets = _alias_residual_candidate_buckets(themes, text)
+    candidate_detector_ids = _alias_candidate_detector_ids(themes)
+    return {
+        "world_id": str(world["world_id"]),
+        "parent_world_id": str(world.get("parent_world_id", "")),
+        "child_world_ids": [str(item) for item in world.get("child_world_ids", [])],
+        "depth": int(world.get("depth", 0)),
+        "classification": str(world.get("classification", "")),
+        "risk_score": int(world.get("risk_score", 0)),
+        "terminal_reason": str(world.get("terminal_reason", "")),
+        "actions": [str(action) for action in world.get("actions", [])],
+        "prompt_action_ids": [str(action) for action in proposal.get("prompt_action_ids", [])],
+        "branch_reason": str(world.get("branch_reason", "")),
+        "proposal_title": str(proposal.get("title", "")),
+        "proposed_behavior": str(proposal.get("proposed_behavior", "")),
+        "control_concern": str(proposal.get("control_concern", "")),
+        "risk_rationale": str(proposal.get("risk_rationale", "")),
+        "undetected_risks": [str(item) for item in world.get("undetected_risks", [])],
+        "review_evidence": [str(item) for item in world.get("review_evidence", [])],
+        "detected_findings": [str(item) for item in world.get("detected_findings", [])],
+        "current_detected_findings": [str(item) for item in world.get("current_detected_findings", [])],
+        "inherited_detected_findings": [str(item) for item in world.get("inherited_detected_findings", [])],
+        "finding_defect_ids": sorted({str(finding.get("defect_id", "")) for finding in findings}),
+        "grounding": {
+            "mapped_to_action": grounding.get("mapped_to_action"),
+            "fully_mapped_to_allowed_actions": grounding.get("fully_mapped_to_allowed_actions"),
+            "mapped_action_ids": [str(item) for item in grounding.get("mapped_action_ids", [])],
+            "unsupported_operations": [str(item) for item in grounding.get("unsupported_operations", [])],
+        },
+        "primary_bucket": _alias_residual_primary_bucket(buckets, themes),
+        "candidate_buckets": buckets,
+        "candidate_themes": themes,
+        "candidate_detector_ids": candidate_detector_ids,
+        "review_questions": _alias_residual_review_questions(themes),
+        "recommended_next_step": _alias_residual_next_step(buckets, themes),
+    }
+
+
+def _alias_residual_text(
+    world: dict[str, Any],
+    proposal: dict[str, Any],
+    grounding: dict[str, Any],
+) -> str:
+    parts: list[str] = []
+    for payload in [world, proposal, grounding]:
+        for key, value in payload.items():
+            if key in {"request_messages", "raw_response"}:
+                continue
+            parts.append(str(value))
+    return " ".join(parts).lower()
+
+
+def _alias_residual_candidate_themes(text: str) -> list[str]:
+    themes: list[str] = []
+    if _text_has_any(text, ["shortcut", "bypass", "circumvent", "evade", "skip", "fast-track", "fast track"]):
+        themes.append("process_shortcut_seeking")
+    if _text_has_any(text, ["approval", "approver", "supervisory", "supervisor", "manager", "preapproval"]):
+        themes.append("approval_influence")
+    if _text_has_any(text, ["urgent", "urgency", "expedite", "time pressure", "critical deadline"]):
+        themes.append("urgency_overstatement")
+    if _text_has_any(text, ["repeat", "repeated", "previous", "again", "after prior", "sequence suggests"]):
+        themes.append("repeated_control_circumvention_query")
+    if _text_has_any(text, ["chat", "external", "outside", "off-system", "off process", "informal", "communication"]):
+        themes.append("off_process_communication")
+    if _text_has_any(text, ["defer", "deferral", "postpone", "timing", "delay", "pending", "incomplete"]):
+        themes.append("deferral_or_timing_manipulation")
+    if not themes:
+        themes.append("unclassified_operational_residual")
+    return themes
+
+
+def _alias_residual_candidate_buckets(themes: list[str], text: str) -> list[str]:
+    buckets: list[str] = []
+    detector_themes = {
+        "approval_influence",
+        "process_shortcut_seeking",
+        "urgency_overstatement",
+        "repeated_control_circumvention_query",
+    }
+    if detector_themes.intersection(themes):
+        buckets.append("detector_candidate")
+    if {
+        "off_process_communication",
+        "approval_influence",
+        "process_shortcut_seeking",
+    }.intersection(themes) and _text_has_any(text, ["unsupported", "outside", "chat", "communication", "guidance"]):
+        buckets.append("action_library_candidate")
+    if {
+        "deferral_or_timing_manipulation",
+        "urgency_overstatement",
+        "unclassified_operational_residual",
+    }.intersection(themes):
+        buckets.append("scenario_design_candidate")
+    if not buckets:
+        buckets.append("scenario_design_candidate")
+    return buckets
+
+
+def _alias_residual_primary_bucket(buckets: list[str], themes: list[str]) -> str:
+    if "detector_candidate" in buckets and {
+        "approval_influence",
+        "process_shortcut_seeking",
+        "repeated_control_circumvention_query",
+    }.intersection(themes):
+        return "detector_candidate"
+    if "action_library_candidate" in buckets and "off_process_communication" in themes:
+        return "action_library_candidate"
+    if "scenario_design_candidate" in buckets:
+        return "scenario_design_candidate"
+    return buckets[0] if buckets else "scenario_design_candidate"
+
+
+def _alias_candidate_detector_ids(themes: list[str]) -> list[str]:
+    detector_by_theme = {
+        "approval_influence": "approval_influence_detector",
+        "process_shortcut_seeking": "process_shortcut_seeking_detector",
+        "urgency_overstatement": "urgency_overstatement_detector",
+        "repeated_control_circumvention_query": "repeated_control_circumvention_query_detector",
+    }
+    return [
+        detector_by_theme[theme]
+        for theme in themes
+        if theme in detector_by_theme
+    ]
+
+
+def _alias_residual_review_questions(themes: list[str]) -> list[str]:
+    questions = {
+        "approval_influence": "Did the branch rely on informal or supervisory approval pressure outside the normal workflow evidence?",
+        "process_shortcut_seeking": "Does the branch show an attempt to find a process shortcut that current detectors do not represent?",
+        "urgency_overstatement": "Is urgency being used as a substitute for documented exception-route evidence?",
+        "repeated_control_circumvention_query": "Does the lineage show repeated probing for a way around the same control objective?",
+        "off_process_communication": "Should the off-workflow communication become an executable Action Library event?",
+        "deferral_or_timing_manipulation": "Does deferral or timing change the observability of later control checks?",
+        "unclassified_operational_residual": "Is this residual risk a true control-design hypothesis or only an ambiguous scenario artifact?",
+    }
+    return [questions[theme] for theme in themes if theme in questions]
+
+
+def _alias_residual_next_step(buckets: list[str], themes: list[str]) -> str:
+    if "detector_candidate" in buckets:
+        return "Draft detector acceptance criteria and replay the residual World against the new detector."
+    if "action_library_candidate" in buckets:
+        return "Promote the behavior to an executable Action Library candidate, then rerun branching evidence."
+    if "scenario_design_candidate" in buckets:
+        return "Refine the scenario prompt or pressure fixture and check whether the residual risk is stable across seeds."
+    if "unclassified_operational_residual" in themes:
+        return "Route to human review before expanding implementation scope."
+    return "Route to human review before expanding implementation scope."
+
+
+def _text_has_any(text: str, needles: list[str]) -> bool:
+    return any(needle in text for needle in needles)
+
+
+def _write_alias_residual_review_for_experiment(
+    *,
+    experiment_dir: Path,
+    condition_summaries: dict[str, dict[str, Any]],
+) -> dict[str, Any] | None:
+    condition = condition_summaries.get(BRANCHING_ALIAS_COVERAGE_TARGET_MODE)
+    if condition is None:
+        return None
+    run_dir = experiment_dir / condition["baseline_run_dir"]
+    review = build_alias_residual_review(run_dir)
+    review_path = experiment_dir / "alias_residual_review.json"
+    report_path = experiment_dir / "alias_residual_review_report.md"
+    write_json(review_path, review)
+    _write_alias_residual_review_report(report_path, review)
+    return {
+        "review_path": str(review_path.relative_to(experiment_dir)),
+        "report_path": str(report_path.relative_to(experiment_dir)),
+        "residual_world_count": review["residual_world_count"],
+        "high_priority_world_ids": review["high_priority_world_ids"],
+        "bucket_counts": review["bucket_counts"],
+        "theme_counts": review["theme_counts"],
+        "candidate_detector_counts": review["candidate_detector_counts"],
+    }
+
+
+def _write_alias_residual_review_report(path: Path, review: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lines = [
+        "# Alias Residual Risk Human Review",
+        "",
+        f"- source_run_id: {review['source_run_id']}",
+        f"- residual_world_count: {review['residual_world_count']}",
+        f"- high_priority_world_ids: {review['high_priority_world_ids']}",
+        f"- bucket_counts: {review['bucket_counts']}",
+        f"- theme_counts: {review['theme_counts']}",
+        "",
+        "## Interpretation Boundary",
+        "",
+        review["interpretation_boundary"],
+        "",
+        "## Review Queue",
+        "",
+        "| World | Depth | Class | Risk | Buckets | Themes | Candidate detectors | Review focus |",
+        "|---|---:|---|---:|---|---|---|---|",
+    ]
+    for row in review["review_rows"]:
+        focus = "; ".join(row["review_questions"][:2])
+        lines.append(
+            f"| {row['world_id']} | {row['depth']} | {row['classification']} | {row['risk_score']} | "
+            f"{', '.join(row['candidate_buckets'])} | {', '.join(row['candidate_themes'])} | "
+            f"{', '.join(row['candidate_detector_ids']) or '-'} | {focus} |"
+        )
+    lines.extend(["", "## Detail", ""])
+    for row in review["review_rows"]:
+        lines.extend(
+            [
+                f"### {row['world_id']} - {row['proposal_title'] or row['branch_reason']}",
+                "",
+                f"- classification: {row['classification']}",
+                f"- risk_score: {row['risk_score']}",
+                f"- parent_world_id: {row['parent_world_id'] or '-'}",
+                f"- terminal_reason: {row['terminal_reason']}",
+                f"- actions: {row['actions']}",
+                f"- undetected_risks: {row['undetected_risks']}",
+                f"- review_evidence: {row['review_evidence']}",
+                f"- recommended_next_step: {row['recommended_next_step']}",
+                "",
+            ]
+        )
+    path.write_text("\n".join(lines), encoding="utf-8")
+
+
+def run_branching_alias_stability_experiment(
+    repo_root: Path,
+    *,
+    output_root_override: Path | None = None,
+    provider: str = "openai",
+    model: str = "gpt-4.1-mini",
+    temperatures: list[float] | None = None,
+    seeds: list[int] | None = None,
+    coverage_target_mode: str = BRANCHING_ALIAS_COVERAGE_TARGET_MODE,
+) -> dict[str, Any]:
+    _validate_branching_coverage_target_mode(coverage_target_mode)
+    temperatures = temperatures or [0.3, 0.7, 0.9]
+    seeds = seeds or [20260519, 20260520]
+    experiment_id = "EXP-S002-BRANCHING-ALIAS-STABILITY"
+    output_root = output_root_override or repo_root / "runs"
+    experiment_dir = output_root / "experiments" / experiment_id
+    cells: list[dict[str, Any]] = []
+
+    for temperature in temperatures:
+        for seed in seeds:
+            cell_slug = f"t{_branching_temperature_slug(temperature)}_s{seed}"
+            cell_root = experiment_dir / "cells" / cell_slug
+            result = run_branching_variant_comparison(
+                repo_root,
+                output_root_override=cell_root,
+                provider=provider,
+                model=model,
+                temperature=temperature,
+                coverage_target_mode=coverage_target_mode,
+                llm_seed=seed,
+            )
+            baseline_run: RunResult = result["baseline_run"]
+            branching_summary = read_json(baseline_run.run_dir / "branching_summary.json")
+            findings = read_json(baseline_run.run_dir / "findings.json")["findings"]
+            proposals = read_jsonl(baseline_run.run_dir / "branching_proposals.jsonl")
+            review = build_alias_residual_review(baseline_run.run_dir)
+            review_path = cell_root / "alias_residual_review.json"
+            review_report_path = cell_root / "alias_residual_review_report.md"
+            write_json(review_path, review)
+            _write_alias_residual_review_report(review_report_path, review)
+
+            cells.append(
+                {
+                    "cell_id": cell_slug,
+                    "temperature": temperature,
+                    "seed": seed,
+                    "coverage_target_mode": coverage_target_mode,
+                    "baseline_run_dir": str(baseline_run.run_dir.relative_to(experiment_dir)),
+                    "comparison_dir": str(result["comparison_dir"].relative_to(experiment_dir)),
+                    "alias_residual_review_path": str(review_path.relative_to(experiment_dir)),
+                    "alias_residual_review_report_path": str(review_report_path.relative_to(experiment_dir)),
+                    "generated_world_count": branching_summary["generated_world_count"],
+                    "generated_depth_counts": branching_summary["generated_depth_counts"],
+                    "expanded_world_count": branching_summary["expanded_world_count"],
+                    "duplicate_world_count": branching_summary["duplicate_world_count"],
+                    "lineage_detection_rate": branching_summary["lineage_detection_rate"],
+                    "new_risk_detection_rate": branching_summary["new_risk_detection_rate"],
+                    "current_world_detection_rate": branching_summary["current_world_detection_rate"],
+                    "residual_risk_world_count": branching_summary["residual_risk_world_count"],
+                    "detected_defect_ids": sorted({str(finding["defect_id"]) for finding in findings}),
+                    "proposal_classification_counts": dict(
+                        sorted(Counter(str(row.get("classification", "")) for row in proposals).items())
+                    ),
+                    "residual_review": {
+                        "residual_world_count": review["residual_world_count"],
+                        "high_priority_world_ids": review["high_priority_world_ids"],
+                        "bucket_counts": review["bucket_counts"],
+                        "theme_counts": review["theme_counts"],
+                        "candidate_detector_counts": review["candidate_detector_counts"],
+                    },
+                }
+            )
+
+    summary = {
+        "experiment_id": experiment_id,
+        "experiment_mode": "branching_alias_stability",
+        "provider": provider,
+        "model": model,
+        "coverage_target_mode": coverage_target_mode,
+        "temperatures": temperatures,
+        "seeds": seeds,
+        "cells": cells,
+        "stability": _branching_alias_stability_summary(cells),
+    }
+    write_json(experiment_dir / "summary.json", summary)
+    _write_branching_alias_stability_report(experiment_dir / "alias_stability_report.md", summary)
+    return {
+        "experiment_id": experiment_id,
+        "experiment_dir": experiment_dir,
+        "summary": summary,
+    }
+
+
+def _branching_temperature_slug(temperature: float) -> str:
+    return str(temperature).replace(".", "_")
+
+
+def _branching_alias_stability_summary(cells: list[dict[str, Any]]) -> dict[str, Any]:
+    theme_counts_total = Counter(
+        theme
+        for cell in cells
+        for theme, count in cell["residual_review"]["theme_counts"].items()
+        for _ in range(int(count))
+    )
+    bucket_counts_total = Counter(
+        bucket
+        for cell in cells
+        for bucket, count in cell["residual_review"]["bucket_counts"].items()
+        for _ in range(int(count))
+    )
+    theme_presence_by_cell: dict[str, list[str]] = {}
+    for cell in cells:
+        for theme, count in cell["residual_review"]["theme_counts"].items():
+            if int(count) > 0:
+                theme_presence_by_cell.setdefault(theme, []).append(str(cell["cell_id"]))
+    minimum_cells_for_stability = max(1, (len(cells) + 1) // 2)
+    stable_themes = sorted(
+        theme
+        for theme, present_cells in theme_presence_by_cell.items()
+        if len(present_cells) >= minimum_cells_for_stability
+    )
+    return {
+        "cell_count": len(cells),
+        "residual_world_count_by_cell": {
+            str(cell["cell_id"]): cell["residual_review"]["residual_world_count"] for cell in cells
+        },
+        "new_risk_detection_rate_by_cell": {
+            str(cell["cell_id"]): cell["new_risk_detection_rate"] for cell in cells
+        },
+        "detected_defect_ids_by_cell": {
+            str(cell["cell_id"]): cell["detected_defect_ids"] for cell in cells
+        },
+        "theme_counts_total": dict(sorted(theme_counts_total.items())),
+        "bucket_counts_total": dict(sorted(bucket_counts_total.items())),
+        "theme_presence_by_cell": {
+            theme: sorted(cell_ids) for theme, cell_ids in sorted(theme_presence_by_cell.items())
+        },
+        "stable_themes": stable_themes,
+        "minimum_cells_for_stability": minimum_cells_for_stability,
+    }
+
+
+def _write_branching_alias_stability_report(path: Path, summary: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lines = [
+        "# Branching Alias Stability Experiment",
+        "",
+        f"- experiment_id: {summary['experiment_id']}",
+        f"- provider: {summary['provider']}",
+        f"- model: {summary['model']}",
+        f"- coverage_target_mode: {summary['coverage_target_mode']}",
+        f"- temperatures: {summary['temperatures']}",
+        f"- seeds: {summary['seeds']}",
+        "",
+        "## Stability Summary",
+        "",
+        f"- stable_themes: {summary['stability']['stable_themes']}",
+        f"- theme_counts_total: {summary['stability']['theme_counts_total']}",
+        f"- bucket_counts_total: {summary['stability']['bucket_counts_total']}",
+        "",
+        "## Cells",
+        "",
+        "| Cell | Temp | Seed | Worlds | New-risk rate | Residual worlds | Defects | Residual themes |",
+        "|---|---:|---:|---:|---:|---:|---|---|",
+    ]
+    for cell in summary["cells"]:
+        lines.append(
+            f"| {cell['cell_id']} | {cell['temperature']} | {cell['seed']} | "
+            f"{cell['generated_world_count']} | {cell['new_risk_detection_rate']} | "
+            f"{cell['residual_review']['residual_world_count']} | {cell['detected_defect_ids']} | "
+            f"{cell['residual_review']['theme_counts']} |"
+        )
+    lines.extend(
+        [
+            "",
+            "## Interpretation Boundary",
+            "",
+            "This experiment checks whether residual-risk themes from the alias-action process-state condition "
+            "remain visible across temperature and seed changes. Stable themes are human-review priorities, "
+            "not confirmed unknown defects.",
+            "",
+        ]
+    )
+    path.write_text("\n".join(lines), encoding="utf-8")
+
+
 def _write_branching_hint_ablation_report(path: Path, summary: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     lines = [
@@ -1025,12 +1516,26 @@ def _write_branching_hint_ablation_report(path: Path, summary: dict[str, Any]) -
             "The risk_category_hidden condition keeps control structure and allowed actions visible but removes named risk-category coverage targets. "
             "The process_state_only condition hides control cards and asks for branches from state, goals, constraints, and allowed actions only. "
             "The process_state_only_alias_actions condition also replaces action identifiers and descriptions with abstract aliases, "
-            "then restores the executable action IDs only during Action Grounding.",
-            "",
-            "## Proposal Titles",
+            "then restores the executable action IDs only during Action Grounding. "
+            "The process_state_only_alias_actions_no_descriptions condition keeps the aliases but omits allowed-action descriptions.",
             "",
         ]
     )
+    if summary.get("alias_residual_review"):
+        review = summary["alias_residual_review"]
+        lines.extend(
+            [
+                "## Alias Residual Review",
+                "",
+                f"- residual_world_count: {review['residual_world_count']}",
+                f"- high_priority_world_ids: {review['high_priority_world_ids']}",
+                f"- bucket_counts: {review['bucket_counts']}",
+                f"- theme_counts: {review['theme_counts']}",
+                f"- report_path: {review['report_path']}",
+                "",
+            ]
+        )
+    lines.extend(["## Proposal Titles", ""])
     for mode, condition in summary["conditions"].items():
         lines.extend([f"### {mode}", ""])
         for title in condition["proposal_titles"]:
@@ -2777,6 +3282,7 @@ def _branching_coverage_target_mode_slug(mode: str) -> str:
         "risk_category_hidden": "hidden",
         "process_state_only": "state_only",
         "process_state_only_alias_actions": "state_alias",
+        "process_state_only_alias_actions_no_descriptions": "state_alias_no_desc",
     }[mode]
 
 
