@@ -225,6 +225,7 @@ class SimulationEngine:
         economic_amount = int(action.parameters.get("economic_amount", amount))
         request_date = datetime.fromisoformat(action.parameters["request_date"]).date()
         route_type = action.parameters["route_type"]
+        requested_route_type = action.parameters.get("requested_route_type", route_type)
         purchase_request_id = f"PR-{self._request_counter:06d}"
         case_id = f"CASE-{self._request_counter:06d}"
         self._request_counter += 1
@@ -290,6 +291,7 @@ class SimulationEngine:
                 "economic_amount": economic_amount,
                 "amount_mismatch": amount != economic_amount,
                 "emergency_reason": action.parameters.get("emergency_reason", ""),
+                "requested_route_type": requested_route_type,
                 "classification": action.classification,
                 "policy_violation_flags": action.policy_violation_flags,
                 "integrity_flags": action.integrity_flags,
@@ -337,6 +339,7 @@ class SimulationEngine:
                     "economic_amount": economic_amount,
                     "amount_mismatch": amount != economic_amount,
                     "emergency_reason": action.parameters.get("emergency_reason", ""),
+                    "requested_route_type": requested_route_type,
                     "classification": action.classification,
                     "policy_violation_flags": action.policy_violation_flags,
                     "integrity_flags": action.integrity_flags,
@@ -377,6 +380,7 @@ class SimulationEngine:
                         "economic_amount": economic_amount,
                         "amount_mismatch": amount != economic_amount,
                         "emergency_reason": action.parameters.get("emergency_reason", ""),
+                        "requested_route_type": requested_route_type,
                         "classification": action.classification,
                         "policy_violation_flags": action.policy_violation_flags,
                         "integrity_flags": action.integrity_flags,

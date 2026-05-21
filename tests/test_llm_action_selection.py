@@ -4,6 +4,7 @@ from pathlib import Path
 
 from ia_sim.branching import execute_branching_worlds
 from ia_sim.config import load_control_cards, read_yaml, write_yaml
+from ia_sim.detectors import detect_control_findings
 from ia_sim.evidence import export_redacted_branching_evidence
 from ia_sim.llm import ground_open_proposal, validate_action_selection_payload
 from ia_sim.models import PlannedAction, PurchaseNeed
@@ -413,15 +414,18 @@ def test_branching_hint_ablation_experiment_compares_prompt_conditions(tmp_path)
         "current_coverage_target",
         "risk_category_hidden",
         "process_state_only",
+        "process_state_only_alias_actions",
     ]
     assert set(summary["conditions"]) == set(summary["coverage_target_modes"])
     assert summary["conditions"]["current_coverage_target"]["condition_slug"] == "current"
     assert summary["conditions"]["risk_category_hidden"]["condition_slug"] == "hidden"
     assert summary["conditions"]["process_state_only"]["condition_slug"] == "state_only"
+    assert summary["conditions"]["process_state_only_alias_actions"]["condition_slug"] == "state_alias"
     assert summary["cross_condition"]["generated_world_count_by_condition"] == {
         "current_coverage_target": 20,
         "risk_category_hidden": 20,
         "process_state_only": 20,
+        "process_state_only_alias_actions": 20,
     }
 
     current_payload = _first_branching_call_payload(
@@ -433,6 +437,11 @@ def test_branching_hint_ablation_experiment_compares_prompt_conditions(tmp_path)
     state_only_payload = _first_branching_call_payload(
         experiment_dir / summary["conditions"]["process_state_only"]["baseline_run_dir"]
     )
+    state_alias_run_dir = experiment_dir / summary["conditions"]["process_state_only_alias_actions"]["baseline_run_dir"]
+    state_alias_payload = _first_branching_call_payload(state_alias_run_dir)
+    state_alias_call = read_jsonl(state_alias_run_dir / "branching_calls.jsonl")[0]
+    state_alias_raw = state_alias_call["raw_response"]
+    state_alias_proposal = read_jsonl(state_alias_run_dir / "branching_proposals.jsonl")[0]
 
     assert current_payload["branching_parameters"]["coverage_target_mode"] == "current_coverage_target"
     assert any("split" in target for target in current_payload["coverage_targets"])
@@ -444,7 +453,25 @@ def test_branching_hint_ablation_experiment_compares_prompt_conditions(tmp_path)
     assert state_only_payload["branching_parameters"]["coverage_target_mode"] == "process_state_only"
     assert state_only_payload["control_cards"] == []
     assert state_only_payload["variant_context"] == {"visibility": "hidden_by_process_state_only_condition"}
-    for mode in ("risk_category_hidden", "process_state_only"):
+    assert state_alias_payload["branching_parameters"]["coverage_target_mode"] == "process_state_only_alias_actions"
+    assert state_alias_payload["control_cards"] == []
+    assert state_alias_payload["variant_context"] == {"visibility": "hidden_by_process_state_only_condition"}
+    assert [action["action_id"] for action in state_alias_payload["allowed_actions"]] == [
+        "action_01",
+        "action_02",
+        "action_03",
+        "action_04",
+        "action_05",
+    ]
+    assert state_alias_call["action_aliasing_enabled"] is True
+    assert state_alias_call["action_alias_map"]["action_01"] == "create_purchase_request"
+    assert "create_purchase_request" not in json.dumps(state_alias_payload)
+    assert "informal_preapproval_chat" not in json.dumps(state_alias_payload)
+    assert "create_purchase_request" not in state_alias_raw
+    assert "action_01" in state_alias_raw
+    assert state_alias_proposal["prompt_action_ids"] == ["action_01"]
+    assert state_alias_proposal["action_sequence"][0]["action_id"] == "create_purchase_request"
+    for mode in ("risk_category_hidden", "process_state_only", "process_state_only_alias_actions"):
         run_dir = experiment_dir / summary["conditions"][mode]["baseline_run_dir"]
         all_targets = " ".join(
             target
@@ -456,6 +483,59 @@ def test_branching_hint_ablation_experiment_compares_prompt_conditions(tmp_path)
         assert "emergency" not in all_targets
         assert "informal_preapproval" not in all_targets
     assert (experiment_dir / "branching_hint_ablation_report.md").exists()
+
+
+def test_fast_track_route_attempt_detector_records_candidate():
+    need = PurchaseNeed(
+        purchase_need_id="NEED-FAST",
+        request_date=date(2026, 6, 25),
+        requester_user_id="USER-REQ-001",
+        department_id="DEPT-001",
+        vendor_id="VENDOR-014",
+        project_id="PRJ-FAST",
+        item_description="Fast track purchase",
+        amount_total=1_750_000,
+        needed_by=date(2026, 6, 30),
+        scenario_id="S-002",
+    )
+    action = PlannedAction(
+        sequence=1,
+        purchase_need_id=need.purchase_need_id,
+        action_id="create_purchase_request",
+        parameters={
+            "purchase_need_id": need.purchase_need_id,
+            "amount": need.amount_total,
+            "request_date": need.request_date.isoformat(),
+            "vendor_id": need.vendor_id,
+            "project_id": need.project_id,
+            "route_type": "normal",
+            "requested_route_type": "fast-track",
+        },
+        rationale="Attempt a requester-specified fast-track route.",
+        allowed_actions=["create_purchase_request"],
+        source="test",
+        classification="policy_violation",
+        world_id="WORLD-FAST",
+        branch_reason="Requester-specified fast-track routing",
+        risk_score=85,
+    )
+    rule_engine = RuleEngine(
+        load_control_cards(REPO_ROOT / "configs/controls/p2p_controls.yaml"),
+        load_variant_policy(REPO_ROOT, "baseline"),
+    )
+    events = execute_branching_worlds(
+        run_id="RUN-FAST-TEST",
+        needs=[need],
+        planned_actions=[action],
+        rule_engine=rule_engine,
+    )
+
+    annotations = detect_control_findings(events)
+
+    fast_track = [item for item in annotations if item["detector_id"] == "fast_track_route_attempt_detector"]
+    assert len(fast_track) == 1
+    assert fast_track[0]["defect_id"] == "D-CAND-FAST-TRACK"
+    assert fast_track[0]["world_id"] == "WORLD-FAST"
 
 
 def test_export_redacted_branching_evidence_writes_reviewable_artifacts(tmp_path):
