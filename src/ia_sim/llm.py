@@ -791,6 +791,7 @@ class LLMBranchingProposalGenerator:
         pressure_type: str = "delivery_pressure",
         agent_persona: str = "red_team_requester",
         control_visibility: str = "control_full_red_team",
+        coverage_target_mode: str = "current_coverage_target",
         trial_index: int | None = None,
         llm_seed: int | None = None,
     ):
@@ -819,6 +820,7 @@ class LLMBranchingProposalGenerator:
         self.pressure_type = pressure_type
         self.agent_persona = agent_persona
         self.control_visibility = control_visibility
+        self.coverage_target_mode = coverage_target_mode
         self.trial_index = trial_index
         self.llm_seed = llm_seed
 
@@ -949,6 +951,7 @@ class LLMBranchingProposalGenerator:
                     "pressure_type": self.pressure_type,
                     "agent_persona": self.agent_persona,
                     "control_visibility": self.control_visibility,
+                    "coverage_target_mode": self.coverage_target_mode,
                     "proposal_count_per_node": self.proposal_count_per_node,
                     "trial_index": self.trial_index,
                     "request_messages": messages,
@@ -1046,16 +1049,10 @@ class LLMBranchingProposalGenerator:
                     "Unsupported operations should be labeled unsupported so they can become Action Library candidates.",
                 ],
                 "coverage_targets": [
-                    "Include one compliant reference route.",
-                    "Include split or multiple-request threshold-avoidance if it is plausible for the purchase need.",
-                    "Include underreported amount or amount-integrity mismatch if include_misrepresentation_actions is true.",
-                    "Include emergency or exception-route usage if it is plausible under delivery pressure.",
-                    "Include one unsupported off-system behavior candidate when useful, such as informal preapproval chat.",
-                    (
-                        "When parent_world_context is present and current_depth is below max_depth, include at least two "
-                        "non-terminal continuation branches that keep the purchase need open, using consult_manager, "
-                        "consult_purchasing, or informal_preapproval_chat without creating a purchase request in that branch."
-                    ),
+                    *_branching_coverage_targets(
+                        self.coverage_target_mode,
+                        has_parent_context=parent_context is not None,
+                    )
                 ],
                 "branching_parameters": {
                     "proposal_count_per_node": self.proposal_count_per_node,
@@ -1068,6 +1065,7 @@ class LLMBranchingProposalGenerator:
                     "require_action_classification": self.require_action_classification,
                     "execute_system_blocked_actions_as_attempts": self.execute_system_blocked_actions_as_attempts,
                     "risk_guided_selection": self.risk_guided_selection,
+                    "coverage_target_mode": self.coverage_target_mode,
                 },
                 "parent_world_context": parent_context,
                 "experiment_condition": {
@@ -1075,6 +1073,7 @@ class LLMBranchingProposalGenerator:
                     "pressure_type": self.pressure_type,
                     "agent_persona": self.agent_persona,
                     "control_visibility": self.control_visibility,
+                    "coverage_target_mode": self.coverage_target_mode,
                     "trial_index": self.trial_index,
                 },
                 "scenario": _matrix_scenario_context(self.pressure_type),
@@ -1099,14 +1098,15 @@ class LLMBranchingProposalGenerator:
                     "needed_by": need.needed_by.isoformat(),
                     "scenario_id": need.scenario_id,
                 },
-                "control_cards": _control_cards_for_prompt(self.controls, self.control_visibility),
-                "variant_context": {
-                    "variant_id": self.variant_policy.variant_id,
-                    "name": self.variant_policy.name,
-                    "aggregation_enabled": self.variant_policy.aggregation_enabled,
-                    "aggregate_approval_window_days": self.variant_policy.aggregate_approval_window_days,
-                    "aggregate_by_fields": list(self.variant_policy.aggregate_by_fields),
-                },
+                "control_cards": _branching_control_cards_for_prompt(
+                    self.controls,
+                    control_visibility=self.control_visibility,
+                    coverage_target_mode=self.coverage_target_mode,
+                ),
+                "variant_context": _branching_variant_context(
+                    self.variant_policy,
+                    coverage_target_mode=self.coverage_target_mode,
+                ),
                 "allowed_actions": [
                     {
                         "action_id": action.action_id,
@@ -1900,6 +1900,74 @@ def _control_cards_for_prompt(controls: list[ControlCard], control_visibility: s
         for card in cards:
             card["red_team_instruction"] = "Use this control card to generate human-reviewable weakness hypotheses; do not treat it as a real-world evasion guide."
     return cards
+
+
+def _branching_coverage_targets(coverage_target_mode: str, *, has_parent_context: bool) -> list[str]:
+    if coverage_target_mode == "risk_category_hidden":
+        targets = [
+            "Include one ordinary reference route that is easy to audit.",
+            "Explore several operationally plausible ways the requester might proceed under time pressure.",
+            "Vary request structure, entered amounts, timing, route choice, and communication channel when those variations are plausible from the facts.",
+            "Do not name or target predefined defect categories; describe the operational behavior and review evidence instead.",
+        ]
+    elif coverage_target_mode == "process_state_only":
+        targets = [
+            "Use only the current purchase need state, event history, requester goal, constraints, and allowed actions.",
+            "Generate plausible next behavior branches without naming predefined risk categories or control weakness labels.",
+            "Do not use specific defect names as coverage targets; infer only from the process state and available actions.",
+        ]
+    else:
+        targets = [
+            "Include one compliant reference route.",
+            "Include split or multiple-request threshold-avoidance if it is plausible for the purchase need.",
+            "Include underreported amount or amount-integrity mismatch if include_misrepresentation_actions is true.",
+            "Include emergency or exception-route usage if it is plausible under delivery pressure.",
+            "Include one unsupported off-system behavior candidate when useful, such as informal preapproval chat.",
+        ]
+    if has_parent_context:
+        if coverage_target_mode == "current_coverage_target":
+            targets.append(
+                "When parent_world_context is present and current_depth is below max_depth, include at least two "
+                "non-terminal continuation branches that keep the purchase need open, using consult_manager, "
+                "consult_purchasing, or informal_preapproval_chat without creating a purchase request in that branch."
+            )
+        elif coverage_target_mode == "risk_category_hidden":
+            targets.append(
+                "When parent_world_context is present and current_depth is below max_depth, include at least two "
+                "non-terminal continuation branches that keep the purchase need open using plausible consultation "
+                "or communication actions from allowed_actions."
+            )
+        else:
+            targets.append(
+                "When parent_world_context is present and current_depth is below max_depth, propose next steps from "
+                "the current state; include non-terminal branches only when available actions support them."
+            )
+    return targets
+
+
+def _branching_control_cards_for_prompt(
+    controls: list[ControlCard],
+    *,
+    control_visibility: str,
+    coverage_target_mode: str,
+) -> list[dict[str, Any]]:
+    if coverage_target_mode == "process_state_only":
+        return []
+    if coverage_target_mode == "risk_category_hidden":
+        return _control_cards_for_prompt(controls, "control_full")
+    return _control_cards_for_prompt(controls, control_visibility)
+
+
+def _branching_variant_context(variant_policy: VariantPolicy, *, coverage_target_mode: str) -> dict[str, Any]:
+    if coverage_target_mode == "process_state_only":
+        return {"visibility": "hidden_by_process_state_only_condition"}
+    return {
+        "variant_id": variant_policy.variant_id,
+        "name": variant_policy.name,
+        "aggregation_enabled": variant_policy.aggregation_enabled,
+        "aggregate_approval_window_days": variant_policy.aggregate_approval_window_days,
+        "aggregate_by_fields": list(variant_policy.aggregate_by_fields),
+    }
 
 
 def _apply_control_visibility_to_operational_context(

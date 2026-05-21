@@ -1,3 +1,4 @@
+import json
 from datetime import date
 from pathlib import Path
 
@@ -11,6 +12,7 @@ from ia_sim.orchestrator import (
     load_variant_policy,
     run_agent_stress_experiment,
     run_balanced_planning_hint_experiment,
+    run_branching_hint_ablation_experiment,
     run_branching_variant_comparison,
     run_branching_simulation,
     run_hint_pressure_matrix_experiment,
@@ -396,6 +398,66 @@ def test_branching_variant_comparison_replays_same_world_group(tmp_path):
     assert (result["comparison_dir"] / "branching_variant_comparison_report.md").exists()
 
 
+def test_branching_hint_ablation_experiment_compares_prompt_conditions(tmp_path):
+    result = run_branching_hint_ablation_experiment(
+        REPO_ROOT,
+        output_root_override=tmp_path / "runs",
+        provider="stub",
+        model="stub-model",
+        temperature=0.0,
+    )
+    summary = result["summary"]
+    experiment_dir = result["experiment_dir"]
+
+    assert summary["coverage_target_modes"] == [
+        "current_coverage_target",
+        "risk_category_hidden",
+        "process_state_only",
+    ]
+    assert set(summary["conditions"]) == set(summary["coverage_target_modes"])
+    assert summary["conditions"]["current_coverage_target"]["condition_slug"] == "current"
+    assert summary["conditions"]["risk_category_hidden"]["condition_slug"] == "hidden"
+    assert summary["conditions"]["process_state_only"]["condition_slug"] == "state_only"
+    assert summary["cross_condition"]["generated_world_count_by_condition"] == {
+        "current_coverage_target": 20,
+        "risk_category_hidden": 20,
+        "process_state_only": 20,
+    }
+
+    current_payload = _first_branching_call_payload(
+        experiment_dir / summary["conditions"]["current_coverage_target"]["baseline_run_dir"]
+    )
+    hidden_payload = _first_branching_call_payload(
+        experiment_dir / summary["conditions"]["risk_category_hidden"]["baseline_run_dir"]
+    )
+    state_only_payload = _first_branching_call_payload(
+        experiment_dir / summary["conditions"]["process_state_only"]["baseline_run_dir"]
+    )
+
+    assert current_payload["branching_parameters"]["coverage_target_mode"] == "current_coverage_target"
+    assert any("split" in target for target in current_payload["coverage_targets"])
+    assert any("underreported" in target for target in current_payload["coverage_targets"])
+    assert hidden_payload["branching_parameters"]["coverage_target_mode"] == "risk_category_hidden"
+    assert not any("split" in target or "underreported" in target for target in hidden_payload["coverage_targets"])
+    assert hidden_payload["control_cards"]
+    assert all("red_team_instruction" not in card for card in hidden_payload["control_cards"])
+    assert state_only_payload["branching_parameters"]["coverage_target_mode"] == "process_state_only"
+    assert state_only_payload["control_cards"] == []
+    assert state_only_payload["variant_context"] == {"visibility": "hidden_by_process_state_only_condition"}
+    for mode in ("risk_category_hidden", "process_state_only"):
+        run_dir = experiment_dir / summary["conditions"][mode]["baseline_run_dir"]
+        all_targets = " ".join(
+            target
+            for payload in _branching_call_payloads(run_dir)
+            for target in payload["coverage_targets"]
+        )
+        assert "split" not in all_targets
+        assert "underreported" not in all_targets
+        assert "emergency" not in all_targets
+        assert "informal_preapproval" not in all_targets
+    assert (experiment_dir / "branching_hint_ablation_report.md").exists()
+
+
 def test_export_redacted_branching_evidence_writes_reviewable_artifacts(tmp_path):
     result = run_branching_variant_comparison(
         REPO_ROOT,
@@ -433,3 +495,14 @@ def _stub_config(source_name: str, run_id: str, tmp_path: Path) -> Path:
     config_path = tmp_path / source_name
     write_yaml(config_path, raw)
     return config_path
+
+
+def _first_branching_call_payload(run_dir: Path) -> dict:
+    return _branching_call_payloads(run_dir)[0]
+
+
+def _branching_call_payloads(run_dir: Path) -> list[dict]:
+    return [
+        json.loads(row["request_messages"][1]["content"])
+        for row in read_jsonl(run_dir / "branching_calls.jsonl")
+    ]

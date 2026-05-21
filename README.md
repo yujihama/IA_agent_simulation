@@ -26,6 +26,7 @@ python -m ia_sim.cli run-hint-pressure-matrix-experiment --trials 5
 python -m ia_sim.cli run-agent-stress-experiment --trials 3
 python -m ia_sim.cli run-branching-simulation --provider stub
 python -m ia_sim.cli run-branching-variant-comparison --provider stub
+python -m ia_sim.cli run-branching-hint-ablation-experiment --provider stub
 python -m ia_sim.cli export-branching-evidence --source-root runs --output-dir runs/evidence/RUN-S002-BRANCHING-MULTISTAGE-GPT41-MINI
 ```
 
@@ -72,6 +73,8 @@ Branching metrics separate lineage-level detection from newly introduced risk. `
 
 `run-branching-variant-comparison` generates the Branching Worlds once, then replays the same World group under Baseline, Variant A, and Variant B. `export-branching-evidence` copies a representative run and comparison into a redacted evidence directory while preserving prompts, raw responses, parsed JSON, validation status, events, findings, and reports.
 
+`run-branching-hint-ablation-experiment` runs the same multistage Branching Proposal engine under three prompt conditions: `current_coverage_target` explicitly names split, underreported amount, emergency route, and informal preapproval coverage targets; `risk_category_hidden` keeps control structure and allowed actions visible but removes named risk-category targets; `process_state_only` hides control cards and variant context, asking for branches only from current state, event history, goals, constraints, and allowed actions. The experiment is designed to test whether generated Worlds depend on explicit risk-category hints; it should not be interpreted as proof of autonomous unknown-defect discovery.
+
 ## Review UI
 
 ```powershell
@@ -103,5 +106,6 @@ This repository intentionally tracks the First Vertical Slice PoC evidence:
 - `runs/experiments/EXP-S002-AGENT-STRESS-3X/`
 - `runs/evidence/RUN-S002-BRANCHING-MULTISTAGE-GPT41-MINI/`
 - `runs/evidence/RUN-S002-BRANCHING-DEPTH3-GPT41-MINI/`
+- `runs/evidence/RUN-S002-BRANCHING-HINT-ABLATION-GPT41-MINI/`
 
 These files contain synthetic data only. Do not commit real data, anonymized production logs, or confidential run outputs. New committed runs should include the input fixture, run manifests, metrics, findings, evaluation results, and comparison reports together. `run_manifest.json` records repository-relative input paths, seed, code version, and SHA-256 hashes for the config and data inputs used to generate the run.

@@ -10,6 +10,7 @@ from ia_sim.orchestrator import (
     compare_runs,
     run_agent_stress_experiment,
     run_balanced_planning_hint_experiment,
+    run_branching_hint_ablation_experiment,
     run_branching_simulation,
     run_branching_variant_comparison,
     run_first_slice,
@@ -114,6 +115,7 @@ def build_parser() -> argparse.ArgumentParser:
     branching.add_argument("--provider", default="openai")
     branching.add_argument("--model", default="gpt-4.1-mini")
     branching.add_argument("--temperature", type=float, default=0.7)
+    branching.add_argument("--coverage-target-mode")
 
     branching_compare = subparsers.add_parser(
         "run-branching-variant-comparison",
@@ -123,6 +125,22 @@ def build_parser() -> argparse.ArgumentParser:
     branching_compare.add_argument("--provider", default="openai")
     branching_compare.add_argument("--model", default="gpt-4.1-mini")
     branching_compare.add_argument("--temperature", type=float, default=0.7)
+    branching_compare.add_argument("--coverage-target-mode")
+
+    branching_hint_ablation = subparsers.add_parser(
+        "run-branching-hint-ablation-experiment",
+        help="Compare explicit, risk-category-hidden, and process-state-only Branching Proposal prompts",
+    )
+    branching_hint_ablation.add_argument("--output-root")
+    branching_hint_ablation.add_argument("--provider", default="openai")
+    branching_hint_ablation.add_argument("--model", default="gpt-4.1-mini")
+    branching_hint_ablation.add_argument("--temperature", type=float, default=0.7)
+    branching_hint_ablation.add_argument(
+        "--coverage-target-mode",
+        action="append",
+        dest="coverage_target_modes",
+        help="Coverage target mode to include. Repeat to select multiple modes. Defaults to all three modes.",
+    )
 
     evidence = subparsers.add_parser(
         "export-branching-evidence",
@@ -329,6 +347,7 @@ def main(argv: list[str] | None = None) -> int:
             provider=args.provider,
             model=args.model,
             temperature=args.temperature,
+            coverage_target_mode=args.coverage_target_mode,
         )
         print(
             json.dumps(
@@ -351,6 +370,7 @@ def main(argv: list[str] | None = None) -> int:
             provider=args.provider,
             model=args.model,
             temperature=args.temperature,
+            coverage_target_mode=args.coverage_target_mode,
         )
         print(
             json.dumps(
@@ -358,6 +378,29 @@ def main(argv: list[str] | None = None) -> int:
                     "baseline_run_dir": str(result["baseline_run"].run_dir),
                     "comparison_dir": str(result["comparison_dir"]),
                     "comparison": result["comparison"],
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+        return 0
+
+    if args.command == "run-branching-hint-ablation-experiment":
+        output_root = Path(args.output_root) if args.output_root else None
+        result = run_branching_hint_ablation_experiment(
+            repo_root,
+            output_root_override=output_root,
+            provider=args.provider,
+            model=args.model,
+            temperature=args.temperature,
+            coverage_target_modes=args.coverage_target_modes,
+        )
+        print(
+            json.dumps(
+                {
+                    "experiment_id": result["experiment_id"],
+                    "experiment_dir": str(result["experiment_dir"]),
+                    "summary": result["summary"],
                 },
                 ensure_ascii=False,
                 indent=2,
