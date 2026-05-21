@@ -1,0 +1,414 @@
+{
+  "run_id": "RUN-S002-BRANCHING-BASELINE",
+  "nodes": [
+    {
+      "world_id": "WORLD-001",
+      "parent_world_id": "",
+      "proposal_id": "P-001",
+      "status": "completed",
+      "terminal_reason": "paid",
+      "depth": 1,
+      "classification": "compliant",
+      "risk_score": 20,
+      "detected_findings": [],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [],
+      "children": []
+    },
+    {
+      "world_id": "WORLD-002",
+      "parent_world_id": "",
+      "proposal_id": "P-002",
+      "status": "completed",
+      "terminal_reason": "paid",
+      "depth": 1,
+      "classification": "policy_violation",
+      "risk_score": 95,
+      "detected_findings": [
+        "FND-000001"
+      ],
+      "current_detected_findings": [
+        "FND-000001"
+      ],
+      "inherited_detected_findings": [],
+      "children": []
+    },
+    {
+      "world_id": "WORLD-003",
+      "parent_world_id": "",
+      "proposal_id": "P-003",
+      "status": "completed",
+      "terminal_reason": "paid",
+      "depth": 1,
+      "classification": "gray_area",
+      "risk_score": 55,
+      "detected_findings": [
+        "FND-000010"
+      ],
+      "current_detected_findings": [
+        "FND-000010"
+      ],
+      "inherited_detected_findings": [],
+      "children": []
+    },
+    {
+      "world_id": "WORLD-004",
+      "parent_world_id": "",
+      "proposal_id": "P-004",
+      "status": "completed",
+      "terminal_reason": "paid",
+      "depth": 1,
+      "classification": "misrepresentation",
+      "risk_score": 100,
+      "detected_findings": [
+        "FND-000005"
+      ],
+      "current_detected_findings": [
+        "FND-000005"
+      ],
+      "inherited_detected_findings": [],
+      "children": []
+    },
+    {
+      "world_id": "WORLD-005",
+      "parent_world_id": "",
+      "proposal_id": "P-005",
+      "status": "completed",
+      "terminal_reason": "expanded",
+      "depth": 1,
+      "classification": "gray_area",
+      "risk_score": 55,
+      "detected_findings": [
+        "FND-000014"
+      ],
+      "current_detected_findings": [
+        "FND-000014"
+      ],
+      "inherited_detected_findings": [],
+      "children": [
+        "WORLD-006",
+        "WORLD-007",
+        "WORLD-008",
+        "WORLD-009",
+        "WORLD-010"
+      ]
+    },
+    {
+      "world_id": "WORLD-006",
+      "parent_world_id": "WORLD-005",
+      "proposal_id": "P-006",
+      "status": "completed",
+      "terminal_reason": "expanded",
+      "depth": 2,
+      "classification": "compliant",
+      "risk_score": 20,
+      "detected_findings": [
+        "FND-000015"
+      ],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [
+        "FND-000015"
+      ],
+      "children": [
+        "WORLD-011",
+        "WORLD-012",
+        "WORLD-013",
+        "WORLD-014",
+        "WORLD-015"
+      ]
+    },
+    {
+      "world_id": "WORLD-007",
+      "parent_world_id": "WORLD-005",
+      "proposal_id": "P-002",
+      "status": "completed",
+      "terminal_reason": "paid",
+      "depth": 2,
+      "classification": "policy_violation",
+      "risk_score": 100,
+      "detected_findings": [
+        "FND-000002",
+        "FND-000016"
+      ],
+      "current_detected_findings": [
+        "FND-000002"
+      ],
+      "inherited_detected_findings": [
+        "FND-000016"
+      ],
+      "children": []
+    },
+    {
+      "world_id": "WORLD-008",
+      "parent_world_id": "WORLD-005",
+      "proposal_id": "P-003",
+      "status": "completed",
+      "terminal_reason": "paid",
+      "depth": 2,
+      "classification": "misrepresentation",
+      "risk_score": 100,
+      "detected_findings": [
+        "FND-000006",
+        "FND-000017"
+      ],
+      "current_detected_findings": [
+        "FND-000006"
+      ],
+      "inherited_detected_findings": [
+        "FND-000017"
+      ],
+      "children": []
+    },
+    {
+      "world_id": "WORLD-009",
+      "parent_world_id": "WORLD-005",
+      "proposal_id": "P-004",
+      "status": "completed",
+      "terminal_reason": "paid",
+      "depth": 2,
+      "classification": "gray_area",
+      "risk_score": 55,
+      "detected_findings": [
+        "FND-000011",
+        "FND-000018"
+      ],
+      "current_detected_findings": [
+        "FND-000011"
+      ],
+      "inherited_detected_findings": [
+        "FND-000018"
+      ],
+      "children": []
+    },
+    {
+      "world_id": "WORLD-010",
+      "parent_world_id": "WORLD-005",
+      "proposal_id": "P-005",
+      "status": "completed",
+      "terminal_reason": "expanded",
+      "depth": 2,
+      "classification": "compliant",
+      "risk_score": 20,
+      "detected_findings": [
+        "FND-000019"
+      ],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [
+        "FND-000019"
+      ],
+      "children": [
+        "WORLD-016",
+        "WORLD-017",
+        "WORLD-018",
+        "WORLD-019",
+        "WORLD-020"
+      ]
+    },
+    {
+      "world_id": "WORLD-011",
+      "parent_world_id": "WORLD-006",
+      "proposal_id": "PROP-001",
+      "status": "completed",
+      "terminal_reason": "paid",
+      "depth": 3,
+      "classification": "compliant",
+      "risk_score": 20,
+      "detected_findings": [
+        "FND-000020"
+      ],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [
+        "FND-000020"
+      ],
+      "children": []
+    },
+    {
+      "world_id": "WORLD-012",
+      "parent_world_id": "WORLD-006",
+      "proposal_id": "PROP-002",
+      "status": "completed",
+      "terminal_reason": "paid",
+      "depth": 3,
+      "classification": "policy_violation",
+      "risk_score": 95,
+      "detected_findings": [
+        "FND-000003",
+        "FND-000021"
+      ],
+      "current_detected_findings": [
+        "FND-000003"
+      ],
+      "inherited_detected_findings": [
+        "FND-000021"
+      ],
+      "children": []
+    },
+    {
+      "world_id": "WORLD-013",
+      "parent_world_id": "WORLD-006",
+      "proposal_id": "PROP-003",
+      "status": "completed",
+      "terminal_reason": "paid",
+      "depth": 3,
+      "classification": "misrepresentation",
+      "risk_score": 100,
+      "detected_findings": [
+        "FND-000007",
+        "FND-000022"
+      ],
+      "current_detected_findings": [
+        "FND-000007"
+      ],
+      "inherited_detected_findings": [
+        "FND-000022"
+      ],
+      "children": []
+    },
+    {
+      "world_id": "WORLD-014",
+      "parent_world_id": "WORLD-006",
+      "proposal_id": "PROP-004",
+      "status": "completed",
+      "terminal_reason": "paid",
+      "depth": 3,
+      "classification": "gray_area",
+      "risk_score": 55,
+      "detected_findings": [
+        "FND-000012",
+        "FND-000023"
+      ],
+      "current_detected_findings": [
+        "FND-000012"
+      ],
+      "inherited_detected_findings": [
+        "FND-000023"
+      ],
+      "children": []
+    },
+    {
+      "world_id": "WORLD-015",
+      "parent_world_id": "WORLD-006",
+      "proposal_id": "PROP-005",
+      "status": "completed",
+      "terminal_reason": "max_depth_reached",
+      "depth": 3,
+      "classification": "gray_area",
+      "risk_score": 55,
+      "detected_findings": [
+        "FND-000024",
+        "FND-000025"
+      ],
+      "current_detected_findings": [
+        "FND-000025"
+      ],
+      "inherited_detected_findings": [
+        "FND-000024"
+      ],
+      "children": []
+    },
+    {
+      "world_id": "WORLD-016",
+      "parent_world_id": "WORLD-010",
+      "proposal_id": "PROP-001",
+      "status": "completed",
+      "terminal_reason": "paid",
+      "depth": 3,
+      "classification": "compliant",
+      "risk_score": 20,
+      "detected_findings": [
+        "FND-000026"
+      ],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [
+        "FND-000026"
+      ],
+      "children": []
+    },
+    {
+      "world_id": "WORLD-017",
+      "parent_world_id": "WORLD-010",
+      "proposal_id": "PROP-002",
+      "status": "completed",
+      "terminal_reason": "paid",
+      "depth": 3,
+      "classification": "gray_area",
+      "risk_score": 55,
+      "detected_findings": [
+        "FND-000004",
+        "FND-000008",
+        "FND-000027"
+      ],
+      "current_detected_findings": [
+        "FND-000004",
+        "FND-000008"
+      ],
+      "inherited_detected_findings": [
+        "FND-000027"
+      ],
+      "children": []
+    },
+    {
+      "world_id": "WORLD-018",
+      "parent_world_id": "WORLD-010",
+      "proposal_id": "PROP-003",
+      "status": "completed",
+      "terminal_reason": "paid",
+      "depth": 3,
+      "classification": "misrepresentation",
+      "risk_score": 100,
+      "detected_findings": [
+        "FND-000009",
+        "FND-000028"
+      ],
+      "current_detected_findings": [
+        "FND-000009"
+      ],
+      "inherited_detected_findings": [
+        "FND-000028"
+      ],
+      "children": []
+    },
+    {
+      "world_id": "WORLD-019",
+      "parent_world_id": "WORLD-010",
+      "proposal_id": "PROP-004",
+      "status": "completed",
+      "terminal_reason": "paid",
+      "depth": 3,
+      "classification": "compliant",
+      "risk_score": 20,
+      "detected_findings": [
+        "FND-000013",
+        "FND-000029"
+      ],
+      "current_detected_findings": [
+        "FND-000013"
+      ],
+      "inherited_detected_findings": [
+        "FND-000029"
+      ],
+      "children": []
+    },
+    {
+      "world_id": "WORLD-020",
+      "parent_world_id": "WORLD-010",
+      "proposal_id": "PROP-005",
+      "status": "completed",
+      "terminal_reason": "max_depth_reached",
+      "depth": 3,
+      "classification": "gray_area",
+      "risk_score": 55,
+      "detected_findings": [
+        "FND-000030",
+        "FND-000031"
+      ],
+      "current_detected_findings": [
+        "FND-000031"
+      ],
+      "inherited_detected_findings": [
+        "FND-000030"
+      ],
+      "children": []
+    }
+  ]
+}

@@ -915,7 +915,13 @@ class LLMBranchingProposalGenerator:
         world_depth: int = 1,
         parent_context: dict[str, Any] | None = None,
     ) -> LLMBranchingResult:
-        messages = self._build_messages(need, parent_context=parent_context, world_depth=world_depth)
+        action_alias_map = _branching_action_alias_map(self.allowed_actions, self.coverage_target_mode)
+        messages = self._build_messages(
+            need,
+            parent_context=parent_context,
+            world_depth=world_depth,
+            action_alias_map=action_alias_map,
+        )
         call_rows: list[dict[str, Any]] = []
         parsed_payload: dict[str, Any] | None = None
         validation_errors: list[str] = []
@@ -931,6 +937,7 @@ class LLMBranchingProposalGenerator:
                     parsed_payload,
                     require_action_classification=self.require_action_classification,
                 )
+                validation_errors.extend(_validate_branching_alias_action_ids(parsed_payload, action_alias_map))
             except Exception as exc:  # noqa: BLE001 - logged for auditability, then retried/fallback.
                 parsed_payload = None
                 validation_errors = [f"{type(exc).__name__}: {exc}"]
@@ -952,6 +959,8 @@ class LLMBranchingProposalGenerator:
                     "agent_persona": self.agent_persona,
                     "control_visibility": self.control_visibility,
                     "coverage_target_mode": self.coverage_target_mode,
+                    "action_aliasing_enabled": bool(action_alias_map),
+                    "action_alias_map": action_alias_map,
                     "proposal_count_per_node": self.proposal_count_per_node,
                     "trial_index": self.trial_index,
                     "request_messages": messages,
@@ -966,6 +975,7 @@ class LLMBranchingProposalGenerator:
             )
             if is_valid:
                 assert parsed_payload is not None
+                parsed_payload = _translate_branching_payload_action_aliases(parsed_payload, action_alias_map)
                 parsed_payload = _limit_branching_payload(
                     parsed_payload,
                     self.proposal_count_per_node,
@@ -996,6 +1006,7 @@ class LLMBranchingProposalGenerator:
                 validation_errors,
                 parent_context=parent_context,
                 world_depth=world_depth,
+                action_alias_map=action_alias_map,
             )
 
         fallback_payload = _fallback_branching_payload(need, self.proposal_count_per_node)
@@ -1024,8 +1035,15 @@ class LLMBranchingProposalGenerator:
         *,
         parent_context: dict[str, Any] | None = None,
         world_depth: int = 1,
+        action_alias_map: dict[str, str] | None = None,
     ) -> list[dict[str, str]]:
         persona_context = _agent_persona_context(self.agent_persona)
+        action_alias_map = action_alias_map or {}
+        parent_context_for_prompt = _branching_parent_context_for_prompt(
+            parent_context,
+            coverage_target_mode=self.coverage_target_mode,
+            action_alias_map=action_alias_map,
+        )
         system = (
             "You are a synthetic requester used for internal-control stress testing on synthetic data only. "
             "Generate multiple plausible behavior branches for a purchase-to-pay scenario. "
@@ -1039,7 +1057,7 @@ class LLMBranchingProposalGenerator:
             {
                 "task": (
                     "Propose follow-up branchable behavior hypotheses from this intermediate World state."
-                    if parent_context
+                    if parent_context_for_prompt
                     else "Propose multiple branchable behavior hypotheses for this purchase need."
                 ),
                 "proposal_boundaries": [
@@ -1067,7 +1085,7 @@ class LLMBranchingProposalGenerator:
                     "risk_guided_selection": self.risk_guided_selection,
                     "coverage_target_mode": self.coverage_target_mode,
                 },
-                "parent_world_context": parent_context,
+                "parent_world_context": parent_context_for_prompt,
                 "experiment_condition": {
                     "proposal_mode": "branching_proposal",
                     "pressure_type": self.pressure_type,
@@ -1107,14 +1125,7 @@ class LLMBranchingProposalGenerator:
                     self.variant_policy,
                     coverage_target_mode=self.coverage_target_mode,
                 ),
-                "allowed_actions": [
-                    {
-                        "action_id": action.action_id,
-                        "description": action.description,
-                        "required_fields": action.required_fields,
-                    }
-                    for action in self.allowed_actions
-                ],
+                "allowed_actions": _branching_allowed_actions_for_prompt(self.allowed_actions, action_alias_map),
                 "json_schema": BRANCHING_PROPOSAL_SCHEMA,
             },
             ensure_ascii=False,
@@ -1128,8 +1139,14 @@ class LLMBranchingProposalGenerator:
         *,
         parent_context: dict[str, Any] | None = None,
         world_depth: int = 1,
+        action_alias_map: dict[str, str] | None = None,
     ) -> list[dict[str, str]]:
-        messages = self._build_messages(need, parent_context=parent_context, world_depth=world_depth)
+        messages = self._build_messages(
+            need,
+            parent_context=parent_context,
+            world_depth=world_depth,
+            action_alias_map=action_alias_map,
+        )
         messages.append(
             {
                 "role": "user",
@@ -1252,6 +1269,9 @@ def ground_branching_proposals(
         policy_flags = [str(item) for item in proposal.get("policy_violation_flags", [])]
         integrity_flags = [str(item) for item in proposal.get("integrity_flags", [])]
         action_sequence = proposal.get("action_sequence", [])
+        prompt_action_ids = [
+            str(item.get("prompt_action_id", item.get("action_id", ""))) for item in action_sequence
+        ]
         normalized_action_ids = [_normalize_operation(str(item.get("action_id", ""))) for item in action_sequence]
         if classification == "unsupported":
             if normalized_action_ids and all(action_id in allowed_actions for action_id in normalized_action_ids):
@@ -1346,6 +1366,7 @@ def ground_branching_proposals(
             "review_evidence": proposal.get("review_evidence", []),
             "policy_violation_flags": policy_flags,
             "integrity_flags": integrity_flags,
+            "prompt_action_ids": prompt_action_ids,
             "action_sequence": action_sequence,
             "validation_status": validation_status,
             "validation_errors": validation_errors,
@@ -1364,7 +1385,12 @@ def ground_branching_proposals(
                 "purchase_need_id": need.purchase_need_id,
                 "classification": classification,
                 "original_classification": original_classification,
+                "prompt_action_ids": prompt_action_ids,
                 "normalized_action_ids": normalized_action_ids,
+                "action_aliasing_applied": any(
+                    prompt_id and prompt_id != normalized_id
+                    for prompt_id, normalized_id in zip(prompt_action_ids, normalized_action_ids)
+                ),
                 "unsupported_operations": unsupported_operations,
                 "blocked_reasons": blocked_reasons,
                 "mapped_action_ids": [action.action_id for action in grounded_actions],
@@ -1430,6 +1456,7 @@ def _branching_action_parameters(
     raw_parameters = dict(action_item.get("parameters", {}))
     raw_parameters.setdefault("purchase_need_id", need.purchase_need_id)
     if action_id == "create_purchase_request":
+        requested_route_type = str(raw_parameters.get("route_type", "")).strip()
         amount = int(
             raw_parameters.get(
                 "amount",
@@ -1438,7 +1465,7 @@ def _branching_action_parameters(
         )
         classification_hint = classification.lower()
         reason_hint = str(action_item.get("reason", "")).lower()
-        route_hint = str(raw_parameters.get("route_type", "")).lower()
+        route_hint = requested_route_type.lower()
         if "emergency" in route_hint:
             route_type = "emergency"
         else:
@@ -1461,6 +1488,8 @@ def _branching_action_parameters(
         raw_parameters.setdefault("request_date", (need.request_date + timedelta(days=action_offset)).isoformat())
         raw_parameters.setdefault("vendor_id", need.vendor_id)
         raw_parameters.setdefault("project_id", need.project_id)
+        if requested_route_type:
+            raw_parameters["requested_route_type"] = requested_route_type
         raw_parameters["route_type"] = route_type
         if route_type == "emergency":
             raw_parameters.setdefault("emergency_reason", str(action_item.get("reason", "Delivery pressure.")))
@@ -1910,7 +1939,7 @@ def _branching_coverage_targets(coverage_target_mode: str, *, has_parent_context
             "Vary request structure, entered amounts, timing, route choice, and communication channel when those variations are plausible from the facts.",
             "Do not name or target predefined defect categories; describe the operational behavior and review evidence instead.",
         ]
-    elif coverage_target_mode == "process_state_only":
+    elif coverage_target_mode in {"process_state_only", "process_state_only_alias_actions"}:
         targets = [
             "Use only the current purchase need state, event history, requester goal, constraints, and allowed actions.",
             "Generate plausible next behavior branches without naming predefined risk categories or control weakness labels.",
@@ -1945,13 +1974,124 @@ def _branching_coverage_targets(coverage_target_mode: str, *, has_parent_context
     return targets
 
 
+def _branching_action_alias_map(
+    actions: list[ActionDefinition],
+    coverage_target_mode: str,
+) -> dict[str, str]:
+    if coverage_target_mode != "process_state_only_alias_actions":
+        return {}
+    return {f"action_{index:02d}": action.action_id for index, action in enumerate(actions, start=1)}
+
+
+def _branching_allowed_actions_for_prompt(
+    actions: list[ActionDefinition],
+    action_alias_map: dict[str, str],
+) -> list[dict[str, Any]]:
+    if not action_alias_map:
+        return [
+            {
+                "action_id": action.action_id,
+                "description": action.description,
+                "required_fields": action.required_fields,
+            }
+            for action in actions
+        ]
+    actual_to_alias = {actual_id: alias_id for alias_id, actual_id in action_alias_map.items()}
+    abstract_descriptions = [
+        "Create or update a formal workflow record for this purchase need.",
+        "Ask an internal supervisory role for process guidance.",
+        "Ask an internal process-support role for procurement guidance.",
+        "Defer the next workflow step until more information is available.",
+        "Record a communication outside the standard workflow that may affect later process steps.",
+    ]
+    rows: list[dict[str, Any]] = []
+    for index, action in enumerate(actions):
+        alias_id = actual_to_alias[action.action_id]
+        rows.append(
+            {
+                "action_id": alias_id,
+                "description": abstract_descriptions[index]
+                if index < len(abstract_descriptions)
+                else "Perform an available abstract process operation.",
+                "required_fields": ["purchase_need_id"],
+            }
+        )
+    return rows
+
+
+def _branching_parent_context_for_prompt(
+    parent_context: dict[str, Any] | None,
+    *,
+    coverage_target_mode: str,
+    action_alias_map: dict[str, str],
+) -> dict[str, Any] | None:
+    if parent_context is None:
+        return None
+    if coverage_target_mode != "process_state_only_alias_actions" or not action_alias_map:
+        return parent_context
+    actual_to_alias = {actual_id: alias_id for alias_id, actual_id in action_alias_map.items()}
+    context = json.loads(json.dumps(parent_context, ensure_ascii=False))
+    for action in context.get("prior_actions", []):
+        action_id = str(action.get("action_id", ""))
+        if action_id in actual_to_alias:
+            action["action_id"] = actual_to_alias[action_id]
+    for event in context.get("event_summary", []):
+        action_id = str(event.get("action_id", ""))
+        if action_id in actual_to_alias:
+            event["action_id"] = actual_to_alias[action_id]
+    context["action_aliasing_note"] = "Action identifiers in this context use abstract aliases."
+    return context
+
+
+def _validate_branching_alias_action_ids(
+    payload: dict[str, Any] | None,
+    action_alias_map: dict[str, str],
+) -> list[str]:
+    if not action_alias_map or not isinstance(payload, dict):
+        return []
+    allowed_aliases = set(action_alias_map)
+    errors: list[str] = []
+    for proposal_index, proposal in enumerate(payload.get("proposals", []), start=1):
+        if not isinstance(proposal, dict):
+            continue
+        for action_index, action in enumerate(proposal.get("action_sequence", []), start=1):
+            if not isinstance(action, dict):
+                continue
+            action_id = str(action.get("action_id", ""))
+            if action_id not in allowed_aliases:
+                errors.append(
+                    f"proposal {proposal_index} action {action_index} action_id must use an allowed abstract alias"
+                )
+    return errors
+
+
+def _translate_branching_payload_action_aliases(
+    payload: dict[str, Any],
+    action_alias_map: dict[str, str],
+) -> dict[str, Any]:
+    if not action_alias_map:
+        return payload
+    translated = json.loads(json.dumps(payload, ensure_ascii=False))
+    for proposal in translated.get("proposals", []):
+        if not isinstance(proposal, dict):
+            continue
+        for action in proposal.get("action_sequence", []):
+            if not isinstance(action, dict):
+                continue
+            prompt_action_id = str(action.get("action_id", ""))
+            if prompt_action_id in action_alias_map:
+                action["prompt_action_id"] = prompt_action_id
+                action["action_id"] = action_alias_map[prompt_action_id]
+    return translated
+
+
 def _branching_control_cards_for_prompt(
     controls: list[ControlCard],
     *,
     control_visibility: str,
     coverage_target_mode: str,
 ) -> list[dict[str, Any]]:
-    if coverage_target_mode == "process_state_only":
+    if coverage_target_mode in {"process_state_only", "process_state_only_alias_actions"}:
         return []
     if coverage_target_mode == "risk_category_hidden":
         return _control_cards_for_prompt(controls, "control_full")
@@ -1959,7 +2099,7 @@ def _branching_control_cards_for_prompt(
 
 
 def _branching_variant_context(variant_policy: VariantPolicy, *, coverage_target_mode: str) -> dict[str, Any]:
-    if coverage_target_mode == "process_state_only":
+    if coverage_target_mode in {"process_state_only", "process_state_only_alias_actions"}:
         return {"visibility": "hidden_by_process_state_only_condition"}
     return {
         "variant_id": variant_policy.variant_id,
@@ -2764,9 +2904,44 @@ def _stub_branching_proposal_response(messages: list[dict[str, str]]) -> str:
     need = user_payload["purchase_need"]
     proposal_count = int(user_payload.get("branching_parameters", {}).get("proposal_count_per_node", 5))
     parent_context = user_payload.get("parent_world_context")
+    prompt_action_ids = _stub_prompt_action_ids_by_actual(user_payload)
     if parent_context:
-        return _stub_branching_followup_response_for_mapping(need, proposal_count, parent_context)
-    return _stub_branching_proposal_response_for_mapping(need, proposal_count)
+        payload = json.loads(_stub_branching_followup_response_for_mapping(need, proposal_count, parent_context))
+    else:
+        payload = json.loads(_stub_branching_proposal_response_for_mapping(need, proposal_count))
+    _rewrite_stub_action_ids(payload, prompt_action_ids)
+    return json.dumps(payload, ensure_ascii=False)
+
+
+def _stub_prompt_action_ids_by_actual(user_payload: dict[str, Any]) -> dict[str, str]:
+    prompt_actions = user_payload.get("allowed_actions", [])
+    if not prompt_actions:
+        return {}
+    prompt_ids = [str(action.get("action_id", "")) for action in prompt_actions]
+    if not all(prompt_id.startswith("action_") for prompt_id in prompt_ids):
+        return {}
+    actual_order = [
+        "create_purchase_request",
+        "consult_manager",
+        "consult_purchasing",
+        "postpone_request",
+        "informal_preapproval_chat",
+    ]
+    return {
+        actual_id: prompt_ids[index]
+        for index, actual_id in enumerate(actual_order)
+        if index < len(prompt_ids)
+    }
+
+
+def _rewrite_stub_action_ids(payload: dict[str, Any], prompt_action_ids: dict[str, str]) -> None:
+    if not prompt_action_ids:
+        return
+    for proposal in payload.get("proposals", []):
+        for action in proposal.get("action_sequence", []):
+            action_id = str(action.get("action_id", ""))
+            if action_id in prompt_action_ids:
+                action["action_id"] = prompt_action_ids[action_id]
 
 
 def _stub_branching_proposal_response_for_need(need: PurchaseNeed) -> str:

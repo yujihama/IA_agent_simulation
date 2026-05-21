@@ -10,10 +10,12 @@ SPLIT_ORDER_DETECTOR_ID = "split_order_detector"
 AMOUNT_MISMATCH_DETECTOR_ID = "amount_mismatch_detector"
 EMERGENCY_ROUTE_DETECTOR_ID = "emergency_route_detector"
 INFORMAL_PREAPPROVAL_DETECTOR_ID = "informal_preapproval_detector"
+FAST_TRACK_ROUTE_DETECTOR_ID = "fast_track_route_attempt_detector"
 DEFECT_ID = "D-001"
 UNDERREPORTED_AMOUNT_DEFECT_ID = "D-003"
 EMERGENCY_ROUTE_DEFECT_ID = "D-002"
 INFORMAL_PREAPPROVAL_DEFECT_ID = "D-004"
+FAST_TRACK_ROUTE_DEFECT_ID = "D-CAND-FAST-TRACK"
 DEPARTMENT_HEAD_THRESHOLD = 1_000_000
 WINDOW_DAYS = 7
 
@@ -233,11 +235,59 @@ def detect_informal_preapprovals(events: list[dict[str, Any]]) -> list[dict[str,
     return annotations
 
 
+def detect_fast_track_route_attempts(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    annotations: list[dict[str, Any]] = []
+    index = 1
+    markers = ("fast-track", "fast track", "fast_track", "shortcut route", "fast-track routing")
+    for event in events:
+        if event["action_id"] != "create_purchase_request":
+            continue
+        metadata = event.get("metadata", {})
+        requested_route_type = str(metadata.get("requested_route_type", event.get("route_type", ""))).lower()
+        branch_reason = str(event.get("branch_reason", "")).lower()
+        policy_flags = " ".join(str(flag).lower() for flag in metadata.get("policy_violation_flags", []))
+        route_text = " ".join([requested_route_type, branch_reason, policy_flags])
+        if not any(marker in route_text for marker in markers):
+            continue
+        if event.get("route_type") == "emergency":
+            continue
+        annotations.append(
+            {
+                "annotation_id": f"ANN-FTR-{index:06d}",
+                "run_id": event["run_id"],
+                "world_id": event.get("world_id", ""),
+                "detector_id": FAST_TRACK_ROUTE_DETECTOR_ID,
+                "defect_id": FAST_TRACK_ROUTE_DEFECT_ID,
+                "candidate_group_id": f"DCAND-FAST-TRACK-{index:03d}",
+                "severity": "medium",
+                "confidence": 0.64,
+                "bypass_success": False,
+                "mitigated_by_aggregation": False,
+                "evidence_event_ids": [event["event_id"]],
+                "requested_route_type": requested_route_type,
+                "observed_facts": [
+                    "A purchase request event refers to a requester-specified fast-track or shortcut route.",
+                    "The executable route was not a modeled emergency route, so the current route controls do not evaluate this as D-002.",
+                ],
+                "inference": (
+                    "This is a detector/library design candidate: the process model can execute the request, "
+                    "but the requested fast-track route is not represented as a first-class controlled route."
+                ),
+                "related_controls": ["P2P-C-001", "P2P-C-003"],
+                "proposal_flags_used": True,
+                "detection_basis": "event_metadata_and_branch_reason",
+            }
+        )
+        index += 1
+    return annotations
+
+
 def detect_control_findings(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
     annotations = detect_split_orders(events)
     annotations.extend(detect_amount_mismatches(events))
     annotations.extend(detect_emergency_route_usage(events))
     annotations.extend(detect_informal_preapprovals(events))
+    annotations.extend(detect_fast_track_route_attempts(events))
     return annotations
 
 
@@ -273,6 +323,13 @@ def build_findings(annotations: list[dict[str, Any]], events: list[dict[str, Any
                 "正式承認前の非公式な合意形成があったか確認する。",
                 "承認コメント、チャット証跡、ヒアリング手続で根拠を確認する。",
                 "非公式相談が正式承認を形骸化させていないか評価する。",
+            ]
+        elif defect_id == FAST_TRACK_ROUTE_DEFECT_ID:
+            title = "Fast-track route attempt review candidate"
+            recommended_review_steps = [
+                "Confirm whether a requester-specified fast-track or shortcut route exists outside modeled normal/emergency routes.",
+                "Check whether approval, reason evidence, and post-action review requirements are defined for that route.",
+                "Decide whether this should become a first-class Action Library route or a dedicated Detector rule.",
             ]
         else:
             title = "\u627f\u8a8d\u95be\u5024\u56de\u907f\u306e\u53ef\u80fd\u6027\u304c\u3042\u308b\u5206\u5272\u8cfc\u8cb7\u7533\u8acb"
@@ -310,6 +367,7 @@ def build_findings(annotations: list[dict[str, Any]], events: list[dict[str, Any
                         "amount": event["amount"],
                         "reported_amount": event.get("metadata", {}).get("reported_amount", event["amount"]),
                         "economic_amount": event.get("metadata", {}).get("economic_amount", event["amount"]),
+                        "requested_route_type": event.get("metadata", {}).get("requested_route_type", event.get("route_type", "")),
                         "required_approver_level": event.get("metadata", {}).get("required_approver_level", ""),
                         "aggregation_applied": event.get("metadata", {}).get("aggregation_applied", False),
                     }

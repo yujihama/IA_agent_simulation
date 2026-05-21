@@ -19,6 +19,7 @@ BALANCED_HINT_EXPERIMENT = REPO_ROOT / "runs/experiments/EXP-S002-BALANCED-PLANN
 HINT_PRESSURE_MATRIX_EXPERIMENT = REPO_ROOT / "runs/experiments/EXP-S002-HINT-PRESSURE-MATRIX-5X"
 AGENT_STRESS_EXPERIMENT = REPO_ROOT / "runs/experiments/EXP-S002-AGENT-STRESS-3X"
 BRANCHING_HINT_ABLATION_EVIDENCE = REPO_ROOT / "runs/evidence/RUN-S002-BRANCHING-HINT-ABLATION-GPT41-MINI"
+BRANCHING_ALIAS_ACTIONS_EVIDENCE = REPO_ROOT / "runs/evidence/RUN-S002-BRANCHING-ALIAS-ACTIONS-GPT41-MINI"
 FORBIDDEN_REVIEW_KEYS = {"evaluation_group_id", "behavior_pattern", "seeded_deficiency_id", "evaluation_result"}
 
 
@@ -399,6 +400,58 @@ def test_committed_branching_hint_ablation_evidence_matches_expected_values():
         calls_text = calls_path.read_text(encoding="utf-8")
         assert "OPENAI_API_KEY" not in calls_text
         assert "sk-" not in calls_text
+
+
+def test_committed_branching_alias_actions_evidence_matches_expected_values():
+    summary = read_json(BRANCHING_ALIAS_ACTIONS_EVIDENCE / "summary.json")
+
+    assert summary["model"] == "gpt-4.1-mini"
+    assert summary["temperature"] == 0.7
+    assert summary["coverage_target_modes"] == [
+        "current_coverage_target",
+        "risk_category_hidden",
+        "process_state_only",
+        "process_state_only_alias_actions",
+    ]
+    assert summary["conditions"]["current_coverage_target"]["generated_world_count"] == 20
+    assert summary["conditions"]["risk_category_hidden"]["detected_defect_ids"] == [
+        "D-001",
+        "D-002",
+        "D-004",
+    ]
+    assert summary["conditions"]["process_state_only"]["residual_risk_world_count"] == 1
+    assert summary["conditions"]["process_state_only_alias_actions"]["generated_world_count"] == 25
+    assert summary["conditions"]["process_state_only_alias_actions"]["new_risk_detection_rate"] == 0.3333
+    assert summary["conditions"]["process_state_only_alias_actions"]["residual_risk_world_count"] == 8
+    assert summary["conditions"]["process_state_only_alias_actions"]["detected_defect_ids"] == ["D-004"]
+
+    for condition_slug in ["current", "hidden", "state_only", "state_alias"]:
+        condition_dir = BRANCHING_ALIAS_ACTIONS_EVIDENCE / condition_slug
+        manifest = read_json(condition_dir / "evidence_manifest.json")
+        assert manifest["missing_files"] == []
+        calls_path = condition_dir / "RUN-S002-BRANCHING-BASELINE/branching_calls.jsonl"
+        calls_text = calls_path.read_text(encoding="utf-8")
+        assert "OPENAI_API_KEY" not in calls_text
+        assert "sk-" not in calls_text
+
+    concrete_action_ids = [
+        "create_purchase_request",
+        "consult_manager",
+        "consult_purchasing",
+        "postpone_request",
+        "informal_preapproval_chat",
+    ]
+    alias_calls = read_jsonl(
+        BRANCHING_ALIAS_ACTIONS_EVIDENCE / "state_alias/RUN-S002-BRANCHING-BASELINE/branching_calls.jsonl"
+    )
+    assert alias_calls[0]["action_aliasing_enabled"] is True
+    assert alias_calls[0]["action_alias_map"]["action_01"] == "create_purchase_request"
+    for call in alias_calls:
+        prompt_text = "\n".join(message["content"] for message in call["request_messages"])
+        raw_response = call["raw_response"]
+        for action_id in concrete_action_ids:
+            assert action_id not in prompt_text
+            assert action_id not in raw_response
 
 
 def test_run_manifests_use_relative_paths_and_include_provenance_hashes():

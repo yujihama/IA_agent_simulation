@@ -73,6 +73,7 @@ BRANCHING_COVERAGE_TARGET_MODES = [
     "current_coverage_target",
     "risk_category_hidden",
     "process_state_only",
+    "process_state_only_alias_actions",
 ]
 
 
@@ -1023,7 +1024,8 @@ def _write_branching_hint_ablation_report(path: Path, summary: dict[str, Any]) -
             "The current_coverage_target condition explicitly names target risk categories. "
             "The risk_category_hidden condition keeps control structure and allowed actions visible but removes named risk-category coverage targets. "
             "The process_state_only condition hides control cards and asks for branches from state, goals, constraints, and allowed actions only. "
-            "Allowed action identifiers remain visible in every condition because the output must be grounded into executable synthetic actions.",
+            "The process_state_only_alias_actions condition also replaces action identifiers and descriptions with abstract aliases, "
+            "then restores the executable action IDs only during Action Grounding.",
             "",
             "## Proposal Titles",
             "",
@@ -2774,6 +2776,7 @@ def _branching_coverage_target_mode_slug(mode: str) -> str:
         "current_coverage_target": "current",
         "risk_category_hidden": "hidden",
         "process_state_only": "state_only",
+        "process_state_only_alias_actions": "state_alias",
     }[mode]
 
 

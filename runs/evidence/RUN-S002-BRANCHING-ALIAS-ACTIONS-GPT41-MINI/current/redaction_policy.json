@@ -1,0 +1,19 @@
+{
+  "mode": "pattern_redaction",
+  "raw_prompts_preserved": true,
+  "raw_responses_preserved": true,
+  "redacted_patterns": [
+    "OpenAI API keys matching sk-*",
+    "GitHub tokens matching gh*_",
+    "Authorization bearer tokens",
+    "OPENAI_API_KEY assignment values",
+    "local Windows user paths under C:\\Users\\*"
+  ],
+  "not_redacted": [
+    "synthetic purchase need data",
+    "LLM prompt text",
+    "LLM raw response text",
+    "parsed JSON",
+    "validation status and retry metadata"
+  ]
+}
