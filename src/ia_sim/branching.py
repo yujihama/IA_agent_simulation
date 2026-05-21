@@ -62,7 +62,17 @@ def _lineage_actions_for_world(
     parent_world_id = parent_by_world.get(world_id, "")
     for lineage_world_id in lineage:
         for action in actions_by_world.get(lineage_world_id, []):
-            actions.append(replace(action, world_id=world_id, parent_world_id=parent_world_id))
+            parameters = dict(action.parameters)
+            parameters["_lineage_source_world_id"] = action.world_id
+            parameters["_lineage_action_depth"] = action.depth
+            actions.append(
+                replace(
+                    action,
+                    parameters=parameters,
+                    world_id=world_id,
+                    parent_world_id=parent_world_id,
+                )
+            )
     return actions
 
 
@@ -83,6 +93,7 @@ def build_branching_artifacts(
     events_by_world: dict[str, list[dict[str, Any]]] = {}
     for event in events:
         events_by_world.setdefault(event.get("world_id", ""), []).append(event)
+    events_by_id = {event["event_id"]: event for event in events}
     annotations_by_world: dict[str, list[dict[str, Any]]] = {}
     for annotation in annotations:
         annotations_by_world.setdefault(annotation.get("world_id", ""), []).append(annotation)
@@ -115,7 +126,24 @@ def build_branching_artifacts(
             }
         )
         detected_findings = [finding["finding_id"] for finding in world_findings]
-        undetected_risks = _undetected_risks(row, world_findings)
+        finding_sources = {
+            finding["finding_id"]: _finding_lineage_source(
+                finding=finding,
+                events_by_id=events_by_id,
+                current_depth=depth,
+            )
+            for finding in world_findings
+        }
+        current_detected_findings = [
+            finding_id for finding_id, source in finding_sources.items() if source in {"current", "mixed"}
+        ]
+        inherited_detected_findings = [
+            finding_id for finding_id, source in finding_sources.items() if source == "inherited"
+        ]
+        mixed_lineage_detected_findings = [
+            finding_id for finding_id, source in finding_sources.items() if source == "mixed"
+        ]
+        undetected_risks = _undetected_risks(row, world_findings, current_detected_findings)
         child_world_ids = children_by_parent.get(world_id, [])
         terminal_reason = _terminal_reason(
             row=row,
@@ -145,6 +173,10 @@ def build_branching_artifacts(
                 "triggered_controls": triggered_controls,
                 "detected_annotations": [annotation["annotation_id"] for annotation in world_annotations],
                 "detected_findings": detected_findings,
+                "current_detected_findings": current_detected_findings,
+                "inherited_detected_findings": inherited_detected_findings,
+                "mixed_lineage_detected_findings": mixed_lineage_detected_findings,
+                "finding_lineage_sources": finding_sources,
                 "undetected_risks": undetected_risks,
                 "unsupported_operations": row.get("unsupported_operations", []),
                 "blocked_reasons": row.get("blocked_reasons", []),
@@ -171,6 +203,9 @@ def build_branching_artifacts(
                 "depth": world["depth"],
                 "classification": world["classification"],
                 "risk_score": world["risk_score"],
+                "detected_findings": world["detected_findings"],
+                "current_detected_findings": world["current_detected_findings"],
+                "inherited_detected_findings": world["inherited_detected_findings"],
                 "children": world["child_world_ids"],
             }
             for world in world_summaries
@@ -227,6 +262,13 @@ def write_branching_report(path: Path, *, run_id: str, summary: dict[str, Any], 
         "undetected_high_risk_world_count",
         "detector_detection_rate_numerator",
         "detector_detection_rate_denominator",
+        "lineage_detection_rate",
+        "new_risk_detection_rate",
+        "current_world_detection_rate",
+        "inherited_risk_count",
+        "inherited_risk_world_count",
+        "inherited_only_high_risk_world_count",
+        "undetected_new_risk_world_count",
         "residual_risk_world_count",
         "control_gap_count",
     ]:
@@ -258,6 +300,8 @@ def write_branching_report(path: Path, *, run_id: str, summary: dict[str, Any], 
                 f"- actions: {world['actions']}",
                 f"- children: {world['child_world_ids']}",
                 f"- detected_findings: {world['detected_findings']}",
+                f"- current_detected_findings: {world['current_detected_findings']}",
+                f"- inherited_detected_findings: {world['inherited_detected_findings']}",
                 f"- undetected_risks: {world['undetected_risks']}",
                 "",
             ]
@@ -286,7 +330,33 @@ def write_residual_risk_report(path: Path, *, residual_risks: dict[str, Any]) ->
     path.write_text("\n".join(lines), encoding="utf-8")
 
 
-def _undetected_risks(row: dict[str, Any], findings: list[dict[str, Any]]) -> list[str]:
+def _finding_lineage_source(
+    *,
+    finding: dict[str, Any],
+    events_by_id: dict[str, dict[str, Any]],
+    current_depth: int,
+) -> str:
+    evidence_depths = [
+        int(events_by_id[event_id].get("metadata", {}).get("lineage_action_depth", current_depth))
+        for event_id in finding.get("evidence_event_ids", [])
+        if event_id in events_by_id
+    ]
+    if not evidence_depths:
+        return "unknown"
+    has_current = any(depth >= current_depth for depth in evidence_depths)
+    has_inherited = any(depth < current_depth for depth in evidence_depths)
+    if has_current and has_inherited:
+        return "mixed"
+    if has_current:
+        return "current"
+    return "inherited"
+
+
+def _undetected_risks(
+    row: dict[str, Any],
+    findings: list[dict[str, Any]],
+    current_findings: list[str],
+) -> list[str]:
     classification = row.get("classification", "compliant")
     if classification not in HIGH_RISK_CLASSIFICATIONS:
         return []
@@ -298,6 +368,8 @@ def _undetected_risks(row: dict[str, Any], findings: list[dict[str, Any]]) -> li
         return ["system_blocked_attempt_requires_review"]
     if not findings:
         return ["no_detector_finding_for_high_risk_branch"]
+    if not current_findings:
+        return ["no_current_detector_finding_for_high_risk_branch"]
     return []
 
 
@@ -337,14 +409,14 @@ def _branching_summary(
     high_risk_worlds = [
         world for world in world_summaries if world["classification"] in HIGH_RISK_CLASSIFICATIONS
     ]
-    detected_high_risk_worlds = [world for world in high_risk_worlds if world["detected_findings"]]
+    lineage_detected_high_risk_worlds = [world for world in high_risk_worlds if world["detected_findings"]]
+    current_detected_high_risk_worlds = [
+        world for world in high_risk_worlds if world["current_detected_findings"]
+    ]
     blocked_world_count = sum(1 for world in world_summaries if world["status"] == "blocked")
     unsupported_world_count = sum(1 for world in world_summaries if world["status"] == "unsupported")
     depths = [int(world["depth"]) for world in world_summaries]
-    action_signatures = Counter(
-        " + ".join(world["actions"]) + "|" + str(world.get("policy_violation_flags", []))
-        for world in world_summaries
-    )
+    action_signatures = Counter(_world_summary_signature(world) for world in world_summaries)
     duplicate_world_count = sum(count - 1 for count in action_signatures.values() if count > 1)
     action_classification_counts = Counter(action.classification for action in planned_actions)
     for world in world_summaries:
@@ -353,6 +425,14 @@ def _branching_summary(
     residual_risk_world_count = sum(1 for world in world_summaries if world["undetected_risks"])
     high_risk_count = len(high_risk_worlds)
     depth_counts = Counter(str(world["depth"]) for world in world_summaries)
+    current_detected_world_count = sum(1 for world in world_summaries if world["current_detected_findings"])
+    inherited_risk_count = sum(len(world["inherited_detected_findings"]) for world in world_summaries)
+    inherited_risk_world_count = sum(1 for world in world_summaries if world["inherited_detected_findings"])
+    inherited_only_high_risk_count = sum(
+        1
+        for world in high_risk_worlds
+        if world["inherited_detected_findings"] and not world["current_detected_findings"]
+    )
     return {
         "proposal_count_per_node": int(branching_config.get("proposal_count_per_node", 0)),
         "max_depth": int(branching_config.get("max_depth", 0)),
@@ -379,16 +459,50 @@ def _branching_summary(
         "unsupported_action_candidate_count": len(action_library_candidates),
         "action_classification_counts": dict(sorted(action_classification_counts.items())),
         "high_risk_world_count": high_risk_count,
-        "detected_high_risk_world_count": len(detected_high_risk_worlds),
-        "detector_detection_rate_numerator": len(detected_high_risk_worlds),
+        "detected_high_risk_world_count": len(lineage_detected_high_risk_worlds),
+        "detector_detection_rate_numerator": len(lineage_detected_high_risk_worlds),
         "detector_detection_rate_denominator": high_risk_count,
         "control_block_rate": round(blocked_world_count / high_risk_count, 4) if high_risk_count else 0.0,
-        "detector_detection_rate": round(len(detected_high_risk_worlds) / high_risk_count, 4)
+        "detector_detection_rate": round(len(lineage_detected_high_risk_worlds) / high_risk_count, 4)
         if high_risk_count
         else 0.0,
+        "lineage_detection_rate_numerator": len(lineage_detected_high_risk_worlds),
+        "lineage_detection_rate_denominator": high_risk_count,
+        "lineage_detection_rate": round(len(lineage_detected_high_risk_worlds) / high_risk_count, 4)
+        if high_risk_count
+        else 0.0,
+        "current_world_detection_rate_numerator": current_detected_world_count,
+        "current_world_detection_rate_denominator": len(world_summaries),
+        "current_world_detection_rate": round(current_detected_world_count / len(world_summaries), 4)
+        if world_summaries
+        else 0.0,
+        "new_risk_detection_rate_numerator": len(current_detected_high_risk_worlds),
+        "new_risk_detection_rate_denominator": high_risk_count,
+        "new_risk_detection_rate": round(len(current_detected_high_risk_worlds) / high_risk_count, 4)
+        if high_risk_count
+        else 0.0,
+        "inherited_risk_count": inherited_risk_count,
+        "inherited_risk_world_count": inherited_risk_world_count,
+        "inherited_only_high_risk_world_count": inherited_only_high_risk_count,
         "undetected_high_risk_world_count": sum(
             1 for world in high_risk_worlds if not world["detected_findings"]
+        ),
+        "undetected_new_risk_world_count": sum(
+            1 for world in high_risk_worlds if not world["current_detected_findings"]
         ),
         "residual_risk_world_count": residual_risk_world_count,
         "control_gap_count": residual_risk_world_count,
     }
+
+
+def _world_summary_signature(world: dict[str, Any]) -> str:
+    return "|".join(
+        [
+            str(world.get("parent_world_id", "")),
+            str(world.get("classification", "")),
+            " + ".join(str(action_id) for action_id in world.get("actions", [])),
+            str(world.get("policy_violation_flags", [])),
+            str(world.get("integrity_flags", [])),
+            str(world.get("branch_reason", "")),
+        ]
+    )

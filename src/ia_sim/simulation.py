@@ -25,6 +25,13 @@ FOLLOW_ON_ACTIONS = [
 ]
 
 
+def _lineage_metadata(action: PlannedAction) -> dict[str, Any]:
+    return {
+        "lineage_source_world_id": action.parameters.get("_lineage_source_world_id", action.world_id),
+        "lineage_action_depth": int(action.parameters.get("_lineage_action_depth", action.depth)),
+    }
+
+
 def build_behavior_plan(needs: list[PurchaseNeed], max_purchase_needs: int) -> list[PlannedAction]:
     allowed_actions = [
         "create_purchase_request",
@@ -143,6 +150,7 @@ class SimulationEngine:
                 "integrity_flags": action.integrity_flags,
                 "risk_score": action.risk_score,
                 "attempt_only": True,
+                **_lineage_metadata(action),
             },
             world_id=action.world_id,
             parent_world_id=action.parent_world_id,
@@ -187,6 +195,7 @@ class SimulationEngine:
                 "policy_violation_flags": action.policy_violation_flags,
                 "integrity_flags": action.integrity_flags,
                 "risk_score": action.risk_score,
+                **_lineage_metadata(action),
             }
         )
         return self._event(
@@ -289,6 +298,7 @@ class SimulationEngine:
                 "individual_required_approver_level": individual_level,
                 "aggregate_amount": aggregate_amount,
                 "aggregation_applied": aggregation_applied,
+                **_lineage_metadata(action),
             },
             world_id=action.world_id,
             parent_world_id=action.parent_world_id,
@@ -333,6 +343,7 @@ class SimulationEngine:
                     "risk_score": action.risk_score,
                     "approval_lead_time_days": lead_days,
                     "required_approver_level": required_level,
+                    **_lineage_metadata(action),
                 },
                 world_id=action.world_id,
                 parent_world_id=action.parent_world_id,
@@ -371,6 +382,7 @@ class SimulationEngine:
                         "integrity_flags": action.integrity_flags,
                         "risk_score": action.risk_score,
                         "required_approver_level": required_level,
+                        **_lineage_metadata(action),
                     },
                     world_id=action.world_id,
                     parent_world_id=action.parent_world_id,

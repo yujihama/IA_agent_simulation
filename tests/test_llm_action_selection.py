@@ -250,18 +250,31 @@ def test_branching_proposal_stub_writes_world_outputs(tmp_path):
     events = read_jsonl(run_dir / "events.jsonl")
     findings = read_json(run_dir / "findings.json")["findings"]
 
-    assert summary["generated_world_count"] == 10
-    assert summary["completed_world_count"] == 10
+    assert summary["generated_world_count"] == 20
+    assert summary["completed_world_count"] == 20
     assert summary["multi_stage_enabled"] is True
-    assert summary["expanded_world_count"] == 1
-    assert summary["max_depth_reached_count"] == 1
-    assert summary["generated_depth_counts"] == {"1": 5, "2": 5}
+    assert summary["max_depth"] == 3
+    assert summary["max_total_worlds"] == 25
+    assert summary["expanded_world_count"] == 3
+    assert summary["max_depth_reached_count"] == 4
+    assert summary["generated_depth_counts"] == {"1": 5, "2": 5, "3": 10}
+    assert summary["duplicate_world_count"] == 0
     assert summary["unsupported_action_candidate_count"] == 0
-    assert summary["misrepresentation_action_count"] == 2
+    assert summary["misrepresentation_action_count"] == 4
     assert summary["detector_detection_rate"] == 1.0
-    assert summary["detector_detection_rate_numerator"] == 8
-    assert summary["detector_detection_rate_denominator"] == 8
-    assert {world["world_id"] for world in worlds} == {f"WORLD-{index:03d}" for index in range(1, 11)}
+    assert summary["lineage_detection_rate"] == 1.0
+    assert summary["detector_detection_rate_numerator"] == 16
+    assert summary["detector_detection_rate_denominator"] == 16
+    assert summary["new_risk_detection_rate"] == 0.8125
+    assert summary["new_risk_detection_rate_numerator"] == 13
+    assert summary["new_risk_detection_rate_denominator"] == 16
+    assert summary["current_world_detection_rate"] == 0.65
+    assert summary["inherited_risk_count"] == 15
+    assert summary["inherited_risk_world_count"] == 15
+    assert summary["inherited_only_high_risk_world_count"] == 3
+    assert summary["undetected_new_risk_world_count"] == 3
+    assert summary["residual_risk_world_count"] == 3
+    assert {world["world_id"] for world in worlds} == {f"WORLD-{index:03d}" for index in range(1, 21)}
     world_by_id = {world["world_id"]: world for world in worlds}
     assert world_by_id["WORLD-005"]["child_world_ids"] == [
         "WORLD-006",
@@ -270,8 +283,29 @@ def test_branching_proposal_stub_writes_world_outputs(tmp_path):
         "WORLD-009",
         "WORLD-010",
     ]
-    assert world_by_id["WORLD-010"]["terminal_reason"] == "max_depth_reached"
+    assert world_by_id["WORLD-006"]["child_world_ids"] == [
+        "WORLD-016",
+        "WORLD-017",
+        "WORLD-018",
+        "WORLD-019",
+        "WORLD-020",
+    ]
+    assert world_by_id["WORLD-010"]["child_world_ids"] == [
+        "WORLD-011",
+        "WORLD-012",
+        "WORLD-013",
+        "WORLD-014",
+        "WORLD-015",
+    ]
+    assert world_by_id["WORLD-010"]["terminal_reason"] == "expanded"
+    assert world_by_id["WORLD-015"]["terminal_reason"] == "max_depth_reached"
+    assert world_by_id["WORLD-020"]["terminal_reason"] == "max_depth_reached"
+    assert world_by_id["WORLD-010"]["inherited_detected_findings"]
+    assert world_by_id["WORLD-010"]["current_detected_findings"] == []
+    assert world_by_id["WORLD-012"]["current_detected_findings"]
+    assert world_by_id["WORLD-012"]["inherited_detected_findings"]
     assert all(event["world_id"] for event in events)
+    assert all("lineage_action_depth" in event["metadata"] for event in events)
     assert {finding["defect_id"] for finding in findings} >= {"D-001", "D-002", "D-003", "D-004"}
     assert any(event["action_id"] == "informal_preapproval_chat" for event in events)
     assert (run_dir / "branching_report.md").exists()
@@ -343,10 +377,13 @@ def test_branching_variant_comparison_replays_same_world_group(tmp_path):
         "variant_a_7d_aggregation",
         "variant_b_emergency_post_approval",
     }
-    assert comparison["variants"]["baseline"]["generated_world_count"] == 10
-    assert comparison["variants"]["baseline"]["unmitigated_finding_count"] == 12
-    assert comparison["variants"]["variant_a_7d_aggregation"]["mitigated_finding_count"] == 2
-    assert comparison["variants"]["variant_b_emergency_post_approval"]["mitigated_finding_count"] == 2
+    assert comparison["variants"]["baseline"]["generated_world_count"] == 20
+    assert comparison["variants"]["baseline"]["unmitigated_finding_count"] == 28
+    assert comparison["variants"]["baseline"]["lineage_detection_rate"] == 1.0
+    assert comparison["variants"]["baseline"]["new_risk_detection_rate"] == 0.8125
+    assert comparison["variants"]["baseline"]["inherited_risk_count"] == 15
+    assert comparison["variants"]["variant_a_7d_aggregation"]["mitigated_finding_count"] == 4
+    assert comparison["variants"]["variant_b_emergency_post_approval"]["mitigated_finding_count"] == 4
 
     variant_a_effects = [
         row for row in comparison["world_effects"] if row["variant_id"] == "variant_a_7d_aggregation"

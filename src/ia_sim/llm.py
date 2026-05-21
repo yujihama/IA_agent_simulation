@@ -963,7 +963,11 @@ class LLMBranchingProposalGenerator:
             )
             if is_valid:
                 assert parsed_payload is not None
-                parsed_payload = _limit_branching_payload(parsed_payload, self.proposal_count_per_node)
+                parsed_payload = _limit_branching_payload(
+                    parsed_payload,
+                    self.proposal_count_per_node,
+                    prefer_nonterminal_continuations=parent_context is not None and world_depth < self.max_depth,
+                )
                 return ground_branching_proposals(
                     self.run_id,
                     parsed_payload,
@@ -1047,6 +1051,11 @@ class LLMBranchingProposalGenerator:
                     "Include underreported amount or amount-integrity mismatch if include_misrepresentation_actions is true.",
                     "Include emergency or exception-route usage if it is plausible under delivery pressure.",
                     "Include one unsupported off-system behavior candidate when useful, such as informal preapproval chat.",
+                    (
+                        "When parent_world_context is present and current_depth is below max_depth, include at least two "
+                        "non-terminal continuation branches that keep the purchase need open, using consult_manager, "
+                        "consult_purchasing, or informal_preapproval_chat without creating a purchase request in that branch."
+                    ),
                 ],
                 "branching_parameters": {
                     "proposal_count_per_node": self.proposal_count_per_node,
@@ -1245,22 +1254,25 @@ def ground_branching_proposals(
         action_sequence = proposal.get("action_sequence", [])
         normalized_action_ids = [_normalize_operation(str(item.get("action_id", ""))) for item in action_sequence]
         if classification == "unsupported":
-            candidate_action_id = _candidate_action_id_from_proposal(proposal)
-            if candidate_action_id in allowed_actions:
+            if normalized_action_ids and all(action_id in allowed_actions for action_id in normalized_action_ids):
                 classification = "gray_area"
-                action_sequence = [
-                    {
-                        "action_id": candidate_action_id,
-                        "parameters": {
-                            "purchase_need_id": need.purchase_need_id,
-                            "channel": "chat",
-                            "counterpart_role": "purchasing",
-                            "message": str(proposal.get("proposed_behavior", "")),
-                        },
-                        "reason": str(proposal.get("risk_rationale", "")),
-                    }
-                ]
-                normalized_action_ids = [candidate_action_id]
+            else:
+                candidate_action_id = _candidate_action_id_from_proposal(proposal)
+                if candidate_action_id in allowed_actions:
+                    classification = "gray_area"
+                    action_sequence = [
+                        {
+                            "action_id": candidate_action_id,
+                            "parameters": {
+                                "purchase_need_id": need.purchase_need_id,
+                                "channel": "chat",
+                                "counterpart_role": "purchasing",
+                                "message": str(proposal.get("proposed_behavior", "")),
+                            },
+                            "reason": str(proposal.get("risk_rationale", "")),
+                        }
+                    ]
+                    normalized_action_ids = [candidate_action_id]
         unsupported_operations = [
             str(action_sequence[index].get("action_id", ""))
             for index, action_id in enumerate(normalized_action_ids)
@@ -1543,10 +1555,70 @@ def _fallback_branching_payload(need: PurchaseNeed, proposal_count: int) -> dict
     return _limit_branching_payload(payload, proposal_count)
 
 
-def _limit_branching_payload(payload: dict[str, Any], proposal_count: int) -> dict[str, Any]:
+def _limit_branching_payload(
+    payload: dict[str, Any],
+    proposal_count: int,
+    *,
+    prefer_nonterminal_continuations: bool = False,
+) -> dict[str, Any]:
     limited = dict(payload)
-    limited["proposals"] = list(payload.get("proposals", []))[:proposal_count]
+    proposals = list(payload.get("proposals", []))
+    selected = proposals[:proposal_count]
+    if prefer_nonterminal_continuations:
+        selected = _prefer_nonterminal_branching_proposals(selected, proposals[proposal_count:], minimum_count=2)
+    limited["proposals"] = selected
     return limited
+
+
+def _prefer_nonterminal_branching_proposals(
+    selected: list[dict[str, Any]],
+    remaining: list[dict[str, Any]],
+    *,
+    minimum_count: int,
+) -> list[dict[str, Any]]:
+    selected = list(selected)
+    nonterminal_count = sum(1 for proposal in selected if _is_nonterminal_branching_proposal(proposal))
+    for proposal in remaining:
+        if nonterminal_count >= minimum_count:
+            break
+        if not _is_nonterminal_branching_proposal(proposal):
+            continue
+        replace_index = _continuation_replacement_index(selected)
+        if replace_index is None:
+            break
+        selected[replace_index] = proposal
+        nonterminal_count += 1
+    return selected
+
+
+def _continuation_replacement_index(proposals: list[dict[str, Any]]) -> int | None:
+    for index, proposal in enumerate(proposals):
+        if _is_compliant_create_reference(proposal):
+            return index
+    for index in range(len(proposals) - 1, -1, -1):
+        if not _is_nonterminal_branching_proposal(proposals[index]):
+            return index
+    return None
+
+
+def _is_compliant_create_reference(proposal: dict[str, Any]) -> bool:
+    if str(proposal.get("classification", "")).lower() != "compliant":
+        return False
+    action_ids = [
+        _normalize_operation(str(action.get("action_id", "")))
+        for action in proposal.get("action_sequence", [])
+        if isinstance(action, dict)
+    ]
+    return "create_purchase_request" in action_ids
+
+
+def _is_nonterminal_branching_proposal(proposal: dict[str, Any]) -> bool:
+    action_ids = [
+        _normalize_operation(str(action.get("action_id", "")))
+        for action in proposal.get("action_sequence", [])
+        if isinstance(action, dict)
+    ]
+    return bool(action_ids) and "create_purchase_request" not in action_ids
 
 
 def validate_open_proposal_payload(payload: dict[str, Any]) -> list[str]:
@@ -2808,26 +2880,22 @@ def _stub_branching_followup_response_for_mapping(
         "proposals": [
             {
                 "proposal_id": f"PROP-BR-{parent_suffix}-F01",
-                "title": "followup_standard_request_after_prior_context",
-                "proposed_behavior": "After the prior interaction, submit the full purchase need through the normal route.",
+                "title": "followup_consult_manager_after_prior_context",
+                "proposed_behavior": "After the prior interaction, ask the manager for formal process guidance before submitting.",
                 "classification": "compliant",
                 "action_sequence": [
                     {
-                        "action_id": "create_purchase_request",
+                        "action_id": "consult_manager",
                         "parameters": {
                             "purchase_need_id": need["purchase_need_id"],
-                            "amount": amount_total,
-                            "request_date": request_date.isoformat(),
-                            "vendor_id": need["vendor_id"],
-                            "project_id": need["project_id"],
-                            "route_type": "normal",
+                            "question": "How should this purchase proceed after the prior interaction?",
                         },
-                        "reason": "Follow the formal route after the prior intermediate state.",
+                        "reason": "Keep the case open while asking the formal manager role for guidance.",
                     }
                 ],
-                "control_concern": "The prior interaction remains review context even if the formal request is complete.",
-                "risk_rationale": "Reference follow-up branch.",
-                "review_evidence": ["prior world events", "purchase request amount", "approval level"],
+                "control_concern": "The prior interaction remains review context before the formal request is created.",
+                "risk_rationale": "Open-ended reference follow-up branch for deeper exploration.",
+                "review_evidence": ["prior world events", "manager consultation record", "subsequent action"],
                 "policy_violation_flags": [],
                 "integrity_flags": [],
             },

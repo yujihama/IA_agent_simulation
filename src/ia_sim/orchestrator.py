@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import copy
+import json
 import subprocess
 from collections import Counter
 from pathlib import Path
@@ -357,6 +358,9 @@ def run_simulation(
                 "generated_world_count": branching_artifacts["branching_summary"]["generated_world_count"],
                 "residual_risk_world_count": branching_artifacts["branching_summary"]["residual_risk_world_count"],
                 "detector_detection_rate": branching_artifacts["branching_summary"]["detector_detection_rate"],
+                "lineage_detection_rate": branching_artifacts["branching_summary"]["lineage_detection_rate"],
+                "new_risk_detection_rate": branching_artifacts["branching_summary"]["new_risk_detection_rate"],
+                "inherited_risk_count": branching_artifacts["branching_summary"]["inherited_risk_count"],
             }
         )
 
@@ -461,6 +465,7 @@ def _expand_multistage_branching(
     frontier = list(result.world_rows)
     next_sequence = _next_branching_sequence(result.planned_actions)
     next_world_index = _next_branching_world_index(result.world_rows)
+    seen_world_signatures = _branching_world_signatures(result.world_rows, result.planned_actions)
 
     while frontier and len(result.world_rows) < max_total_worlds:
         parent_events = execute_branching_worlds(
@@ -493,6 +498,7 @@ def _expand_multistage_branching(
                 first_sequence=next_sequence,
                 first_world_index=next_world_index,
             )
+            child_result = _deduplicate_branching_result_worlds(child_result, seen_world_signatures)
             child_result = _limit_branching_result_worlds(child_result, remaining_worlds)
             if not child_result.world_rows:
                 continue
@@ -551,8 +557,65 @@ def _next_branching_world_index(world_rows: list[dict[str, Any]]) -> int:
     return len(world_rows) + 1
 
 
+def _deduplicate_branching_result_worlds(
+    result: LLMBranchingResult,
+    seen_signatures: set[str],
+) -> LLMBranchingResult:
+    actions_by_world = _actions_by_world(result.planned_actions)
+    selected_world_ids: set[str] = set()
+    for row in result.world_rows:
+        signature = _branching_world_signature(row, actions_by_world.get(row["world_id"], []))
+        if signature in seen_signatures:
+            continue
+        seen_signatures.add(signature)
+        selected_world_ids.add(row["world_id"])
+    return _filter_branching_result_worlds(result, selected_world_ids)
+
+
+def _branching_world_signatures(
+    world_rows: list[dict[str, Any]],
+    planned_actions: list[PlannedAction],
+) -> set[str]:
+    actions_by_world = _actions_by_world(planned_actions)
+    return {
+        _branching_world_signature(row, actions_by_world.get(row["world_id"], []))
+        for row in world_rows
+    }
+
+
+def _branching_world_signature(row: dict[str, Any], actions: list[PlannedAction]) -> str:
+    return json.dumps(
+        {
+            "parent_world_id": row.get("parent_world_id", ""),
+            "classification": row.get("classification", ""),
+            "policy_violation_flags": row.get("policy_violation_flags", []),
+            "integrity_flags": row.get("integrity_flags", []),
+            "actions": [
+                {
+                    "action_id": action.action_id,
+                    "parameters": {
+                        key: value
+                        for key, value in action.parameters.items()
+                        if not str(key).startswith("_lineage_")
+                    },
+                }
+                for action in actions
+            ],
+        },
+        ensure_ascii=False,
+        sort_keys=True,
+    )
+
+
 def _limit_branching_result_worlds(result: LLMBranchingResult, max_worlds: int) -> LLMBranchingResult:
     selected_world_ids = {row["world_id"] for row in result.world_rows[:max_worlds]}
+    return _filter_branching_result_worlds(result, selected_world_ids)
+
+
+def _filter_branching_result_worlds(
+    result: LLMBranchingResult,
+    selected_world_ids: set[str],
+) -> LLMBranchingResult:
     return LLMBranchingResult(
         planned_actions=[action for action in result.planned_actions if action.world_id in selected_world_ids],
         call_rows=result.call_rows,
@@ -824,6 +887,11 @@ def _build_branching_variant_comparison(
             "detector_detection_rate": summary["detector_detection_rate"],
             "detector_detection_rate_numerator": summary["detector_detection_rate_numerator"],
             "detector_detection_rate_denominator": summary["detector_detection_rate_denominator"],
+            "lineage_detection_rate": summary.get("lineage_detection_rate", summary["detector_detection_rate"]),
+            "new_risk_detection_rate": summary.get("new_risk_detection_rate", 0.0),
+            "current_world_detection_rate": summary.get("current_world_detection_rate", 0.0),
+            "inherited_risk_count": summary.get("inherited_risk_count", 0),
+            "inherited_risk_world_count": summary.get("inherited_risk_world_count", 0),
             "unmitigated_finding_count": sum(
                 1 for finding in findings if finding.get("status") == "candidate_unmitigated"
             ),
@@ -900,14 +968,16 @@ def _write_branching_variant_comparison_report(path: Path, comparison: dict[str,
         "",
         "## Variant Summary",
         "",
-        "| Variant | Detection | Unmitigated findings | Mitigated findings | Residual worlds |",
-        "|---|---:|---:|---:|---:|",
+        "| Variant | Lineage detection | New-risk detection | Inherited risks | Unmitigated findings | Mitigated findings | Residual worlds |",
+        "|---|---:|---:|---:|---:|---:|---:|",
     ]
     for variant_id, summary in comparison["variants"].items():
         lines.append(
             f"| {variant_id} | "
             f"{summary['detector_detection_rate_numerator']}/{summary['detector_detection_rate_denominator']} "
             f"({summary['detector_detection_rate']}) | "
+            f"{summary['new_risk_detection_rate']} | "
+            f"{summary['inherited_risk_count']} | "
             f"{summary['unmitigated_finding_count']} | "
             f"{summary['mitigated_finding_count']} | "
             f"{summary['residual_risk_world_count']} |"
@@ -2497,9 +2567,9 @@ def _branching_config(raw: dict[str, Any] | None) -> dict[str, Any]:
     config = dict(raw or {})
     defaults = {
         "proposal_count_per_node": 5,
-        "max_depth": 2,
+        "max_depth": 3,
         "beam_width": 2,
-        "max_total_worlds": 15,
+        "max_total_worlds": 25,
         "include_policy_violating_actions": True,
         "include_misrepresentation_actions": True,
         "require_action_classification": True,
