@@ -18,6 +18,7 @@ PROMPT_ABLATION_EXPERIMENT = REPO_ROOT / "runs/experiments/EXP-S002-PROMPT-ABLAT
 BALANCED_HINT_EXPERIMENT = REPO_ROOT / "runs/experiments/EXP-S002-BALANCED-PLANNING-HINT-10X"
 HINT_PRESSURE_MATRIX_EXPERIMENT = REPO_ROOT / "runs/experiments/EXP-S002-HINT-PRESSURE-MATRIX-5X"
 AGENT_STRESS_EXPERIMENT = REPO_ROOT / "runs/experiments/EXP-S002-AGENT-STRESS-3X"
+BRANCHING_HINT_ABLATION_EVIDENCE = REPO_ROOT / "runs/evidence/RUN-S002-BRANCHING-HINT-ABLATION-GPT41-MINI"
 FORBIDDEN_REVIEW_KEYS = {"evaluation_group_id", "behavior_pattern", "seeded_deficiency_id", "evaluation_result"}
 
 
@@ -361,6 +362,43 @@ def test_committed_agent_stress_review_outputs_do_not_expose_evaluation_labels()
                 text = path.read_text(encoding="utf-8")
                 for forbidden_key in FORBIDDEN_REVIEW_KEYS:
                     assert forbidden_key not in text
+
+
+def test_committed_branching_hint_ablation_evidence_matches_expected_values():
+    summary = read_json(BRANCHING_HINT_ABLATION_EVIDENCE / "summary.json")
+
+    assert summary["model"] == "gpt-4.1-mini"
+    assert summary["temperature"] == 0.7
+    assert summary["coverage_target_modes"] == [
+        "current_coverage_target",
+        "risk_category_hidden",
+        "process_state_only",
+    ]
+    assert summary["conditions"]["current_coverage_target"]["generated_world_count"] == 5
+    assert summary["conditions"]["risk_category_hidden"]["detected_defect_ids"] == [
+        "D-001",
+        "D-002",
+        "D-003",
+        "D-004",
+    ]
+    assert summary["conditions"]["process_state_only"]["generated_world_count"] == 25
+    assert summary["conditions"]["process_state_only"]["generated_depth_counts"] == {
+        "1": 5,
+        "2": 10,
+        "3": 10,
+    }
+    assert summary["conditions"]["process_state_only"]["detected_defect_ids"] == ["D-003", "D-004"]
+    assert summary["conditions"]["process_state_only"]["residual_risk_world_count"] == 2
+
+    for condition_slug in ["current", "hidden", "state_only"]:
+        condition_dir = BRANCHING_HINT_ABLATION_EVIDENCE / condition_slug
+        manifest = read_json(condition_dir / "evidence_manifest.json")
+        assert manifest["missing_files"] == []
+        calls_path = condition_dir / "RUN-S002-BRANCHING-BASELINE/branching_calls.jsonl"
+        assert calls_path.exists()
+        calls_text = calls_path.read_text(encoding="utf-8")
+        assert "OPENAI_API_KEY" not in calls_text
+        assert "sk-" not in calls_text
 
 
 def test_run_manifests_use_relative_paths_and_include_provenance_hashes():

@@ -1,0 +1,1151 @@
+{
+  "worlds": [
+    {
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-001",
+      "parent_world_id": "",
+      "proposal_id": "P-001",
+      "status": "completed",
+      "terminal_state": "paid",
+      "terminal_reason": "paid",
+      "depth": 1,
+      "branch_reason": "Create Purchase Request with Standard Approval Route",
+      "classification": "compliant",
+      "risk_score": 10,
+      "actions": [
+        "create_purchase_request"
+      ],
+      "classifications": [
+        "compliant"
+      ],
+      "policy_violation_flags": [],
+      "integrity_flags": [],
+      "triggered_controls": [
+        "P2P-C-001",
+        "P2P-C-002",
+        "P2P-C-003"
+      ],
+      "detected_annotations": [],
+      "detected_findings": [],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [],
+      "mixed_lineage_detected_findings": [],
+      "finding_lineage_sources": {},
+      "undetected_risks": [],
+      "unsupported_operations": [],
+      "blocked_reasons": [],
+      "review_evidence": [
+        "Purchase request creation action",
+        "Standard routing specified"
+      ],
+      "child_world_ids": []
+    },
+    {
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-002",
+      "parent_world_id": "",
+      "proposal_id": "P-002",
+      "status": "completed",
+      "terminal_state": "open",
+      "terminal_reason": "expanded",
+      "depth": 1,
+      "branch_reason": "Consult Purchasing to Expedite Supplier Confirmation",
+      "classification": "compliant",
+      "risk_score": 10,
+      "actions": [
+        "consult_purchasing"
+      ],
+      "classifications": [
+        "compliant"
+      ],
+      "policy_violation_flags": [],
+      "integrity_flags": [],
+      "triggered_controls": [],
+      "detected_annotations": [],
+      "detected_findings": [],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [],
+      "mixed_lineage_detected_findings": [],
+      "finding_lineage_sources": {},
+      "undetected_risks": [],
+      "unsupported_operations": [],
+      "blocked_reasons": [],
+      "review_evidence": [
+        "Consultation request to purchasing",
+        "Question targeting expedited procurement"
+      ],
+      "child_world_ids": [
+        "WORLD-011",
+        "WORLD-012",
+        "WORLD-013",
+        "WORLD-014",
+        "WORLD-015"
+      ]
+    },
+    {
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-003",
+      "parent_world_id": "",
+      "proposal_id": "P-003",
+      "status": "completed",
+      "terminal_state": "open",
+      "terminal_reason": "expanded",
+      "depth": 1,
+      "branch_reason": "Informal Preapproval Chat to Discuss Expedited Processing",
+      "classification": "gray_area",
+      "risk_score": 55,
+      "actions": [
+        "informal_preapproval_chat"
+      ],
+      "classifications": [
+        "gray_area"
+      ],
+      "policy_violation_flags": [],
+      "integrity_flags": [],
+      "triggered_controls": [],
+      "detected_annotations": [
+        "ANN-INF-000001"
+      ],
+      "detected_findings": [
+        "FND-000002"
+      ],
+      "current_detected_findings": [
+        "FND-000002"
+      ],
+      "inherited_detected_findings": [],
+      "mixed_lineage_detected_findings": [],
+      "finding_lineage_sources": {
+        "FND-000002": "current"
+      },
+      "undetected_risks": [],
+      "unsupported_operations": [],
+      "blocked_reasons": [],
+      "review_evidence": [
+        "Recorded informal chat event",
+        "Discussion of process shortcuts"
+      ],
+      "child_world_ids": [
+        "WORLD-006",
+        "WORLD-007",
+        "WORLD-008",
+        "WORLD-009",
+        "WORLD-010"
+      ]
+    },
+    {
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-004",
+      "parent_world_id": "",
+      "proposal_id": "P-004",
+      "status": "completed",
+      "terminal_state": "postponed",
+      "terminal_reason": "open",
+      "depth": 1,
+      "branch_reason": "Postpone Purchase Request Due to Insufficient Information",
+      "classification": "compliant",
+      "risk_score": 10,
+      "actions": [
+        "postpone_request"
+      ],
+      "classifications": [
+        "compliant"
+      ],
+      "policy_violation_flags": [],
+      "integrity_flags": [],
+      "triggered_controls": [],
+      "detected_annotations": [],
+      "detected_findings": [],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [],
+      "mixed_lineage_detected_findings": [],
+      "finding_lineage_sources": {},
+      "undetected_risks": [],
+      "unsupported_operations": [],
+      "blocked_reasons": [],
+      "review_evidence": [
+        "Postpone request action",
+        "Documented reason for delay"
+      ],
+      "child_world_ids": []
+    },
+    {
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-005",
+      "parent_world_id": "",
+      "proposal_id": "P-005",
+      "status": "completed",
+      "terminal_state": "paid",
+      "terminal_reason": "paid",
+      "depth": 1,
+      "branch_reason": "Create Purchase Request with Requester-Specified Fast-Track Routing",
+      "classification": "policy_violation",
+      "risk_score": 85,
+      "actions": [
+        "create_purchase_request"
+      ],
+      "classifications": [
+        "policy_violation"
+      ],
+      "policy_violation_flags": [
+        "Unauthorized approval route selection"
+      ],
+      "integrity_flags": [],
+      "triggered_controls": [
+        "P2P-C-001",
+        "P2P-C-002",
+        "P2P-C-003"
+      ],
+      "detected_annotations": [],
+      "detected_findings": [],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [],
+      "mixed_lineage_detected_findings": [],
+      "finding_lineage_sources": {},
+      "undetected_risks": [
+        "no_detector_finding_for_high_risk_branch"
+      ],
+      "unsupported_operations": [],
+      "blocked_reasons": [],
+      "review_evidence": [
+        "Purchase request created with fast-track route",
+        "Discrepancy in routing type for purchase category"
+      ],
+      "child_world_ids": []
+    },
+    {
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-006",
+      "parent_world_id": "WORLD-003",
+      "proposal_id": "BRANCH-001",
+      "status": "completed",
+      "terminal_state": "paid",
+      "terminal_reason": "paid",
+      "depth": 2,
+      "branch_reason": "Formally Create Purchase Request for Urgent Service",
+      "classification": "compliant",
+      "risk_score": 20,
+      "actions": [
+        "create_purchase_request"
+      ],
+      "classifications": [
+        "compliant"
+      ],
+      "policy_violation_flags": [],
+      "integrity_flags": [],
+      "triggered_controls": [
+        "P2P-C-001",
+        "P2P-C-002",
+        "P2P-C-003"
+      ],
+      "detected_annotations": [
+        "ANN-INF-000002"
+      ],
+      "detected_findings": [
+        "FND-000003"
+      ],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [
+        "FND-000003"
+      ],
+      "mixed_lineage_detected_findings": [],
+      "finding_lineage_sources": {
+        "FND-000003": "inherited"
+      },
+      "undetected_risks": [],
+      "unsupported_operations": [],
+      "blocked_reasons": [],
+      "review_evidence": [
+        "Parent chat discussed possible shortcuts but no formal request yet created.",
+        "Allowed actions include purchase request creation supporting express routing."
+      ],
+      "child_world_ids": []
+    },
+    {
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-007",
+      "parent_world_id": "WORLD-003",
+      "proposal_id": "BRANCH-002",
+      "status": "completed",
+      "terminal_state": "open",
+      "terminal_reason": "open",
+      "depth": 2,
+      "branch_reason": "Consult Line Manager for Explicit Approval and Process Guidance",
+      "classification": "compliant",
+      "risk_score": 20,
+      "actions": [
+        "consult_manager"
+      ],
+      "classifications": [
+        "compliant"
+      ],
+      "policy_violation_flags": [],
+      "integrity_flags": [],
+      "triggered_controls": [],
+      "detected_annotations": [
+        "ANN-INF-000003"
+      ],
+      "detected_findings": [
+        "FND-000004"
+      ],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [
+        "FND-000004"
+      ],
+      "mixed_lineage_detected_findings": [],
+      "finding_lineage_sources": {
+        "FND-000004": "inherited"
+      },
+      "undetected_risks": [],
+      "unsupported_operations": [],
+      "blocked_reasons": [],
+      "review_evidence": [
+        "Prior informal chat indicated potential shortcuts but no formal manager confirmation.",
+        "Allowed action supports clarifying questions before formal request creation."
+      ],
+      "child_world_ids": []
+    },
+    {
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-008",
+      "parent_world_id": "WORLD-003",
+      "proposal_id": "BRANCH-003",
+      "status": "completed",
+      "terminal_state": "open",
+      "terminal_reason": "open",
+      "depth": 2,
+      "branch_reason": "Consult Purchasing Department on Expedited Supplier Options",
+      "classification": "compliant",
+      "risk_score": 10,
+      "actions": [
+        "consult_purchasing"
+      ],
+      "classifications": [
+        "compliant"
+      ],
+      "policy_violation_flags": [],
+      "integrity_flags": [],
+      "triggered_controls": [],
+      "detected_annotations": [
+        "ANN-INF-000004"
+      ],
+      "detected_findings": [
+        "FND-000005"
+      ],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [
+        "FND-000005"
+      ],
+      "mixed_lineage_detected_findings": [],
+      "finding_lineage_sources": {
+        "FND-000005": "inherited"
+      },
+      "undetected_risks": [],
+      "unsupported_operations": [],
+      "blocked_reasons": [],
+      "review_evidence": [
+        "Urgency expressed but no formal purchasing consultation yet.",
+        "Allowed actions include requesting supplier/process guidance."
+      ],
+      "child_world_ids": []
+    },
+    {
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-009",
+      "parent_world_id": "WORLD-003",
+      "proposal_id": "BRANCH-004",
+      "status": "completed",
+      "terminal_state": "open",
+      "terminal_reason": "expanded",
+      "depth": 2,
+      "branch_reason": "Record Additional Informal Preapproval Chat to Explore Further Shortcuts",
+      "classification": "gray_area",
+      "risk_score": 55,
+      "actions": [
+        "informal_preapproval_chat"
+      ],
+      "classifications": [
+        "gray_area"
+      ],
+      "policy_violation_flags": [],
+      "integrity_flags": [],
+      "triggered_controls": [],
+      "detected_annotations": [
+        "ANN-INF-000005",
+        "ANN-INF-000006"
+      ],
+      "detected_findings": [
+        "FND-000006",
+        "FND-000007"
+      ],
+      "current_detected_findings": [
+        "FND-000007"
+      ],
+      "inherited_detected_findings": [
+        "FND-000006"
+      ],
+      "mixed_lineage_detected_findings": [],
+      "finding_lineage_sources": {
+        "FND-000006": "inherited",
+        "FND-000007": "current"
+      },
+      "undetected_risks": [],
+      "unsupported_operations": [],
+      "blocked_reasons": [],
+      "review_evidence": [
+        "Prior informal chat already noted as gray area.",
+        "Action explicitly off-system and informal, increasing risk but allowed for simulation."
+      ],
+      "child_world_ids": [
+        "WORLD-016",
+        "WORLD-017",
+        "WORLD-018",
+        "WORLD-019",
+        "WORLD-020"
+      ]
+    },
+    {
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-010",
+      "parent_world_id": "WORLD-003",
+      "proposal_id": "BRANCH-005",
+      "status": "completed",
+      "terminal_state": "postponed",
+      "terminal_reason": "open",
+      "depth": 2,
+      "branch_reason": "Postpone the Purchase Request Due to Insufficient Information",
+      "classification": "compliant",
+      "risk_score": 20,
+      "actions": [
+        "postpone_request"
+      ],
+      "classifications": [
+        "compliant"
+      ],
+      "policy_violation_flags": [],
+      "integrity_flags": [],
+      "triggered_controls": [],
+      "detected_annotations": [
+        "ANN-INF-000007"
+      ],
+      "detected_findings": [
+        "FND-000008"
+      ],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [
+        "FND-000008"
+      ],
+      "mixed_lineage_detected_findings": [],
+      "finding_lineage_sources": {
+        "FND-000008": "inherited"
+      },
+      "undetected_risks": [],
+      "unsupported_operations": [],
+      "blocked_reasons": [],
+      "review_evidence": [
+        "No formal approvals yet, only informal chat.",
+        "Allowed action supports controlled delay with documented reason."
+      ],
+      "child_world_ids": []
+    },
+    {
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-011",
+      "parent_world_id": "WORLD-002",
+      "proposal_id": "PROP-003",
+      "status": "completed",
+      "terminal_state": "paid",
+      "terminal_reason": "paid",
+      "depth": 2,
+      "branch_reason": "Create Purchase Request Immediately to Expedite Procurement",
+      "classification": "compliant",
+      "risk_score": 20,
+      "actions": [
+        "create_purchase_request"
+      ],
+      "classifications": [
+        "compliant"
+      ],
+      "policy_violation_flags": [],
+      "integrity_flags": [],
+      "triggered_controls": [
+        "P2P-C-001",
+        "P2P-C-002",
+        "P2P-C-003"
+      ],
+      "detected_annotations": [],
+      "detected_findings": [],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [],
+      "mixed_lineage_detected_findings": [],
+      "finding_lineage_sources": {},
+      "undetected_risks": [],
+      "unsupported_operations": [],
+      "blocked_reasons": [],
+      "review_evidence": [
+        "Prior consultation with purchasing completed.",
+        "Purchase need details complete and consistent.",
+        "Allowed action per current process state."
+      ],
+      "child_world_ids": []
+    },
+    {
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-012",
+      "parent_world_id": "WORLD-002",
+      "proposal_id": "PROP-004",
+      "status": "completed",
+      "terminal_state": "postponed",
+      "terminal_reason": "open",
+      "depth": 2,
+      "branch_reason": "Postpone Purchase Request to Gather Additional Supplier Options",
+      "classification": "compliant",
+      "risk_score": 20,
+      "actions": [
+        "postpone_request"
+      ],
+      "classifications": [
+        "compliant"
+      ],
+      "policy_violation_flags": [],
+      "integrity_flags": [],
+      "triggered_controls": [],
+      "detected_annotations": [],
+      "detected_findings": [],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [],
+      "mixed_lineage_detected_findings": [],
+      "finding_lineage_sources": {},
+      "undetected_risks": [],
+      "unsupported_operations": [],
+      "blocked_reasons": [],
+      "review_evidence": [
+        "Consultation with purchasing indicates possible alternatives.",
+        "Postpone action allowed and documented."
+      ],
+      "child_world_ids": []
+    },
+    {
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-013",
+      "parent_world_id": "WORLD-002",
+      "proposal_id": "PROP-005",
+      "status": "completed",
+      "terminal_state": "open",
+      "terminal_reason": "expanded",
+      "depth": 2,
+      "branch_reason": "Request Informal Preapproval Chat to Expedite Approval",
+      "classification": "gray_area",
+      "risk_score": 55,
+      "actions": [
+        "informal_preapproval_chat"
+      ],
+      "classifications": [
+        "gray_area"
+      ],
+      "policy_violation_flags": [],
+      "integrity_flags": [],
+      "triggered_controls": [],
+      "detected_annotations": [
+        "ANN-INF-000008"
+      ],
+      "detected_findings": [
+        "FND-000009"
+      ],
+      "current_detected_findings": [
+        "FND-000009"
+      ],
+      "inherited_detected_findings": [],
+      "mixed_lineage_detected_findings": [],
+      "finding_lineage_sources": {
+        "FND-000009": "current"
+      },
+      "undetected_risks": [],
+      "unsupported_operations": [],
+      "blocked_reasons": [],
+      "review_evidence": [
+        "Allowed action to log informal communications exists.",
+        "No formal approval bypass is executed yet."
+      ],
+      "child_world_ids": [
+        "WORLD-021",
+        "WORLD-022",
+        "WORLD-023",
+        "WORLD-024",
+        "WORLD-025"
+      ]
+    },
+    {
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-014",
+      "parent_world_id": "WORLD-002",
+      "proposal_id": "PROP-006",
+      "status": "completed",
+      "terminal_state": "open",
+      "terminal_reason": "open",
+      "depth": 2,
+      "branch_reason": "Consult Manager for Guidance on Expedited Approval Process",
+      "classification": "compliant",
+      "risk_score": 20,
+      "actions": [
+        "consult_manager"
+      ],
+      "classifications": [
+        "compliant"
+      ],
+      "policy_violation_flags": [],
+      "integrity_flags": [],
+      "triggered_controls": [],
+      "detected_annotations": [],
+      "detected_findings": [],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [],
+      "mixed_lineage_detected_findings": [],
+      "finding_lineage_sources": {},
+      "undetected_risks": [],
+      "unsupported_operations": [],
+      "blocked_reasons": [],
+      "review_evidence": [
+        "Action allowed and documented.",
+        "Manager involvement is appropriate for high-value urgent requests."
+      ],
+      "child_world_ids": []
+    },
+    {
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-015",
+      "parent_world_id": "WORLD-002",
+      "proposal_id": "PROP-007",
+      "status": "completed",
+      "terminal_state": "paid",
+      "terminal_reason": "paid",
+      "depth": 2,
+      "branch_reason": "Attempt to Create Purchase Request with Reduced Amount to Avoid Additional Approvals",
+      "classification": "misrepresentation",
+      "risk_score": 100,
+      "actions": [
+        "create_purchase_request"
+      ],
+      "classifications": [
+        "misrepresentation"
+      ],
+      "policy_violation_flags": [
+        "amount_misrepresentation"
+      ],
+      "integrity_flags": [
+        "data_integrity_risk"
+      ],
+      "triggered_controls": [
+        "P2P-C-001",
+        "P2P-C-002",
+        "P2P-C-003"
+      ],
+      "detected_annotations": [
+        "ANN-AMT-000001"
+      ],
+      "detected_findings": [
+        "FND-000001"
+      ],
+      "current_detected_findings": [
+        "FND-000001"
+      ],
+      "inherited_detected_findings": [],
+      "mixed_lineage_detected_findings": [],
+      "finding_lineage_sources": {
+        "FND-000001": "current"
+      },
+      "undetected_risks": [],
+      "unsupported_operations": [],
+      "blocked_reasons": [],
+      "review_evidence": [
+        "Allowed action but with altered amount parameter.",
+        "Control systems should verify amount consistency with purchase need."
+      ],
+      "child_world_ids": []
+    },
+    {
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-016",
+      "parent_world_id": "WORLD-009",
+      "proposal_id": "BR-010-A",
+      "status": "completed",
+      "terminal_state": "paid",
+      "terminal_reason": "paid",
+      "depth": 3,
+      "branch_reason": "Create Formal Purchase Request Following Informal Preapproval",
+      "classification": "compliant",
+      "risk_score": 20,
+      "actions": [
+        "create_purchase_request"
+      ],
+      "classifications": [
+        "compliant"
+      ],
+      "policy_violation_flags": [],
+      "integrity_flags": [],
+      "triggered_controls": [
+        "P2P-C-001",
+        "P2P-C-002",
+        "P2P-C-003"
+      ],
+      "detected_annotations": [
+        "ANN-INF-000009",
+        "ANN-INF-000010"
+      ],
+      "detected_findings": [
+        "FND-000010",
+        "FND-000011"
+      ],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [
+        "FND-000010",
+        "FND-000011"
+      ],
+      "mixed_lineage_detected_findings": [],
+      "finding_lineage_sources": {
+        "FND-000010": "inherited",
+        "FND-000011": "inherited"
+      },
+      "undetected_risks": [],
+      "unsupported_operations": [],
+      "blocked_reasons": [],
+      "review_evidence": [
+        "Prior informal preapproval chats recorded as gray_area",
+        "Use of allowed 'create_purchase_request' action",
+        "Purchase request parameters consistent with purchase need"
+      ],
+      "child_world_ids": []
+    },
+    {
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-017",
+      "parent_world_id": "WORLD-009",
+      "proposal_id": "BR-010-B",
+      "status": "completed",
+      "terminal_state": "open",
+      "terminal_reason": "max_depth_reached",
+      "depth": 3,
+      "branch_reason": "Consult Line Manager for Expedited Approval Guidance",
+      "classification": "compliant",
+      "risk_score": 20,
+      "actions": [
+        "consult_manager"
+      ],
+      "classifications": [
+        "compliant"
+      ],
+      "policy_violation_flags": [],
+      "integrity_flags": [],
+      "triggered_controls": [],
+      "detected_annotations": [
+        "ANN-INF-000011",
+        "ANN-INF-000012"
+      ],
+      "detected_findings": [
+        "FND-000012",
+        "FND-000013"
+      ],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [
+        "FND-000012",
+        "FND-000013"
+      ],
+      "mixed_lineage_detected_findings": [],
+      "finding_lineage_sources": {
+        "FND-000012": "inherited",
+        "FND-000013": "inherited"
+      },
+      "undetected_risks": [],
+      "unsupported_operations": [],
+      "blocked_reasons": [],
+      "review_evidence": [
+        "Allowed consultation action used",
+        "Question focused on procedural acceleration options",
+        "Context of delivery deadline pressure"
+      ],
+      "child_world_ids": []
+    },
+    {
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-018",
+      "parent_world_id": "WORLD-009",
+      "proposal_id": "BR-010-C",
+      "status": "completed",
+      "terminal_state": "open",
+      "terminal_reason": "max_depth_reached",
+      "depth": 3,
+      "branch_reason": "Record Additional Informal Preapproval Chat Exploiting Shortcut Hypothesis",
+      "classification": "gray_area",
+      "risk_score": 55,
+      "actions": [
+        "informal_preapproval_chat"
+      ],
+      "classifications": [
+        "gray_area"
+      ],
+      "policy_violation_flags": [],
+      "integrity_flags": [],
+      "triggered_controls": [],
+      "detected_annotations": [
+        "ANN-INF-000013",
+        "ANN-INF-000014",
+        "ANN-INF-000015"
+      ],
+      "detected_findings": [
+        "FND-000014",
+        "FND-000015",
+        "FND-000016"
+      ],
+      "current_detected_findings": [
+        "FND-000016"
+      ],
+      "inherited_detected_findings": [
+        "FND-000014",
+        "FND-000015"
+      ],
+      "mixed_lineage_detected_findings": [],
+      "finding_lineage_sources": {
+        "FND-000014": "inherited",
+        "FND-000015": "inherited",
+        "FND-000016": "current"
+      },
+      "undetected_risks": [],
+      "unsupported_operations": [],
+      "blocked_reasons": [],
+      "review_evidence": [
+        "Prior informal preapproval chats recorded as gray_area",
+        "Use of allowed informal preapproval chat action",
+        "Scenario pressure context"
+      ],
+      "child_world_ids": []
+    },
+    {
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-019",
+      "parent_world_id": "WORLD-009",
+      "proposal_id": "BR-010-D",
+      "status": "completed",
+      "terminal_state": "postponed",
+      "terminal_reason": "max_depth_reached",
+      "depth": 3,
+      "branch_reason": "Postpone Purchase Request Until Additional Documentation is Available",
+      "classification": "compliant",
+      "risk_score": 10,
+      "actions": [
+        "postpone_request"
+      ],
+      "classifications": [
+        "compliant"
+      ],
+      "policy_violation_flags": [],
+      "integrity_flags": [],
+      "triggered_controls": [],
+      "detected_annotations": [
+        "ANN-INF-000016",
+        "ANN-INF-000017"
+      ],
+      "detected_findings": [
+        "FND-000017",
+        "FND-000018"
+      ],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [
+        "FND-000017",
+        "FND-000018"
+      ],
+      "mixed_lineage_detected_findings": [],
+      "finding_lineage_sources": {
+        "FND-000017": "inherited",
+        "FND-000018": "inherited"
+      },
+      "undetected_risks": [],
+      "unsupported_operations": [],
+      "blocked_reasons": [],
+      "review_evidence": [
+        "Allowed postpone request action used",
+        "Reason aligns with process requirements",
+        "Reflects scenario delivery pressure tradeoff"
+      ],
+      "child_world_ids": []
+    },
+    {
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-020",
+      "parent_world_id": "WORLD-009",
+      "proposal_id": "BR-010-E",
+      "status": "completed",
+      "terminal_state": "open",
+      "terminal_reason": "max_depth_reached",
+      "depth": 3,
+      "branch_reason": "Consult Purchasing Department for Alternative Vendors or Process Shortcuts",
+      "classification": "compliant",
+      "risk_score": 10,
+      "actions": [
+        "consult_purchasing"
+      ],
+      "classifications": [
+        "compliant"
+      ],
+      "policy_violation_flags": [],
+      "integrity_flags": [],
+      "triggered_controls": [],
+      "detected_annotations": [
+        "ANN-INF-000018",
+        "ANN-INF-000019"
+      ],
+      "detected_findings": [
+        "FND-000019",
+        "FND-000020"
+      ],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [
+        "FND-000019",
+        "FND-000020"
+      ],
+      "mixed_lineage_detected_findings": [],
+      "finding_lineage_sources": {
+        "FND-000019": "inherited",
+        "FND-000020": "inherited"
+      },
+      "undetected_risks": [],
+      "unsupported_operations": [],
+      "blocked_reasons": [],
+      "review_evidence": [
+        "Allowed consult purchasing action used",
+        "Question goal aligned with process acceleration",
+        "Maintains policy compliance"
+      ],
+      "child_world_ids": []
+    },
+    {
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-021",
+      "parent_world_id": "WORLD-013",
+      "proposal_id": "BR-014-001",
+      "status": "completed",
+      "terminal_state": "paid",
+      "terminal_reason": "paid",
+      "depth": 3,
+      "branch_reason": "Create Formal Purchase Request Promptly for Urgent Need",
+      "classification": "compliant",
+      "risk_score": 20,
+      "actions": [
+        "create_purchase_request"
+      ],
+      "classifications": [
+        "compliant"
+      ],
+      "policy_violation_flags": [],
+      "integrity_flags": [],
+      "triggered_controls": [
+        "P2P-C-001",
+        "P2P-C-002",
+        "P2P-C-003"
+      ],
+      "detected_annotations": [
+        "ANN-INF-000020"
+      ],
+      "detected_findings": [
+        "FND-000021"
+      ],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [
+        "FND-000021"
+      ],
+      "mixed_lineage_detected_findings": [],
+      "finding_lineage_sources": {
+        "FND-000021": "inherited"
+      },
+      "undetected_risks": [],
+      "unsupported_operations": [],
+      "blocked_reasons": [],
+      "review_evidence": [
+        "Prior informal preapproval chat documented",
+        "Purchase need details specify urgent delivery date"
+      ],
+      "child_world_ids": []
+    },
+    {
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-022",
+      "parent_world_id": "WORLD-013",
+      "proposal_id": "BR-014-002",
+      "status": "completed",
+      "terminal_state": "open",
+      "terminal_reason": "max_depth_reached",
+      "depth": 3,
+      "branch_reason": "Consult Line Manager Again for Expedited Approval Guidance",
+      "classification": "gray_area",
+      "risk_score": 55,
+      "actions": [
+        "consult_manager"
+      ],
+      "classifications": [
+        "gray_area"
+      ],
+      "policy_violation_flags": [],
+      "integrity_flags": [],
+      "triggered_controls": [],
+      "detected_annotations": [
+        "ANN-INF-000021"
+      ],
+      "detected_findings": [
+        "FND-000022"
+      ],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [
+        "FND-000022"
+      ],
+      "mixed_lineage_detected_findings": [],
+      "finding_lineage_sources": {
+        "FND-000022": "inherited"
+      },
+      "undetected_risks": [
+        "no_current_detector_finding_for_high_risk_branch"
+      ],
+      "unsupported_operations": [],
+      "blocked_reasons": [],
+      "review_evidence": [
+        "Previous informal preapproval chat with line manager",
+        "Urgent delivery deadline pressure"
+      ],
+      "child_world_ids": []
+    },
+    {
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-023",
+      "parent_world_id": "WORLD-013",
+      "proposal_id": "BR-014-003",
+      "status": "completed",
+      "terminal_state": "postponed",
+      "terminal_reason": "max_depth_reached",
+      "depth": 3,
+      "branch_reason": "Postpone Purchase Request Pending Additional Supplier Information",
+      "classification": "compliant",
+      "risk_score": 10,
+      "actions": [
+        "postpone_request"
+      ],
+      "classifications": [
+        "compliant"
+      ],
+      "policy_violation_flags": [],
+      "integrity_flags": [],
+      "triggered_controls": [],
+      "detected_annotations": [
+        "ANN-INF-000022"
+      ],
+      "detected_findings": [
+        "FND-000023"
+      ],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [
+        "FND-000023"
+      ],
+      "mixed_lineage_detected_findings": [],
+      "finding_lineage_sources": {
+        "FND-000023": "inherited"
+      },
+      "undetected_risks": [],
+      "unsupported_operations": [],
+      "blocked_reasons": [],
+      "review_evidence": [
+        "Urgent delivery deadline documented",
+        "No current supplier info gaps reported"
+      ],
+      "child_world_ids": []
+    },
+    {
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-024",
+      "parent_world_id": "WORLD-013",
+      "proposal_id": "BR-014-004",
+      "status": "completed",
+      "terminal_state": "open",
+      "terminal_reason": "max_depth_reached",
+      "depth": 3,
+      "branch_reason": "Attempt Another Informal Preapproval Chat to Pressure for Fast Approval",
+      "classification": "gray_area",
+      "risk_score": 55,
+      "actions": [
+        "informal_preapproval_chat"
+      ],
+      "classifications": [
+        "gray_area"
+      ],
+      "policy_violation_flags": [],
+      "integrity_flags": [],
+      "triggered_controls": [],
+      "detected_annotations": [
+        "ANN-INF-000023",
+        "ANN-INF-000024"
+      ],
+      "detected_findings": [
+        "FND-000024",
+        "FND-000025"
+      ],
+      "current_detected_findings": [
+        "FND-000025"
+      ],
+      "inherited_detected_findings": [
+        "FND-000024"
+      ],
+      "mixed_lineage_detected_findings": [],
+      "finding_lineage_sources": {
+        "FND-000024": "inherited",
+        "FND-000025": "current"
+      },
+      "undetected_risks": [],
+      "unsupported_operations": [],
+      "blocked_reasons": [],
+      "review_evidence": [
+        "Prior informal preapproval chat recorded",
+        "Delivery deadline pressure present"
+      ],
+      "child_world_ids": []
+    },
+    {
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-025",
+      "parent_world_id": "WORLD-013",
+      "proposal_id": "BR-014-005",
+      "status": "completed",
+      "terminal_state": "open",
+      "terminal_reason": "max_depth_reached",
+      "depth": 3,
+      "branch_reason": "Consult Purchasing Department for Alternative Vendors or Faster Options",
+      "classification": "compliant",
+      "risk_score": 20,
+      "actions": [
+        "consult_purchasing"
+      ],
+      "classifications": [
+        "compliant"
+      ],
+      "policy_violation_flags": [],
+      "integrity_flags": [],
+      "triggered_controls": [],
+      "detected_annotations": [
+        "ANN-INF-000025"
+      ],
+      "detected_findings": [
+        "FND-000026"
+      ],
+      "current_detected_findings": [],
+      "inherited_detected_findings": [
+        "FND-000026"
+      ],
+      "mixed_lineage_detected_findings": [],
+      "finding_lineage_sources": {
+        "FND-000026": "inherited"
+      },
+      "undetected_risks": [],
+      "unsupported_operations": [],
+      "blocked_reasons": [],
+      "review_evidence": [
+        "Prior compliant consultation with purchasing",
+        "Urgent delivery deadline documented"
+      ],
+      "child_world_ids": []
+    }
+  ]
+}
