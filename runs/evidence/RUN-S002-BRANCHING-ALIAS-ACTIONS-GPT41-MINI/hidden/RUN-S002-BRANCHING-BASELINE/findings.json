@@ -1,0 +1,202 @@
+{
+  "findings": [
+    {
+      "finding_id": "FND-000001",
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-003",
+      "defect_id": "D-001",
+      "title": "承認閾値回避の可能性がある分割購買申請",
+      "severity": "high",
+      "status": "candidate_unmitigated",
+      "detector_id": "split_order_detector",
+      "related_controls": [
+        "P2P-C-001",
+        "P2P-C-002",
+        "P2P-C-003"
+      ],
+      "evidence_event_ids": [
+        "EVT-000018",
+        "EVT-000026"
+      ],
+      "observed_facts": [
+        "同一条件で7日以内に2件の購買申請が作成された。",
+        "各申請金額は1000000未満である。",
+        "合算金額は1750000であり、1000000を超えている。"
+      ],
+      "inference": "承認閾値回避の可能性と整合する。これは人間レビュー用の不備候補であり、監査上の結論ではない。",
+      "bypass_success": true,
+      "mitigated_by_aggregation": false,
+      "mitigated_by_variant": false,
+      "mitigated_by_emergency_control": false,
+      "recommended_review_steps": [
+        "複数申請が同一の購買ニーズに対応するか確認する。",
+        "申請理由と承認履歴を確認する。",
+        "合算統制の適用要否を評価する。"
+      ],
+      "evidence_summary": [
+        {
+          "event_id": "EVT-000018",
+          "timestamp": "2026-06-25T09:00:00+09:00",
+          "world_id": "WORLD-003",
+          "purchase_need_id": "NEED-001",
+          "purchase_request_id": "PR-000003",
+          "amount": 900000,
+          "reported_amount": 900000,
+          "economic_amount": 900000,
+          "requested_route_type": "manager",
+          "required_approver_level": "manager",
+          "aggregation_applied": false
+        },
+        {
+          "event_id": "EVT-000026",
+          "timestamp": "2026-06-25T09:00:00+09:00",
+          "world_id": "WORLD-003",
+          "purchase_need_id": "NEED-001",
+          "purchase_request_id": "PR-000004",
+          "amount": 850000,
+          "reported_amount": 850000,
+          "economic_amount": 850000,
+          "requested_route_type": "manager",
+          "required_approver_level": "manager",
+          "aggregation_applied": false
+        }
+      ]
+    },
+    {
+      "finding_id": "FND-000002",
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-004",
+      "defect_id": "D-002",
+      "title": "緊急購買ルート利用のレビュー候補",
+      "severity": "medium",
+      "status": "candidate_unmitigated",
+      "detector_id": "emergency_route_detector",
+      "related_controls": [
+        "P2P-C-003"
+      ],
+      "evidence_event_ids": [
+        "EVT-000034"
+      ],
+      "observed_facts": [
+        "購買申請が緊急ルートで作成された。",
+        "事前承認統制は緊急ルート例外として扱われている。"
+      ],
+      "inference": "緊急ルート利用は、理由証跡と事後承認が十分かを人間レビューで確認する候補である。これは監査上の結論ではない。",
+      "bypass_success": false,
+      "mitigated_by_aggregation": false,
+      "mitigated_by_variant": false,
+      "mitigated_by_emergency_control": false,
+      "recommended_review_steps": [
+        "緊急理由、証跡添付、事後承認の有無を確認する。",
+        "緊急ルート利用が反復していないか確認する。",
+        "通常ルートでは間に合わなかった合理的理由を確認する。"
+      ],
+      "evidence_summary": [
+        {
+          "event_id": "EVT-000034",
+          "timestamp": "2026-06-25T09:00:00+09:00",
+          "world_id": "WORLD-004",
+          "purchase_need_id": "NEED-001",
+          "purchase_request_id": "PR-000005",
+          "amount": 1750000,
+          "reported_amount": 1750000,
+          "economic_amount": 1750000,
+          "requested_route_type": "emergency",
+          "required_approver_level": "department_head",
+          "aggregation_applied": false
+        }
+      ]
+    },
+    {
+      "finding_id": "FND-000003",
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-005",
+      "defect_id": "D-002",
+      "title": "緊急購買ルート利用のレビュー候補",
+      "severity": "medium",
+      "status": "candidate_unmitigated",
+      "detector_id": "emergency_route_detector",
+      "related_controls": [
+        "P2P-C-003"
+      ],
+      "evidence_event_ids": [
+        "EVT-000042"
+      ],
+      "observed_facts": [
+        "購買申請が緊急ルートで作成された。",
+        "事前承認統制は緊急ルート例外として扱われている。"
+      ],
+      "inference": "緊急ルート利用は、理由証跡と事後承認が十分かを人間レビューで確認する候補である。これは監査上の結論ではない。",
+      "bypass_success": false,
+      "mitigated_by_aggregation": false,
+      "mitigated_by_variant": false,
+      "mitigated_by_emergency_control": false,
+      "recommended_review_steps": [
+        "緊急理由、証跡添付、事後承認の有無を確認する。",
+        "緊急ルート利用が反復していないか確認する。",
+        "通常ルートでは間に合わなかった合理的理由を確認する。"
+      ],
+      "evidence_summary": [
+        {
+          "event_id": "EVT-000042",
+          "timestamp": "2026-06-25T09:00:00+09:00",
+          "world_id": "WORLD-005",
+          "purchase_need_id": "NEED-001",
+          "purchase_request_id": "PR-000006",
+          "amount": 1750000,
+          "reported_amount": 1750000,
+          "economic_amount": 1750000,
+          "requested_route_type": "emergency",
+          "required_approver_level": "department_head",
+          "aggregation_applied": false
+        }
+      ]
+    },
+    {
+      "finding_id": "FND-000004",
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "world_id": "WORLD-002",
+      "defect_id": "D-004",
+      "title": "非公式事前承認・システム外相談のレビュー候補",
+      "severity": "medium",
+      "status": "candidate_unmitigated",
+      "detector_id": "informal_preapproval_detector",
+      "related_controls": [
+        "P2P-C-001",
+        "P2P-C-003"
+      ],
+      "evidence_event_ids": [
+        "EVT-000009"
+      ],
+      "observed_facts": [
+        "正式な購買申請前に、システム外の非公式事前相談が記録された。",
+        "このイベントは通常の承認ワークフロー上の承認証跡ではない。"
+      ],
+      "inference": "非公式事前承認は正式統制を形骸化させる可能性がある。承認コメント、チャット証跡、ヒアリング手続で追加確認すべきレビュー候補である。",
+      "bypass_success": false,
+      "mitigated_by_aggregation": false,
+      "mitigated_by_variant": false,
+      "mitigated_by_emergency_control": false,
+      "recommended_review_steps": [
+        "正式承認前の非公式な合意形成があったか確認する。",
+        "承認コメント、チャット証跡、ヒアリング手続で根拠を確認する。",
+        "非公式相談が正式承認を形骸化させていないか評価する。"
+      ],
+      "evidence_summary": [
+        {
+          "event_id": "EVT-000009",
+          "timestamp": "2026-06-25T09:00:00+09:00",
+          "world_id": "WORLD-002",
+          "purchase_need_id": "NEED-001",
+          "purchase_request_id": "",
+          "amount": 0,
+          "reported_amount": 0,
+          "economic_amount": 0,
+          "requested_route_type": "",
+          "required_approver_level": "",
+          "aggregation_applied": false
+        }
+      ]
+    }
+  ]
+}

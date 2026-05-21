@@ -6,7 +6,7 @@ Created: 2026-05-21
 
 This validation checks whether the multistage `branching_proposal` engine still produces useful internal-control stress-test Worlds when explicit risk-category hints are weakened.
 
-The experiment compares three prompt conditions:
+The first experiment compared three prompt conditions:
 
 1. `current_coverage_target`: explicitly names split, underreported amount, emergency route, and informal preapproval as coverage targets.
 2. `risk_category_hidden`: removes named risk-category targets while keeping control structure, business pressure, and allowed actions visible.
@@ -58,8 +58,30 @@ Therefore the result should be phrased carefully:
 
 The experiment shows that weakening risk-category hints changes the shape of generated Worlds and detector coverage. It does not yet prove that the LLM autonomously discovers unknown control weaknesses without prompt leakage.
 
+## Alias Action Follow-up
+
+The follow-up run adds a fourth condition, `process_state_only_alias_actions`, to reduce Action Library leakage. In this condition, prompt-visible action IDs are replaced with `action_01` style aliases, action descriptions are abstracted, and the reversible alias map is stored outside the prompt for Action Grounding review.
+
+- provider: `openai`
+- model: `gpt-4.1-mini`
+- temperature: `0.7`
+- evidence: `runs/evidence/RUN-S002-BRANCHING-ALIAS-ACTIONS-GPT41-MINI/`
+
+| Condition | Worlds | Depths | Expanded parents | Detected defects | New-risk detection | Residual worlds |
+|---|---:|---|---:|---|---:|---:|
+| `current_coverage_target` | 20 | `{"1": 5, "2": 5, "3": 10}` | 3 | `D-001`, `D-002`, `D-003`, `D-004` | 1.0 | 0 |
+| `risk_category_hidden` | 5 | `{"1": 5}` | 0 | `D-001`, `D-002`, `D-004` | 1.0 | 0 |
+| `process_state_only` | 25 | `{"1": 5, "2": 10, "3": 10}` | 4 | `D-004` | 0.8571 | 1 |
+| `process_state_only_alias_actions` | 25 | `{"1": 5, "2": 10, "3": 10}` | 4 | `D-004` | 0.3333 | 8 |
+
+The alias condition passed the prompt leakage check: `request_messages` and `raw_response` for `state_alias` did not contain the concrete action IDs `create_purchase_request`, `consult_manager`, `consult_purchasing`, `postpone_request`, or `informal_preapproval_chat`. Those IDs appear only in the out-of-prompt `action_alias_map` and grounded artifacts.
+
+This result is important because it shows that hiding action names and descriptions materially reduces detector coverage. The model still generates multistage process chains, but the generated high-risk branches become more abstract: supervisory guidance, process-support guidance, deferrals, external communication, and attempts to influence or bypass approval. Existing detectors mainly catch `D-004`, leaving eight residual-risk Worlds.
+
+The earlier `process_state_only` residual fast-track-route observation is addressed by adding `fast_track_route_attempt_detector` as a detector/library design candidate (`D-CAND-FAST-TRACK`). The alias follow-up run did not produce that exact fast-track marker, but the detector is now covered by a regression test and will flag requester-specified fast-track or shortcut route attempts when they appear in future runs.
+
 ## Next Work
 
-1. Add a stricter `process_state_only_alias_actions` condition that aliases action IDs and hides action descriptions while preserving a reversible grounding map outside the LLM prompt.
-2. Add expansion diagnostics that explain why explicit and hidden conditions stopped at depth 1.
-3. Compare multiple temperatures or repeated seeds for the hint-hidden conditions, focusing on whether `D-001` and `D-002` remain stable without explicit risk names.
+1. Add expansion diagnostics that explain why some conditions stop at depth 1 while state-only conditions expand to depth 3.
+2. Add detectors or Action Library candidates for abstract approval-bypass/process-shortcut sequences that are not covered by D-001 through D-004.
+3. Compare multiple temperatures or repeated seeds for `process_state_only_alias_actions`, focusing on whether D-001/D-002 ever reappear without action-name leakage.

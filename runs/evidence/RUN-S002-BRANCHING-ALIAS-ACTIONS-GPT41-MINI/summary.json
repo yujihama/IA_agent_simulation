@@ -1,0 +1,256 @@
+{
+  "experiment_id": "EXP-S002-BRANCHING-HINT-ABLATION",
+  "experiment_mode": "branching_hint_ablation",
+  "provider": "openai",
+  "model": "gpt-4.1-mini",
+  "temperature": 0.7,
+  "coverage_target_modes": [
+    "current_coverage_target",
+    "risk_category_hidden",
+    "process_state_only",
+    "process_state_only_alias_actions"
+  ],
+  "conditions": {
+    "current_coverage_target": {
+      "coverage_target_mode": "current_coverage_target",
+      "condition_slug": "current",
+      "condition_dir": "conditions\\current",
+      "baseline_run_dir": "conditions\\current\\RUN-S002-BRANCHING-BASELINE",
+      "comparison_dir": "conditions\\current\\comparisons\\CMP-S002-BRANCHING-BASELINE-VARIANTS",
+      "generated_world_count": 20,
+      "generated_depth_counts": {
+        "1": 5,
+        "2": 5,
+        "3": 10
+      },
+      "expanded_world_count": 3,
+      "duplicate_world_count": 0,
+      "high_risk_world_count": 14,
+      "lineage_detection_rate": 1.0,
+      "new_risk_detection_rate": 1.0,
+      "current_world_detection_rate": 0.75,
+      "inherited_risk_count": 15,
+      "residual_risk_world_count": 0,
+      "detected_defect_ids": [
+        "D-001",
+        "D-002",
+        "D-003",
+        "D-004"
+      ],
+      "proposal_classification_counts": {
+        "compliant": 6,
+        "gray_area": 7,
+        "misrepresentation": 4,
+        "policy_violation": 3
+      },
+      "proposal_titles": [
+        "Compliant single purchase request with department head approval",
+        "Split purchase requests to avoid department head approval threshold",
+        "Emergency purchase request created without prior approval",
+        "Underreported amount in purchase request to reduce approval level",
+        "Informal preapproval chat recorded off-system to expedite approval process",
+        "Non-Terminal Continuation Branch: Consult Purchasing Team for Supplier Guidance",
+        "Split Purchase Requests to Evade Higher Approval Thresholds",
+        "Underreported Amount in Purchase Request to Reduce Approval Level",
+        "Use Emergency Route for Expedited Purchase Order Issuance",
+        "Non-Terminal Continuation Branch: Consult Manager Without Creating Request",
+        "Compliant Single Purchase Request Submission",
+        "Split Purchase Requests to Evade Higher Approval Threshold",
+        "Underreporting Amount in Purchase Request",
+        "Emergency Route Usage Due to Delivery Pressure",
+        "Informal Preapproval Chat to Expedite Process (Unsupported)"
+      ],
+      "variant_mitigated_finding_counts": {
+        "variant_a_7d_aggregation": 4,
+        "variant_b_emergency_post_approval": 4
+      }
+    },
+    "risk_category_hidden": {
+      "coverage_target_mode": "risk_category_hidden",
+      "condition_slug": "hidden",
+      "condition_dir": "conditions\\hidden",
+      "baseline_run_dir": "conditions\\hidden\\RUN-S002-BRANCHING-BASELINE",
+      "comparison_dir": "conditions\\hidden\\comparisons\\CMP-S002-BRANCHING-BASELINE-VARIANTS",
+      "generated_world_count": 5,
+      "generated_depth_counts": {
+        "1": 5
+      },
+      "expanded_world_count": 0,
+      "duplicate_world_count": 0,
+      "high_risk_world_count": 4,
+      "lineage_detection_rate": 1.0,
+      "new_risk_detection_rate": 1.0,
+      "current_world_detection_rate": 0.8,
+      "inherited_risk_count": 0,
+      "residual_risk_world_count": 0,
+      "detected_defect_ids": [
+        "D-001",
+        "D-002",
+        "D-004"
+      ],
+      "proposal_classification_counts": {
+        "compliant": 1,
+        "gray_area": 2,
+        "misrepresentation": 1,
+        "policy_violation": 1
+      },
+      "proposal_titles": [
+        "Standard purchase request with department head approval",
+        "Informal preapproval chat with department head to expedite process",
+        "Create multiple smaller purchase requests to bypass higher-level approval",
+        "Emergency purchase request without prior approval using emergency route",
+        "Misrepresenting need urgency to bypass standard approval"
+      ],
+      "variant_mitigated_finding_counts": {
+        "variant_a_7d_aggregation": 1,
+        "variant_b_emergency_post_approval": 2
+      }
+    },
+    "process_state_only": {
+      "coverage_target_mode": "process_state_only",
+      "condition_slug": "state_only",
+      "condition_dir": "conditions\\state_only",
+      "baseline_run_dir": "conditions\\state_only\\RUN-S002-BRANCHING-BASELINE",
+      "comparison_dir": "conditions\\state_only\\comparisons\\CMP-S002-BRANCHING-BASELINE-VARIANTS",
+      "generated_world_count": 25,
+      "generated_depth_counts": {
+        "1": 5,
+        "2": 10,
+        "3": 10
+      },
+      "expanded_world_count": 4,
+      "duplicate_world_count": 0,
+      "high_risk_world_count": 7,
+      "lineage_detection_rate": 1.0,
+      "new_risk_detection_rate": 0.8571,
+      "current_world_detection_rate": 0.24,
+      "inherited_risk_count": 30,
+      "residual_risk_world_count": 1,
+      "detected_defect_ids": [
+        "D-004"
+      ],
+      "proposal_classification_counts": {
+        "compliant": 18,
+        "gray_area": 4,
+        "misrepresentation": 3
+      },
+      "proposal_titles": [
+        "Direct creation of purchase request with standard routing",
+        "Consult purchasing for expedited supplier guidance",
+        "Informal preapproval chat to shortcut approval delays",
+        "Postpone request due to insufficient internal readiness",
+        "Misrepresenting vendor urgency to gain faster approval",
+        "Proceed with creating a purchase request with true urgency justification",
+        "Consult purchasing for expedited process guidance",
+        "Postpone purchase request pending further information",
+        "Attempt another informal preapproval chat exaggerating risk to speed approval",
+        "Consult line manager for procedural guidance without misrepresentation",
+        "Create formal purchase request using informal preapproval",
+        "Consult line manager for procedural guidance before request creation",
+        "Attempt to postpone the purchase request citing incomplete vendor info",
+        "Consult purchasing department about vendor and expedited process",
+        "Record an additional informal preapproval chat to reinforce urgency"
+      ],
+      "variant_mitigated_finding_counts": {
+        "variant_a_7d_aggregation": 0,
+        "variant_b_emergency_post_approval": 0
+      }
+    },
+    "process_state_only_alias_actions": {
+      "coverage_target_mode": "process_state_only_alias_actions",
+      "condition_slug": "state_alias",
+      "condition_dir": "conditions\\state_alias",
+      "baseline_run_dir": "conditions\\state_alias\\RUN-S002-BRANCHING-BASELINE",
+      "comparison_dir": "conditions\\state_alias\\comparisons\\CMP-S002-BRANCHING-BASELINE-VARIANTS",
+      "generated_world_count": 25,
+      "generated_depth_counts": {
+        "1": 5,
+        "2": 10,
+        "3": 10
+      },
+      "expanded_world_count": 4,
+      "duplicate_world_count": 0,
+      "high_risk_world_count": 12,
+      "lineage_detection_rate": 0.5,
+      "new_risk_detection_rate": 0.3333,
+      "current_world_detection_rate": 0.2,
+      "inherited_risk_count": 10,
+      "residual_risk_world_count": 8,
+      "detected_defect_ids": [
+        "D-004"
+      ],
+      "proposal_classification_counts": {
+        "compliant": 13,
+        "gray_area": 6,
+        "misrepresentation": 2,
+        "policy_violation": 4
+      },
+      "proposal_titles": [
+        "Create a formal workflow record immediately to initiate procurement",
+        "Request internal process-support role guidance to expedite purchase",
+        "Defer next workflow step citing incomplete information despite deadline pressure",
+        "Record external communication with vendor about expedited delivery outside formal workflow",
+        "Ask internal supervisory role for process guidance aiming to bypass standard approval delays",
+        "Request procurement guidance to identify expedited approval options",
+        "Record off-process communication claiming urgent verbal approval",
+        "Defer next workflow step pending additional internal supervisory guidance",
+        "Attempt to create or update a formal workflow record emphasizing urgency to influence approvers",
+        "Re-attempt to ask internal supervisory role for process shortcuts despite prior policy violation",
+        "Formalize external communication in workflow record",
+        "Request internal supervisory guidance on expediting approval",
+        "Defer workflow step pending internal procurement guidance",
+        "Record additional informal communication about vendor delivery commitment",
+        "Attempt to bypass formal approval by requesting procurement guidance then executing deferred step immediately"
+      ],
+      "variant_mitigated_finding_counts": {
+        "variant_a_7d_aggregation": 0,
+        "variant_b_emergency_post_approval": 0
+      }
+    }
+  },
+  "cross_condition": {
+    "all_detected_defect_ids": [
+      "D-001",
+      "D-002",
+      "D-003",
+      "D-004"
+    ],
+    "defect_ids_by_condition": {
+      "current_coverage_target": [
+        "D-001",
+        "D-002",
+        "D-003",
+        "D-004"
+      ],
+      "risk_category_hidden": [
+        "D-001",
+        "D-002",
+        "D-004"
+      ],
+      "process_state_only": [
+        "D-004"
+      ],
+      "process_state_only_alias_actions": [
+        "D-004"
+      ]
+    },
+    "generated_world_count_by_condition": {
+      "current_coverage_target": 20,
+      "risk_category_hidden": 5,
+      "process_state_only": 25,
+      "process_state_only_alias_actions": 25
+    },
+    "new_risk_detection_rate_by_condition": {
+      "current_coverage_target": 1.0,
+      "risk_category_hidden": 1.0,
+      "process_state_only": 0.8571,
+      "process_state_only_alias_actions": 0.3333
+    },
+    "residual_risk_world_count_by_condition": {
+      "current_coverage_target": 0,
+      "risk_category_hidden": 0,
+      "process_state_only": 1,
+      "process_state_only_alias_actions": 8
+    }
+  }
+}

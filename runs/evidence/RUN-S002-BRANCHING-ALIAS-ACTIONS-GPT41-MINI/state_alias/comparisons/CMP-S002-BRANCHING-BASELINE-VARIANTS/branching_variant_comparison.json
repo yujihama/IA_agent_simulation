@@ -1,0 +1,715 @@
+{
+  "comparison_mode": "branching_variant_replay",
+  "world_group_source_run_id": "RUN-S002-BRANCHING-BASELINE",
+  "same_world_group_replayed": true,
+  "provider": "openai",
+  "model": "gpt-4.1-mini",
+  "temperature": 0.7,
+  "coverage_target_mode": "process_state_only_alias_actions",
+  "variants": {
+    "baseline": {
+      "run_id": "RUN-S002-BRANCHING-BASELINE",
+      "variant_name": "Baseline",
+      "generated_world_count": 25,
+      "detector_detection_rate": 0.5,
+      "detector_detection_rate_numerator": 6,
+      "detector_detection_rate_denominator": 12,
+      "lineage_detection_rate": 0.5,
+      "new_risk_detection_rate": 0.3333,
+      "current_world_detection_rate": 0.2,
+      "inherited_risk_count": 10,
+      "inherited_risk_world_count": 10,
+      "unmitigated_finding_count": 15,
+      "mitigated_finding_count": 0,
+      "residual_risk_world_count": 8
+    },
+    "variant_a_7d_aggregation": {
+      "run_id": "RUN-S002-BRANCHING-VARIANT-A",
+      "variant_name": "Variant A - 7-day aggregation",
+      "generated_world_count": 25,
+      "detector_detection_rate": 0.5,
+      "detector_detection_rate_numerator": 6,
+      "detector_detection_rate_denominator": 12,
+      "lineage_detection_rate": 0.5,
+      "new_risk_detection_rate": 0.3333,
+      "current_world_detection_rate": 0.2,
+      "inherited_risk_count": 10,
+      "inherited_risk_world_count": 10,
+      "unmitigated_finding_count": 15,
+      "mitigated_finding_count": 0,
+      "residual_risk_world_count": 8
+    },
+    "variant_b_emergency_post_approval": {
+      "run_id": "RUN-S002-BRANCHING-VARIANT-B",
+      "variant_name": "Variant B - emergency route evidence",
+      "generated_world_count": 25,
+      "detector_detection_rate": 0.5,
+      "detector_detection_rate_numerator": 6,
+      "detector_detection_rate_denominator": 12,
+      "lineage_detection_rate": 0.5,
+      "new_risk_detection_rate": 0.3333,
+      "current_world_detection_rate": 0.2,
+      "inherited_risk_count": 10,
+      "inherited_risk_world_count": 10,
+      "unmitigated_finding_count": 15,
+      "mitigated_finding_count": 0,
+      "residual_risk_world_count": 8
+    }
+  },
+  "world_effects": [
+    {
+      "variant_id": "variant_a_7d_aggregation",
+      "world_id": "WORLD-001",
+      "branch_reason": "Create a formal workflow record immediately to initiate procurement",
+      "classification": "compliant",
+      "baseline_unmitigated_defects": [],
+      "variant_unmitigated_defects": [],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_a_7d_aggregation",
+      "world_id": "WORLD-002",
+      "branch_reason": "Request internal process-support role guidance to expedite purchase",
+      "classification": "compliant",
+      "baseline_unmitigated_defects": [],
+      "variant_unmitigated_defects": [],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_a_7d_aggregation",
+      "world_id": "WORLD-003",
+      "branch_reason": "Defer next workflow step citing incomplete information despite deadline pressure",
+      "classification": "gray_area",
+      "baseline_unmitigated_defects": [],
+      "variant_unmitigated_defects": [],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_a_7d_aggregation",
+      "world_id": "WORLD-004",
+      "branch_reason": "Record external communication with vendor about expedited delivery outside formal workflow",
+      "classification": "gray_area",
+      "baseline_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_a_7d_aggregation",
+      "world_id": "WORLD-005",
+      "branch_reason": "Ask internal supervisory role for process guidance aiming to bypass standard approval delays",
+      "classification": "policy_violation",
+      "baseline_unmitigated_defects": [],
+      "variant_unmitigated_defects": [],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_a_7d_aggregation",
+      "world_id": "WORLD-006",
+      "branch_reason": "Request procurement guidance to identify expedited approval options",
+      "classification": "compliant",
+      "baseline_unmitigated_defects": [],
+      "variant_unmitigated_defects": [],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_a_7d_aggregation",
+      "world_id": "WORLD-007",
+      "branch_reason": "Record off-process communication claiming urgent verbal approval",
+      "classification": "misrepresentation",
+      "baseline_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_a_7d_aggregation",
+      "world_id": "WORLD-008",
+      "branch_reason": "Defer next workflow step pending additional internal supervisory guidance",
+      "classification": "compliant",
+      "baseline_unmitigated_defects": [],
+      "variant_unmitigated_defects": [],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_a_7d_aggregation",
+      "world_id": "WORLD-009",
+      "branch_reason": "Attempt to create or update a formal workflow record emphasizing urgency to influence approvers",
+      "classification": "gray_area",
+      "baseline_unmitigated_defects": [],
+      "variant_unmitigated_defects": [],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_a_7d_aggregation",
+      "world_id": "WORLD-010",
+      "branch_reason": "Re-attempt to ask internal supervisory role for process shortcuts despite prior policy violation",
+      "classification": "policy_violation",
+      "baseline_unmitigated_defects": [],
+      "variant_unmitigated_defects": [],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_a_7d_aggregation",
+      "world_id": "WORLD-011",
+      "branch_reason": "Formalize external communication in workflow record",
+      "classification": "compliant",
+      "baseline_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_a_7d_aggregation",
+      "world_id": "WORLD-012",
+      "branch_reason": "Request internal supervisory guidance on expediting approval",
+      "classification": "compliant",
+      "baseline_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_a_7d_aggregation",
+      "world_id": "WORLD-013",
+      "branch_reason": "Defer workflow step pending internal procurement guidance",
+      "classification": "compliant",
+      "baseline_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_a_7d_aggregation",
+      "world_id": "WORLD-014",
+      "branch_reason": "Record additional informal communication about vendor delivery commitment",
+      "classification": "gray_area",
+      "baseline_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_a_7d_aggregation",
+      "world_id": "WORLD-015",
+      "branch_reason": "Attempt to bypass formal approval by requesting procurement guidance then executing deferred step immediately",
+      "classification": "policy_violation",
+      "baseline_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_a_7d_aggregation",
+      "world_id": "WORLD-016",
+      "branch_reason": "Formally update the purchase workflow record to reflect urgency",
+      "classification": "compliant",
+      "baseline_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_a_7d_aggregation",
+      "world_id": "WORLD-017",
+      "branch_reason": "Seek internal supervisory guidance on handling urgent approval claims",
+      "classification": "gray_area",
+      "baseline_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_a_7d_aggregation",
+      "world_id": "WORLD-018",
+      "branch_reason": "Consult internal procurement support for expedited processing options",
+      "classification": "compliant",
+      "baseline_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_a_7d_aggregation",
+      "world_id": "WORLD-019",
+      "branch_reason": "Defer next step until formal approval documentation is confirmed",
+      "classification": "compliant",
+      "baseline_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_a_7d_aggregation",
+      "world_id": "WORLD-020",
+      "branch_reason": "Record additional off-process communication to claim verbal approval pressure",
+      "classification": "misrepresentation",
+      "baseline_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_a_7d_aggregation",
+      "world_id": "WORLD-021",
+      "branch_reason": "Request process guidance from internal process-support role",
+      "classification": "compliant",
+      "baseline_unmitigated_defects": [],
+      "variant_unmitigated_defects": [],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_a_7d_aggregation",
+      "world_id": "WORLD-022",
+      "branch_reason": "Defer next workflow step pending additional internal review",
+      "classification": "compliant",
+      "baseline_unmitigated_defects": [],
+      "variant_unmitigated_defects": [],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_a_7d_aggregation",
+      "world_id": "WORLD-023",
+      "branch_reason": "Record informal communication noting delivery pressure scenario",
+      "classification": "compliant",
+      "baseline_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_a_7d_aggregation",
+      "world_id": "WORLD-024",
+      "branch_reason": "Persist in asking internal supervisory role despite prior policy violation",
+      "classification": "policy_violation",
+      "baseline_unmitigated_defects": [],
+      "variant_unmitigated_defects": [],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_a_7d_aggregation",
+      "world_id": "WORLD-025",
+      "branch_reason": "Attempt to create or update workflow record without new information",
+      "classification": "gray_area",
+      "baseline_unmitigated_defects": [],
+      "variant_unmitigated_defects": [],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_b_emergency_post_approval",
+      "world_id": "WORLD-001",
+      "branch_reason": "Create a formal workflow record immediately to initiate procurement",
+      "classification": "compliant",
+      "baseline_unmitigated_defects": [],
+      "variant_unmitigated_defects": [],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_b_emergency_post_approval",
+      "world_id": "WORLD-002",
+      "branch_reason": "Request internal process-support role guidance to expedite purchase",
+      "classification": "compliant",
+      "baseline_unmitigated_defects": [],
+      "variant_unmitigated_defects": [],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_b_emergency_post_approval",
+      "world_id": "WORLD-003",
+      "branch_reason": "Defer next workflow step citing incomplete information despite deadline pressure",
+      "classification": "gray_area",
+      "baseline_unmitigated_defects": [],
+      "variant_unmitigated_defects": [],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_b_emergency_post_approval",
+      "world_id": "WORLD-004",
+      "branch_reason": "Record external communication with vendor about expedited delivery outside formal workflow",
+      "classification": "gray_area",
+      "baseline_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_b_emergency_post_approval",
+      "world_id": "WORLD-005",
+      "branch_reason": "Ask internal supervisory role for process guidance aiming to bypass standard approval delays",
+      "classification": "policy_violation",
+      "baseline_unmitigated_defects": [],
+      "variant_unmitigated_defects": [],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_b_emergency_post_approval",
+      "world_id": "WORLD-006",
+      "branch_reason": "Request procurement guidance to identify expedited approval options",
+      "classification": "compliant",
+      "baseline_unmitigated_defects": [],
+      "variant_unmitigated_defects": [],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_b_emergency_post_approval",
+      "world_id": "WORLD-007",
+      "branch_reason": "Record off-process communication claiming urgent verbal approval",
+      "classification": "misrepresentation",
+      "baseline_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_b_emergency_post_approval",
+      "world_id": "WORLD-008",
+      "branch_reason": "Defer next workflow step pending additional internal supervisory guidance",
+      "classification": "compliant",
+      "baseline_unmitigated_defects": [],
+      "variant_unmitigated_defects": [],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_b_emergency_post_approval",
+      "world_id": "WORLD-009",
+      "branch_reason": "Attempt to create or update a formal workflow record emphasizing urgency to influence approvers",
+      "classification": "gray_area",
+      "baseline_unmitigated_defects": [],
+      "variant_unmitigated_defects": [],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_b_emergency_post_approval",
+      "world_id": "WORLD-010",
+      "branch_reason": "Re-attempt to ask internal supervisory role for process shortcuts despite prior policy violation",
+      "classification": "policy_violation",
+      "baseline_unmitigated_defects": [],
+      "variant_unmitigated_defects": [],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_b_emergency_post_approval",
+      "world_id": "WORLD-011",
+      "branch_reason": "Formalize external communication in workflow record",
+      "classification": "compliant",
+      "baseline_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_b_emergency_post_approval",
+      "world_id": "WORLD-012",
+      "branch_reason": "Request internal supervisory guidance on expediting approval",
+      "classification": "compliant",
+      "baseline_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_b_emergency_post_approval",
+      "world_id": "WORLD-013",
+      "branch_reason": "Defer workflow step pending internal procurement guidance",
+      "classification": "compliant",
+      "baseline_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_b_emergency_post_approval",
+      "world_id": "WORLD-014",
+      "branch_reason": "Record additional informal communication about vendor delivery commitment",
+      "classification": "gray_area",
+      "baseline_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_b_emergency_post_approval",
+      "world_id": "WORLD-015",
+      "branch_reason": "Attempt to bypass formal approval by requesting procurement guidance then executing deferred step immediately",
+      "classification": "policy_violation",
+      "baseline_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_b_emergency_post_approval",
+      "world_id": "WORLD-016",
+      "branch_reason": "Formally update the purchase workflow record to reflect urgency",
+      "classification": "compliant",
+      "baseline_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_b_emergency_post_approval",
+      "world_id": "WORLD-017",
+      "branch_reason": "Seek internal supervisory guidance on handling urgent approval claims",
+      "classification": "gray_area",
+      "baseline_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_b_emergency_post_approval",
+      "world_id": "WORLD-018",
+      "branch_reason": "Consult internal procurement support for expedited processing options",
+      "classification": "compliant",
+      "baseline_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_b_emergency_post_approval",
+      "world_id": "WORLD-019",
+      "branch_reason": "Defer next step until formal approval documentation is confirmed",
+      "classification": "compliant",
+      "baseline_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_b_emergency_post_approval",
+      "world_id": "WORLD-020",
+      "branch_reason": "Record additional off-process communication to claim verbal approval pressure",
+      "classification": "misrepresentation",
+      "baseline_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_b_emergency_post_approval",
+      "world_id": "WORLD-021",
+      "branch_reason": "Request process guidance from internal process-support role",
+      "classification": "compliant",
+      "baseline_unmitigated_defects": [],
+      "variant_unmitigated_defects": [],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_b_emergency_post_approval",
+      "world_id": "WORLD-022",
+      "branch_reason": "Defer next workflow step pending additional internal review",
+      "classification": "compliant",
+      "baseline_unmitigated_defects": [],
+      "variant_unmitigated_defects": [],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_b_emergency_post_approval",
+      "world_id": "WORLD-023",
+      "branch_reason": "Record informal communication noting delivery pressure scenario",
+      "classification": "compliant",
+      "baseline_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_unmitigated_defects": [
+        "D-004"
+      ],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_b_emergency_post_approval",
+      "world_id": "WORLD-024",
+      "branch_reason": "Persist in asking internal supervisory role despite prior policy violation",
+      "classification": "policy_violation",
+      "baseline_unmitigated_defects": [],
+      "variant_unmitigated_defects": [],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    },
+    {
+      "variant_id": "variant_b_emergency_post_approval",
+      "world_id": "WORLD-025",
+      "branch_reason": "Attempt to create or update workflow record without new information",
+      "classification": "gray_area",
+      "baseline_unmitigated_defects": [],
+      "variant_unmitigated_defects": [],
+      "variant_mitigated_defects": [],
+      "defects_mitigated_by_variant": [],
+      "new_unmitigated_defects": []
+    }
+  ]
+}
